@@ -1,0 +1,31 @@
+#include "PostProcessorRegistry.h"
+#include "SiemensPostProcessor.h"
+#include "FanucPostProcessor.h"
+
+PostProcessorRegistry &PostProcessorRegistry::instance()
+{
+    static PostProcessorRegistry inst;
+    return inst;
+}
+
+PostProcessorRegistry::PostProcessorRegistry()
+{
+    registerProcessor(std::make_shared<SiemensPostProcessor>());
+    registerProcessor(std::make_shared<FanucPostProcessor>());
+}
+
+void PostProcessorRegistry::registerProcessor(std::shared_ptr<PostProcessorBase> pp)
+{
+    m_map.insert(pp->id(), pp);
+}
+
+PostProcessorBase *PostProcessorRegistry::get(const QString &id) const
+{
+    auto it = m_map.find(id);
+    return it != m_map.end() ? it->get() : nullptr;
+}
+
+QStringList PostProcessorRegistry::availableIds() const
+{
+    return m_map.keys();
+}

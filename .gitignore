@@ -1,0 +1,42 @@
+# Qt / qmake build outputs
+debug/
+release/
+untitled/debug/
+untitled/release/
+Makefile
+Makefile.Debug
+Makefile.Release
+untitled/Makefile
+untitled/Makefile.Debug
+untitled/Makefile.Release
+object_script.*
+untitled/object_script.*
+.qmake.stash
+untitled/.qmake.stash
+*.o
+*.obj
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Local IDE/user files
+*.pro.user
+*.pro.user.*
+.codex-tmp/
+untitled/.codex-tmp/
+.claude/
+
+# Logs, dumps, temporary files
+*.log
+*.tmp
+*.bak
+*.stackdump
+tmp/
+
+# Generated binaries and libraries
+*.exe
+*.dll
+*.a
+*.lib
+*.pdb
