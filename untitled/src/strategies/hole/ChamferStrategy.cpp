@@ -13,6 +13,7 @@ StrategyParams ChamferStrategy::defaultParams() const
     p.set("feedHeight",    3.0);
     p.set("chamferWidth",  1.0);
     p.set("chamferAngle", 45.0);
+    p.set("leadLength",    1.0);
     p.set("spindleSpeed", 600.0);
     p.set("feedRate",      80.0);
     return p;
@@ -42,6 +43,7 @@ ToolpathResult ChamferStrategy::generate(const HoleFeature &feature,
     const double feed   = params.get("feedHeight",    3.0);
     const double cWidth = params.get("chamferWidth",  1.0);
     const double cAngle = params.get("chamferAngle", 45.0);
+    const double leadParam = params.get("leadLength", 1.0);
     const double S      = params.get("spindleSpeed", 600.0);
     const double F      = params.get("feedRate",      80.0);
 
@@ -59,6 +61,9 @@ ToolpathResult ChamferStrategy::generate(const HoleFeature &feature,
 
     const HoleZRange zRange = holeZRange(feature, zDrop, feed);
     const double startX = x + toolpathRadius;
+    const double leadLength = std::min(std::max(leadParam, 0.0), toolpathRadius * 0.5);
+    const double leadInY = y - leadLength;
+    const double leadOutY = y + leadLength;
 
     QString gc;
     gc += QStringLiteral("T%1 M6\n").arg(tool.id);
@@ -68,26 +73,29 @@ ToolpathResult ChamferStrategy::generate(const HoleFeature &feature,
               .arg(holeDiameter(feature), 0, 'f', 3)
               .arg(cWidth, 0, 'f', 3)
               .arg(tool.diameter, 0, 'f', 3);
-    gc += QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
+    gc += QStringLiteral("G0 X%1 Y%2\n").arg(startX, 0, 'f', 3).arg(leadInY, 0, 'f', 3);
     gc += QStringLiteral("G0 Z%1\n").arg(zRange.retractZ, 0, 'f', 3);
-    gc += QStringLiteral("G1 Z%1 F%2\n").arg(zRange.bottomZ, 0, 'f', 3).arg(int(F));
-    gc += QStringLiteral("G1 X%1 Y%2 F%3\n")
+    gc += QStringLiteral("; Chamfer tangential lead-in\n");
+    gc += QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
               .arg(startX, 0, 'f', 3)
               .arg(y, 0, 'f', 3)
+              .arg(zRange.bottomZ, 0, 'f', 3)
               .arg(int(F));
     gc += QStringLiteral("G2 X%1 Y%2 I%3 J0.000 F%4\n")
               .arg(startX, 0, 'f', 3)
               .arg(y, 0, 'f', 3)
               .arg(-toolpathRadius, 0, 'f', 3)
               .arg(int(F));
-    gc += QStringLiteral("G1 X%1 Y%2 F%3\n")
-              .arg(x, 0, 'f', 3)
-              .arg(y, 0, 'f', 3)
+    gc += QStringLiteral("; Chamfer tangential lead-out\n");
+    gc += QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
+              .arg(startX, 0, 'f', 3)
+              .arg(leadOutY, 0, 'f', 3)
+              .arg(zRange.retractZ, 0, 'f', 3)
               .arg(int(F));
     gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
 
     res.gcode = gc;
     res.ok    = true;
-    res.estimatedTimeS = (2.0 * kPi * toolpathRadius / F * 60.0) + 2.0;
+    res.estimatedTimeS = ((2.0 * kPi * toolpathRadius + 2.0 * leadLength) / F * 60.0) + 2.0;
     return res;
 }
