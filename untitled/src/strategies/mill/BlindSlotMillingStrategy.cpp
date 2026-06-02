@@ -200,6 +200,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double feedRate = params.get(QStringLiteral("feedRate"), 800.0);
     const double plungeRate = params.get(QStringLiteral("plungeRate"), 200.0);
     const double rampAngle = params.get(QStringLiteral("rampAngle"), 3.0);
+    const double stockToLeave = std::max(0.0, params.get(QStringLiteral("stockToLeave"), 0.1));
     const double comp = params.get(QStringLiteral("compensation"), 0.0);
     const double targetDepth = std::min(params.get(QStringLiteral("depth"), feature.depth), feature.depth);
     const double fullLength = slotLength(feature, params);
@@ -249,7 +250,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double cosA = std::cos(angleRad);
     const double sinA = std::sin(angleRad);
     const bool camOffset = std::abs(comp) < 1.0e-9;
-    const double roughCenterInset = tool.diameter * 0.5;
+    const double roughCenterInset = tool.diameter * 0.5 + stockToLeave;
     const double finishCenterInset = camOffset ? tool.diameter * 0.5 : 0.0;
     double slopeStartLength = feature.slopeStartLength;
     double slopeEndLength = feature.slopeEndLength;
@@ -368,6 +369,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                  .arg(finishMaxU, 0, 'f', 3)
                  .arg(finishMinV, 0, 'f', 3)
                  .arg(finishMaxV, 0, 'f', 3);
+    gcode += QStringLiteral("; Blind slot rough stock to leave: %1\n")
+                 .arg(stockToLeave, 0, 'f', 3);
     gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
 
     double totalLength = 0.0;
@@ -478,7 +481,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                 }
             }
         } else {
-            appendRampPlunge(gcode, 0.0, 0.0, -halfLen + roughCenterInset, halfLen - roughCenterInset, zLayer);
+            gcode += QStringLiteral("; Blind slot rough skipped: no valid stock-to-leave range at Z=%1\n")
+                         .arg(zLayer, 0, 'f', 3);
         }
 
         if (layer < layerCount) {
