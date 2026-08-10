@@ -28,6 +28,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     const QString source = readUtf8(QStringLiteral("src/ui/MainWindow.cpp"));
+    const QString strategySource = readUtf8(QStringLiteral("src/ui/StrategyPanel.cpp"));
 
     require(source.contains(QStringLiteral("systemHeader")),
             QStringLiteral("main window must provide a persistent system header"));
@@ -81,6 +82,13 @@ int main(int argc, char **argv)
             QStringLiteral("Setup workflow must expose an explicit hole-center origin action"));
     require(source.contains(QStringLiteral("holeFeaturesShareGroup")),
             QStringLiteral("batch hole confirmation must reject mixed non-spot groups"));
+    require(strategySource.contains(QStringLiteral("feature.boundaryPoints.size() >= 3")),
+            QStringLiteral("recognized irregular pockets must expose the validated roughing strategy"));
+    require(strategySource.contains(QStringLiteral(
+                "Irregular pockets currently support confirmed vertical entry only.")),
+            QStringLiteral("irregular-pocket entry restrictions must be stated directly to the operator"));
+    require(strategySource.contains(QStringLiteral("every generated segment entry")),
+            QStringLiteral("irregular-pocket confirmation must disclose its repeated plunge condition"));
 
     QTextStream(stdout) << "PASS standalone_ui_contract_test" << Qt::endl;
     return 0;

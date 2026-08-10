@@ -12,6 +12,125 @@ struct ScanLine {
     double xMax = 0.0;
 };
 
+struct Interval {
+    double min = 0.0;
+    double max = 0.0;
+};
+
+static double cross2D(const QVector3D &a, const QVector3D &b, const QVector3D &c)
+{
+    return (double(b.x()) - a.x()) * (double(c.y()) - a.y())
+        - (double(b.y()) - a.y()) * (double(c.x()) - a.x());
+}
+
+static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector3D &point)
+{
+    if (std::abs(cross2D(a, b, point)) > 1.0e-7) {
+        return false;
+    }
+    return point.x() >= std::min(a.x(), b.x()) - 1.0e-7f
+        && point.x() <= std::max(a.x(), b.x()) + 1.0e-7f
+        && point.y() >= std::min(a.y(), b.y()) - 1.0e-7f
+        && point.y() <= std::max(a.y(), b.y()) + 1.0e-7f;
+}
+
+static bool segmentsIntersect(const QVector3D &a,
+                              const QVector3D &b,
+                              const QVector3D &c,
+                              const QVector3D &d)
+{
+    const double abC = cross2D(a, b, c);
+    const double abD = cross2D(a, b, d);
+    const double cdA = cross2D(c, d, a);
+    const double cdB = cross2D(c, d, b);
+    if (((abC > 1.0e-7 && abD < -1.0e-7) || (abC < -1.0e-7 && abD > 1.0e-7))
+        && ((cdA > 1.0e-7 && cdB < -1.0e-7) || (cdA < -1.0e-7 && cdB > 1.0e-7))) {
+        return true;
+    }
+    return (std::abs(abC) <= 1.0e-7 && pointOnSegment(a, b, c))
+        || (std::abs(abD) <= 1.0e-7 && pointOnSegment(a, b, d))
+        || (std::abs(cdA) <= 1.0e-7 && pointOnSegment(c, d, a))
+        || (std::abs(cdB) <= 1.0e-7 && pointOnSegment(c, d, b));
+}
+
+static bool isSimplePolygon(const QVector<QVector3D> &polygon)
+{
+    if (polygon.size() < 3) {
+        return false;
+    }
+    double twiceArea = 0.0;
+    for (int i = 0; i < polygon.size(); ++i) {
+        const QVector3D &a = polygon.at(i);
+        const QVector3D &b = polygon.at((i + 1) % polygon.size());
+        twiceArea += double(a.x()) * b.y() - double(b.x()) * a.y();
+        const double edgeDx = double(b.x()) - a.x();
+        const double edgeDy = double(b.y()) - a.y();
+        if (std::sqrt(edgeDx * edgeDx + edgeDy * edgeDy) <= 1.0e-7) {
+            return false;
+        }
+    }
+    if (std::abs(twiceArea) <= 1.0e-7) {
+        return false;
+    }
+    for (int i = 0; i < polygon.size(); ++i) {
+        const int iNext = (i + 1) % polygon.size();
+        for (int j = i + 1; j < polygon.size(); ++j) {
+            const int jNext = (j + 1) % polygon.size();
+            if (i == j || iNext == j || jNext == i) {
+                continue;
+            }
+            if (segmentsIntersect(polygon.at(i), polygon.at(iNext),
+                                  polygon.at(j), polygon.at(jNext))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3D &point)
+{
+    bool inside = false;
+    for (int i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
+        const QVector3D &a = polygon.at(j);
+        const QVector3D &b = polygon.at(i);
+        if (pointOnSegment(a, b, point)) {
+            return false;
+        }
+        const bool crosses = (a.y() > point.y()) != (b.y() > point.y());
+        if (crosses) {
+            const double x = a.x() + (double(point.y()) - a.y())
+                * (double(b.x()) - a.x()) / (double(b.y()) - a.y());
+            if (x > point.x()) {
+                inside = !inside;
+            }
+        }
+    }
+    return inside;
+}
+
+static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
+                                    const QVector<QVector3D> &inner)
+{
+    for (const QVector3D &point : inner) {
+        if (!pointInsidePolygon(outer, point)) {
+            return false;
+        }
+    }
+    for (int outerIndex = 0; outerIndex < outer.size(); ++outerIndex) {
+        const QVector3D &outerA = outer.at(outerIndex);
+        const QVector3D &outerB = outer.at((outerIndex + 1) % outer.size());
+        for (int innerIndex = 0; innerIndex < inner.size(); ++innerIndex) {
+            if (segmentsIntersect(outerA, outerB,
+                                  inner.at(innerIndex),
+                                  inner.at((innerIndex + 1) % inner.size()))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 static QString cutMove(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -25,6 +144,246 @@ static double distance2D(double x0, double y0, double x1, double y1)
     const double dx = x1 - x0;
     const double dy = y1 - y0;
     return std::sqrt(dx * dx + dy * dy);
+}
+
+static QVector<Interval> mergedIntervals(QVector<Interval> intervals)
+{
+    std::sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b) {
+        return a.min < b.min;
+    });
+    QVector<Interval> merged;
+    for (const Interval &interval : intervals) {
+        if (interval.max <= interval.min + 1.0e-9) {
+            continue;
+        }
+        if (merged.isEmpty() || interval.min > merged.last().max + 1.0e-9) {
+            merged.push_back(interval);
+        } else {
+            merged.last().max = std::max(merged.last().max, interval.max);
+        }
+    }
+    return merged;
+}
+
+static QVector<Interval> polygonIntervalsAtY(const QVector<QVector3D> &polygon, double y)
+{
+    QVector<double> intersections;
+    for (int i = 0; i < polygon.size(); ++i) {
+        const QVector3D &a = polygon.at(i);
+        const QVector3D &b = polygon.at((i + 1) % polygon.size());
+        const double ay = a.y();
+        const double by = b.y();
+        if ((ay <= y && by > y) || (by <= y && ay > y)) {
+            const double t = (y - ay) / (by - ay);
+            intersections.push_back(a.x() + t * (b.x() - a.x()));
+        }
+    }
+    std::sort(intersections.begin(), intersections.end());
+    QVector<Interval> intervals;
+    for (int i = 0; i + 1 < intersections.size(); i += 2) {
+        intervals.push_back({intersections.at(i), intersections.at(i + 1)});
+    }
+    return intervals;
+}
+
+static QVector<Interval> subtractIntervals(const QVector<Interval> &source,
+                                           const QVector<Interval> &removed)
+{
+    QVector<Interval> result = source;
+    for (const Interval &cut : mergedIntervals(removed)) {
+        QVector<Interval> next;
+        for (const Interval &part : result) {
+            if (cut.max <= part.min || cut.min >= part.max) {
+                next.push_back(part);
+                continue;
+            }
+            if (cut.min > part.min) {
+                next.push_back({part.min, std::min(cut.min, part.max)});
+            }
+            if (cut.max < part.max) {
+                next.push_back({std::max(cut.max, part.min), part.max});
+            }
+        }
+        result = next;
+    }
+    return result;
+}
+
+static void appendCircleInterval(QVector<Interval> &intervals,
+                                 const QVector3D &center,
+                                 double y,
+                                 double radius)
+{
+    const double dy = y - center.y();
+    if (std::abs(dy) >= radius) {
+        return;
+    }
+    const double span = std::sqrt(std::max(0.0, radius * radius - dy * dy));
+    intervals.push_back({center.x() - span, center.x() + span});
+}
+
+static QVector<Interval> boundaryClearanceIntervals(const QVector<QVector3D> &polygon,
+                                                    double y,
+                                                    double clearance)
+{
+    QVector<Interval> forbidden;
+    for (int i = 0; i < polygon.size(); ++i) {
+        const QVector3D &a = polygon.at(i);
+        const QVector3D &b = polygon.at((i + 1) % polygon.size());
+        const double dx = b.x() - a.x();
+        const double dy = b.y() - a.y();
+        const double length = std::sqrt(dx * dx + dy * dy);
+        if (length <= 1.0e-9) {
+            appendCircleInterval(forbidden, a, y, clearance);
+            continue;
+        }
+        const double nx = -dy / length;
+        const double ny = dx / length;
+        const QVector<QVector3D> strip = {
+            QVector3D(float(a.x() + nx * clearance), float(a.y() + ny * clearance), 0.0f),
+            QVector3D(float(b.x() + nx * clearance), float(b.y() + ny * clearance), 0.0f),
+            QVector3D(float(b.x() - nx * clearance), float(b.y() - ny * clearance), 0.0f),
+            QVector3D(float(a.x() - nx * clearance), float(a.y() - ny * clearance), 0.0f)
+        };
+        forbidden += polygonIntervalsAtY(strip, y);
+        appendCircleInterval(forbidden, a, y, clearance);
+        appendCircleInterval(forbidden, b, y, clearance);
+    }
+    return mergedIntervals(forbidden);
+}
+
+static QVector<Interval> safeIntervalsAtY(
+    const QVector<QVector3D> &outer,
+    const QVector<QVector<QVector3D>> &islands,
+    double y,
+    double clearance)
+{
+    QVector<Interval> allowed = polygonIntervalsAtY(outer, y);
+    QVector<Interval> removed = boundaryClearanceIntervals(outer, y, clearance);
+    for (const QVector<QVector3D> &island : islands) {
+        removed += polygonIntervalsAtY(island, y);
+        removed += boundaryClearanceIntervals(island, y, clearance);
+    }
+    return subtractIntervals(allowed, removed);
+}
+
+static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
+                                              const ToolEntry &tool,
+                                              const StrategyParams &params)
+{
+    ToolpathResult res;
+    if (feature.points.size() < 3) {
+        res.errorMsg = QObject::tr("Irregular pocket requires at least three boundary points.");
+        return res;
+    }
+    if (!isSimplePolygon(feature.points)) {
+        res.errorMsg = QObject::tr("Irregular pocket boundary must be a simple non-self-intersecting polygon.");
+        return res;
+    }
+    for (const QVector<QVector3D> &island : feature.islands) {
+        if (!isSimplePolygon(island)) {
+            res.errorMsg = QObject::tr("Each pocket island must be a simple non-self-intersecting polygon.");
+            return res;
+        }
+        if (!polygonStrictlyContains(feature.points, island)) {
+            res.errorMsg = QObject::tr("Every pocket island must lie strictly inside the outer boundary.");
+            return res;
+        }
+    }
+    if (std::abs(params.get(QStringLiteral("entryMode"), -1.0)) > 1.0e-6) {
+        res.errorMsg = QObject::tr("Irregular pocket clearing currently supports confirmed vertical entry only.");
+        return res;
+    }
+
+    const double safe = params.get(QStringLiteral("safeHeight"), 50.0);
+    const double feedH = params.get(QStringLiteral("feedHeight"), 3.0);
+    const double axial = params.get(QStringLiteral("stepDown"), 2.0);
+    const double radial = params.get(QStringLiteral("stepover"), 6.0);
+    const double spindle = params.get(QStringLiteral("spindleSpeed"), 1800.0);
+    const double feed = params.get(QStringLiteral("feedRate"), 600.0);
+    const double plunge = params.get(QStringLiteral("plungeRate"), 200.0);
+    const double clearance = tool.diameter * 0.5
+        + params.get(QStringLiteral("stockToLeave"), 0.3);
+    if (axial <= 0.0 || radial <= 0.0 || feed <= 0.0 || plunge <= 0.0) {
+        res.errorMsg = QObject::tr("Stepdown, stepover, feed, and plunge rate must be greater than zero.");
+        return res;
+    }
+
+    double minY = feature.points.first().y();
+    double maxY = minY;
+    for (const QVector3D &point : feature.points) {
+        minY = std::min(minY, double(point.y()));
+        maxY = std::max(maxY, double(point.y()));
+    }
+    const double boundaryMargin = 1.0e-4;
+    const double firstY = minY + clearance + boundaryMargin;
+    const double lastY = maxY - clearance - boundaryMargin;
+    if (firstY > lastY + 1.0e-6) {
+        res.errorMsg = QObject::tr("Pocket boundary is too small for the selected tool and stock allowance.");
+        return res;
+    }
+
+    QVector<ScanLine> rows;
+    auto appendSafeRow = [&](double y) {
+        bool appended = false;
+        for (const Interval &interval : safeIntervalsAtY(
+                 feature.points, feature.islands, y, clearance)) {
+            if (interval.max - interval.min > 0.001) {
+                rows.push_back({y, interval.min, interval.max});
+                appended = true;
+            }
+        }
+        return appended;
+    };
+    double lastGeneratedY = firstY - radial;
+    for (double y = firstY; y <= lastY + 1.0e-9; y += radial) {
+        if (appendSafeRow(y)) {
+            lastGeneratedY = y;
+        }
+    }
+    if (lastGeneratedY < lastY - 0.001) {
+        appendSafeRow(lastY);
+    }
+    if (rows.isEmpty()) {
+        res.errorMsg = QObject::tr("No safe clearing region remains after tool-radius and island clearance.");
+        return res;
+    }
+
+    const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
+    const double ztop = feature.center.z();
+    QString gc;
+    gc += QStringLiteral("T%1 M6\n").arg(tool.id);
+    gc += QStringLiteral("S%1 M3\n").arg(int(spindle));
+    gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+    gc += QStringLiteral("; POCKET REGION: IRREGULAR\n");
+    gc += QStringLiteral("; POCKET ENTRY: VERTICAL\n");
+
+    double totalLength = 0.0;
+    int plungeCount = 0;
+    bool leftToRight = true;
+    for (int layer = 1; layer <= zLayers; ++layer) {
+        const double zLayer = ztop - std::min(layer * axial, feature.depth);
+        for (const ScanLine &row : rows) {
+            const double startX = leftToRight ? row.xMin : row.xMax;
+            const double endX = leftToRight ? row.xMax : row.xMin;
+            gc += QStringLiteral("G0 X%1 Y%2\n")
+                      .arg(startX, 0, 'f', 3)
+                      .arg(row.y, 0, 'f', 3);
+            gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
+            gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plunge));
+            gc += cutMove(endX, row.y, feed);
+            gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+            totalLength += std::abs(endX - startX);
+            ++plungeCount;
+            leftToRight = !leftToRight;
+        }
+    }
+
+    res.gcode = gc;
+    res.ok = true;
+    res.estimatedTimeS = totalLength / feed * 60.0
+        + plungeCount * feature.depth / plunge * 60.0;
+    return res;
 }
 
 static bool isCircularPocket(const ContourFeature &feature)
@@ -137,6 +496,10 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
     if (axial <= 0.0 || radial <= 0.0) {
         res.errorMsg = QObject::tr("每层切深和行距必须大于零。");
         return res;
+    }
+
+    if (feature.points.size() >= 3) {
+        return generateIrregularPocket(feature, tool, params);
     }
 
     const bool circularPocket = isCircularPocket(feature);

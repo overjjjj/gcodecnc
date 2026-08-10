@@ -10,6 +10,13 @@
 
 namespace {
 
+struct CuttingSegment {
+    double x0 = 0.0;
+    double y0 = 0.0;
+    double x1 = 0.0;
+    double y1 = 0.0;
+};
+
 void require(bool condition, const char *message)
 {
     if (!condition) {
@@ -29,6 +36,30 @@ double maximumAbsoluteAxis(const QString &gcode, QChar axis)
         maximum = std::max(maximum, std::abs(matches.next().captured(1).toDouble()));
     }
     return maximum;
+}
+
+QVector<CuttingSegment> horizontalCuttingSegments(const QString &gcode)
+{
+    const QRegularExpression xyExpression(
+        QStringLiteral("^[^;]*(G[01])\\s+X(-?\\d+(?:\\.\\d+)?)\\s+Y(-?\\d+(?:\\.\\d+)?)"));
+    QVector<CuttingSegment> segments;
+    double currentX = 0.0;
+    double currentY = 0.0;
+    const QStringList lines = gcode.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QRegularExpressionMatch match = xyExpression.match(line.trimmed());
+        if (!match.hasMatch()) {
+            continue;
+        }
+        const double nextX = match.captured(2).toDouble();
+        const double nextY = match.captured(3).toDouble();
+        if (match.captured(1) == QStringLiteral("G1")) {
+            segments.push_back({currentX, currentY, nextX, nextY});
+        }
+        currentX = nextX;
+        currentY = nextY;
+    }
+    return segments;
 }
 
 } // namespace
@@ -114,6 +145,98 @@ int main(int argc, char **argv)
     tooNarrow.width = 7.0;
     require(!strategy.generate(tooNarrow, tool, params).ok,
             "pocket narrower than tool diameter plus side stock must be rejected");
+
+    ContourFeature irregular;
+    irregular.subType = QStringLiteral("irregular_pocket");
+    irregular.center = QVector3D(20, 15, 0);
+    irregular.depth = 2.0;
+    irregular.points = {
+        QVector3D(0, 0, 0), QVector3D(40, 0, 0),
+        QVector3D(40, 30, 0), QVector3D(0, 30, 0)
+    };
+    irregular.islands = {{
+        QVector3D(15, 10, 0), QVector3D(25, 10, 0),
+        QVector3D(25, 20, 0), QVector3D(15, 20, 0)
+    }};
+
+    ToolEntry irregularTool = tool;
+    irregularTool.diameter = 4.0;
+    StrategyParams irregularParams = params;
+    irregularParams.set(QStringLiteral("stepover"), 4.0);
+    const ToolpathResult irregularResult = strategy.generate(
+        irregular, irregularTool, irregularParams);
+    require(irregularResult.ok,
+            "irregular pocket with one island should generate segmented clearing");
+    require(irregularResult.gcode.contains(QStringLiteral("; POCKET REGION: IRREGULAR")),
+            "irregular pocket output should identify the geometry mode");
+
+    const QVector<CuttingSegment> segments = horizontalCuttingSegments(irregularResult.gcode);
+    require(!segments.isEmpty(), "irregular pocket should contain cutting segments");
+    bool foundSplitRow = false;
+    double minimumCutY = segments.first().y0;
+    double maximumCutY = segments.first().y0;
+    for (const CuttingSegment &segment : segments) {
+        minimumCutY = std::min(minimumCutY, segment.y0);
+        maximumCutY = std::max(maximumCutY, segment.y0);
+        require(std::abs(segment.y0 - segment.y1) <= 0.001,
+                "irregular clearing cuts must be horizontal row segments");
+        require(std::min(segment.x0, segment.x1) >= 2.999 &&
+                    std::max(segment.x0, segment.x1) <= 37.001 &&
+                    segment.y0 >= 2.999 && segment.y0 <= 27.001,
+                "tool center must keep tool-radius plus stock clearance from outer boundary");
+        if (segment.y0 > 7.001 && segment.y0 < 22.999) {
+            double forbiddenMin = 12.0;
+            double forbiddenMax = 28.0;
+            if (segment.y0 < 10.0) {
+                const double dy = 10.0 - segment.y0;
+                const double cornerSpan = std::sqrt(std::max(0.0, 9.0 - dy * dy));
+                forbiddenMin = 15.0 - cornerSpan;
+                forbiddenMax = 25.0 + cornerSpan;
+            } else if (segment.y0 > 20.0) {
+                const double dy = segment.y0 - 20.0;
+                const double cornerSpan = std::sqrt(std::max(0.0, 9.0 - dy * dy));
+                forbiddenMin = 15.0 - cornerSpan;
+                forbiddenMax = 25.0 + cornerSpan;
+            }
+            const bool leftOfIsland =
+                std::max(segment.x0, segment.x1) <= forbiddenMin + 0.001;
+            const bool rightOfIsland =
+                std::min(segment.x0, segment.x1) >= forbiddenMax - 0.001;
+            require(leftOfIsland || rightOfIsland,
+                    "cutting segment must not cross the tool-expanded island");
+            foundSplitRow = true;
+        }
+    }
+    require(foundSplitRow, "at least one scan row should be split around the island");
+    require(minimumCutY <= 3.001 && maximumCutY >= 26.999,
+            "irregular clearing should reach both effective outer-boundary sides");
+    require(irregularResult.gcode.count(QStringLiteral("G0 Z50.000")) ==
+                irregularResult.gcode.count(QStringLiteral("G0 X")) + 1,
+            "every irregular-pocket rapid XY transition must occur after a safe retract");
+
+    StrategyParams irregularHelicalParams = irregularParams;
+    irregularHelicalParams.set(QStringLiteral("entryMode"), 1.0);
+    irregularHelicalParams.set(QStringLiteral("helixRadius"), 2.0);
+    irregularHelicalParams.set(QStringLiteral("helixPitch"), 0.5);
+    require(!strategy.generate(irregular, irregularTool, irregularHelicalParams).ok,
+            "irregular pockets must reject unvalidated helical entry");
+
+    ContourFeature selfIntersecting = irregular;
+    selfIntersecting.islands.clear();
+    selfIntersecting.points = {
+        QVector3D(0, 0, 0), QVector3D(40, 30, 0),
+        QVector3D(0, 30, 0), QVector3D(40, 0, 0)
+    };
+    require(!strategy.generate(selfIntersecting, irregularTool, irregularParams).ok,
+            "self-intersecting pocket boundaries must be rejected");
+
+    ContourFeature outsideIsland = irregular;
+    outsideIsland.islands = {{
+        QVector3D(45, 10, 0), QVector3D(50, 10, 0),
+        QVector3D(50, 15, 0), QVector3D(45, 15, 0)
+    }};
+    require(!strategy.generate(outsideIsland, irregularTool, irregularParams).ok,
+            "islands outside the pocket boundary must be rejected");
 
     QTextStream(stdout) << "PASS pocket_roughing_strategy_test" << Qt::endl;
     return 0;

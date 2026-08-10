@@ -96,7 +96,8 @@ static bool isSupportedPocketFeature(const MachiningFeature &feature)
 {
     return isPocketFeature(feature)
         && (feature.subType == QStringLiteral("rectangular_pocket")
-            || feature.subType == QStringLiteral("circular_pocket"));
+            || feature.subType == QStringLiteral("circular_pocket")
+            || feature.boundaryPoints.size() >= 3);
 }
 
 static QString preferredSlotStrategy(const MachiningFeature &feature)
@@ -806,6 +807,10 @@ void StrategyPanel::updateProposalState()
         && m_strategyCombo->currentData().toString().isEmpty();
     const bool pocketRoughing = m_strategyCombo->currentData().toString()
         == QStringLiteral("mill_pocket_rough");
+    const bool irregularPocket = pocketRoughing
+        && m_contourFeature.boundaryPoints.size() >= 3
+        && m_contourFeature.subType != QStringLiteral("rectangular_pocket")
+        && m_contourFeature.subType != QStringLiteral("circular_pocket");
     const int entryMode = m_entryModeCombo->currentData().toInt();
     const bool entryModeMissing = pocketRoughing && entryMode != 0 && entryMode != 1;
     bool helicalEntryInvalid = false;
@@ -824,7 +829,7 @@ void StrategyPanel::updateProposalState()
             - tool.diameter * 0.5 - stock;
         const double helixRadius = params.get(QStringLiteral("helixRadius"), 0.0);
         const double helixPitch = params.get(QStringLiteral("helixPitch"), 0.0);
-        helicalEntryInvalid = helixRadius <= 0.0 || helixPitch <= 0.0
+        helicalEntryInvalid = irregularPocket || helixRadius <= 0.0 || helixPitch <= 0.0
             || helixRadius > availableRadius + 1.0e-6;
     }
     bool toolBlocked = false;
@@ -873,6 +878,10 @@ void StrategyPanel::updateProposalState()
         m_proposalStateLabel->setText(
             zh ? QStringLiteral("需要人工选择型腔下刀方式，软件不会自动代选。")
                : QStringLiteral("Select the pocket entry method; the software will not choose it automatically."));
+    } else if (irregularPocket && entryMode == 1) {
+        m_proposalStateLabel->setText(
+            zh ? QStringLiteral("异形型腔目前仅支持经操作员确认的垂直下刀，请将下刀方式改为垂直下刀。")
+               : QStringLiteral("Irregular pockets currently support confirmed vertical entry only. Change the entry method to Vertical."));
     } else if (helicalEntryInvalid) {
         m_proposalStateLabel->setText(
             zh ? QStringLiteral("螺旋下刀参数无效或超出有效型腔边界，请配置半径和节距。")
@@ -898,13 +907,20 @@ void StrategyPanel::onConfirmOperation()
 
     if (strategyId == QStringLiteral("mill_pocket_rough") &&
         m_entryModeCombo->currentData().toInt() == 0) {
+        const bool irregularPocket = m_contourFeature.boundaryPoints.size() >= 3
+            && m_contourFeature.subType != QStringLiteral("rectangular_pocket")
+            && m_contourFeature.subType != QStringLiteral("circular_pocket");
         const bool continueVertical = QMessageBox::warning(
             this,
             isChineseUi() ? QStringLiteral("确认垂直下刀条件")
                           : QStringLiteral("Confirm Vertical Entry Conditions"),
             isChineseUi()
-                ? QStringLiteral("垂直下刀仅适用于已预钻入口，或确认刀具能够中心切削的情况。是否继续创建工序？")
-                : QStringLiteral("Vertical entry is only suitable with a predrilled entry or a confirmed center-cutting tool. Create the operation anyway?"),
+                ? (irregularPocket
+                       ? QStringLiteral("异形型腔会在每个独立扫描段重新垂直下刀。请确认刀具能够中心切削，或已为每个生成的分段入口预钻。是否继续创建工序？")
+                       : QStringLiteral("垂直下刀仅适用于已预钻入口，或确认刀具能够中心切削的情况。是否继续创建工序？"))
+                : (irregularPocket
+                       ? QStringLiteral("Irregular clearing plunges again for each separate scan segment. Confirm a center-cutting tool or a predrilled hole at every generated segment entry. Create the operation anyway?")
+                       : QStringLiteral("Vertical entry is only suitable with a predrilled entry or a confirmed center-cutting tool. Create the operation anyway?")),
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No) == QMessageBox::Yes;
         if (!continueVertical) {
