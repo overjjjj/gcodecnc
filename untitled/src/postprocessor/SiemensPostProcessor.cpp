@@ -153,15 +153,11 @@ QString SiemensPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
 
     // Program header
     out += QString("%1\n").arg(opts.programNumber);
-    out += "G17 G40 G49 G80\n";
-    if (opts.useAbsoluteCoords)
-        out += "G90\n";
-    else
-        out += "G91\n";
-    if (!opts.workOffset.trimmed().isEmpty()) {
-        out += opts.workOffset.trimmed() + QStringLiteral("\n");
+    for (const QString &block : resolvedSafeStartBlocks(opts)) {
+        if (!block.trimmed().isEmpty()) {
+            out += block.trimmed() + QStringLiteral("\n");
+        }
     }
-    out += "G94\n";
 
     out += "\n";
 
@@ -207,6 +203,7 @@ QString SiemensPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
         if (trimmed.startsWith(QStringLiteral("T")) && trimmed.contains(QStringLiteral("M6"))) {
             if (seenToolChange) {
                 out += QStringLiteral("M5\n");
+                out += QStringLiteral("M9\n");
             }
             seenToolChange = true;
         }

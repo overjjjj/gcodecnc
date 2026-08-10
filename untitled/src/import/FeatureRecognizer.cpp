@@ -3,14 +3,21 @@
 #ifdef CNEXT_ENABLE_OCC
 #include "FeatureClassifier.h"
 
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
 #include <BRep_Tool.hxx>
 #include <Poly_Triangulation.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <TopAbs_Orientation.hxx>
+#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopLoc_Location.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Cone.hxx>
 #include <gp_Cylinder.hxx>
@@ -21,6 +28,7 @@
 
 #include <QSet>
 #include <QDebug>
+#include <QHash>
 #include <algorithm>
 #include <cmath>
 
@@ -291,7 +299,7 @@ static bool isCompactPlanarCap(const TopoGraph &graph,
         return false;
     }
 
-    // 閸氼偄鐡熼惃鍕亣楠炴娊娼伴張澶婎樋娑撶崄ire閿涘牆顦绘潪顔肩波+鐎涙柨鍞存潪顔肩波閿涘绱濈€涙柨绨抽惄鏍у涧閺?娑撶崄ire
+    // Compact planar caps should have a single boundary loop; inner loops indicate pockets or annular faces.
     {
         int wireCount = 0;
         for (TopExp_Explorer ex(TopoDS::Face(graph.faceMap(faceIndex)), TopAbs_WIRE); ex.More(); ex.Next())
@@ -327,6 +335,69 @@ static bool faceHasInnerWires(const TopoDS_Face &face)
         }
     }
     return false;
+}
+
+static void appendDistinctPoint(QVector<QVector3D> &points, const gp_Pnt &point)
+{
+    const QVector3D value(float(point.X()), float(point.Y()), float(point.Z()));
+    if (points.isEmpty() || (points.last() - value).lengthSquared() > 1.0e-10f) {
+        points.append(value);
+    }
+}
+
+static QVector<QVector3D> sampleBoundaryWire(const TopoDS_Wire &wire)
+{
+    QVector<QVector3D> points;
+    for (BRepTools_WireExplorer explorer(wire); explorer.More(); explorer.Next()) {
+        const TopoDS_Edge edge = explorer.Current();
+        BRepAdaptor_Curve curve(edge);
+        double first = curve.FirstParameter();
+        double last = curve.LastParameter();
+        if (!std::isfinite(first) || !std::isfinite(last)) {
+            continue;
+        }
+        if (edge.Orientation() == TopAbs_REVERSED) {
+            std::swap(first, last);
+        }
+        int segmentCount = 1;
+        if (curve.GetType() == GeomAbs_Circle || curve.GetType() == GeomAbs_Ellipse) {
+            segmentCount = 24;
+        } else if (curve.GetType() != GeomAbs_Line) {
+            segmentCount = 12;
+        }
+        for (int segment = 0; segment <= segmentCount; ++segment) {
+            const double t = first + (last - first) * double(segment) / double(segmentCount);
+            appendDistinctPoint(points, curve.Value(t));
+        }
+    }
+    if (points.size() >= 2 &&
+        (points.first() - points.last()).lengthSquared() <= 1.0e-10f) {
+        points.removeLast();
+    }
+    return points;
+}
+
+static void extractPocketLoops(const TopoDS_Face &face,
+                               QVector<QVector3D> &outerBoundary,
+                               QVector<QVector<QVector3D>> &islandBoundaries)
+{
+    outerBoundary.clear();
+    islandBoundaries.clear();
+    const TopoDS_Wire outerWire = BRepTools::OuterWire(face);
+    if (outerWire.IsNull()) {
+        return;
+    }
+    outerBoundary = sampleBoundaryWire(outerWire);
+    for (TopExp_Explorer explorer(face, TopAbs_WIRE); explorer.More(); explorer.Next()) {
+        const TopoDS_Wire wire = TopoDS::Wire(explorer.Current());
+        if (wire.IsSame(outerWire)) {
+            continue;
+        }
+        const QVector<QVector3D> island = sampleBoundaryWire(wire);
+        if (island.size() >= 3) {
+            islandBoundaries.append(island);
+        }
+    }
 }
 
 static QVector3D estimateFaceCentroid(const TopoDS_Face &face);
@@ -390,7 +461,74 @@ static bool isSlotSideLayoutConsistent(const TopoGraph &graph,
     return hasPositiveMinorWall && hasNegativeMinorWall && nearMinorEdgeCount >= 2;
 }
 
+static QVector<int> collectBoundaryWallFaces(const TopoGraph &graph,
+                                             const QVector<int> &bottomFaces,
+                                             const QSet<int> &candidateSideFaces)
+{
+    QVector<int> wallFaces;
+    if (bottomFaces.isEmpty() || candidateSideFaces.isEmpty()) {
+        return wallFaces;
+    }
+
+    QHash<int, int> boundaryHits;
+    for (int bottomFaceIndex : bottomFaces) {
+        if (bottomFaceIndex <= 0 || bottomFaceIndex > graph.faceMap.Extent()) {
+            continue;
+        }
+
+        const TopoDS_Face bottomFace = TopoDS::Face(graph.faceMap(bottomFaceIndex));
+        TopoDS_Wire outerWire = BRepTools::OuterWire(bottomFace);
+        if (outerWire.IsNull()) {
+            continue;
+        }
+
+        for (TopExp_Explorer edgeEx(outerWire, TopAbs_EDGE); edgeEx.More(); edgeEx.Next()) {
+            const TopoDS_Edge edge = TopoDS::Edge(edgeEx.Current());
+            int matchedNeighbor = 0;
+
+            for (const auto &entry : graph.aag.value(bottomFaceIndex)) {
+                const int neighborIndex = entry.first;
+                const EdgeAttr &edgeAttr = entry.second;
+                if (!edgeAttr.isConcave || !candidateSideFaces.contains(neighborIndex)) {
+                    continue;
+                }
+
+                const TopoDS_Face neighborFace = TopoDS::Face(graph.faceMap(neighborIndex));
+                bool sharesEdge = false;
+                for (TopExp_Explorer neighborEdgeEx(neighborFace, TopAbs_EDGE);
+                     neighborEdgeEx.More(); neighborEdgeEx.Next()) {
+                    if (edge.IsSame(neighborEdgeEx.Current())) {
+                        sharesEdge = true;
+                        break;
+                    }
+                }
+                if (!sharesEdge) {
+                    continue;
+                }
+
+                matchedNeighbor = neighborIndex;
+                break;
+            }
+
+            if (matchedNeighbor > 0) {
+                boundaryHits[matchedNeighbor] += 1;
+            }
+        }
+    }
+
+    QSet<int> seen;
+    for (auto it = boundaryHits.cbegin(); it != boundaryHits.cend(); ++it) {
+        if (it.value() <= 0 || seen.contains(it.key())) {
+            continue;
+        }
+        seen.insert(it.key());
+        wallFaces.append(it.key());
+    }
+    return wallFaces;
+}
+
 static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
+                                        const QVector<int> &bottomFaces,
                                         const QVector<int> &sideFaces,
                                         const FaceBox2D &bottomBox)
 {
@@ -399,22 +537,31 @@ static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
         return wallFaces;
     }
 
+    const QSet<int> candidateSet(sideFaces.cbegin(), sideFaces.cend());
+    const QVector<int> boundaryWalls = collectBoundaryWallFaces(graph, bottomFaces, candidateSet);
+    if (!boundaryWalls.isEmpty()) {
+        wallFaces = boundaryWalls;
+    }
+
     const double minorHalf = bottomBox.width * 0.5;
     const double edgeTol = std::max(0.5, bottomBox.width * 0.35);
-    for (int sideIndex : sideFaces) {
+    const QVector<int> filterSource = wallFaces.isEmpty() ? sideFaces : wallFaces;
+    QVector<int> filteredWalls;
+    for (int sideIndex : filterSource) {
         if (sideIndex <= 0 || sideIndex > graph.faceMap.Extent()) {
             continue;
         }
         const QVector3D sideCenter = estimateFaceCentroid(TopoDS::Face(graph.faceMap(sideIndex)));
         const double minorProj = QVector3D::dotProduct(sideCenter - bottomBox.center, bottomBox.minorAxis);
         if (std::abs(std::abs(minorProj) - minorHalf) <= edgeTol) {
-            wallFaces.append(sideIndex);
+            filteredWalls.append(sideIndex);
         }
     }
 
     QSet<int> seen;
     QVector<int> uniqueWalls;
-    for (int faceIndex : wallFaces) {
+    const QVector<int> dedupeSource = filteredWalls.isEmpty() ? wallFaces : filteredWalls;
+    for (int faceIndex : dedupeSource) {
         if (seen.contains(faceIndex)) {
             continue;
         }
@@ -499,6 +646,75 @@ static ProjectionRange estimateModelProjectionRange(const TopoGraph &graph, cons
         range.maxProj = maxProj;
     }
     return range;
+}
+
+static ProjectionRange estimateFacesProjectionRange(const TopoGraph &graph,
+                                                    const QVector<int> &faceIndices,
+                                                    const QVector3D &direction)
+{
+    ProjectionRange range;
+    const QVector3D dir = direction.normalized();
+    if (dir.lengthSquared() <= 1.0e-8f || faceIndices.isEmpty()) {
+        return range;
+    }
+
+    double minProj = 1e100;
+    double maxProj = -1e100;
+    bool hasPoint = false;
+    for (int faceIndex : faceIndices) {
+        if (faceIndex <= 0 || faceIndex > graph.faceMap.Extent()) {
+            continue;
+        }
+        TopLoc_Location loc;
+        Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(TopoDS::Face(graph.faceMap(faceIndex)), loc);
+        if (tri.IsNull() || tri->NbNodes() <= 0) {
+            continue;
+        }
+        const gp_Trsf trsf = loc.Transformation();
+        for (Standard_Integer i = 1; i <= tri->NbNodes(); ++i) {
+            const gp_Pnt p = tri->Node(i).Transformed(trsf);
+            const QVector3D q(float(p.X()), float(p.Y()), float(p.Z()));
+            const double proj = QVector3D::dotProduct(q, dir);
+            minProj = std::min(minProj, proj);
+            maxProj = std::max(maxProj, proj);
+            hasPoint = true;
+        }
+    }
+
+    range.valid = hasPoint;
+    if (range.valid) {
+        range.minProj = minProj;
+        range.maxProj = maxProj;
+    }
+    return range;
+}
+
+static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
+                                                 const MachiningFeature &feature,
+                                                 const QVector3D &frontNormal)
+{
+    const QVector3D fn = frontNormal.normalized();
+    if (fn.lengthSquared() <= 1.0e-8f || feature.faceIndices.isEmpty()) {
+        return FaceRegion::Unknown;
+    }
+
+    const ProjectionRange modelRange = estimateModelProjectionRange(graph, fn);
+    const ProjectionRange featureRange = estimateFacesProjectionRange(graph, feature.faceIndices, fn);
+    if (!modelRange.valid || !featureRange.valid) {
+        return FaceRegion::Unknown;
+    }
+
+    const double featureSpan = featureRange.maxProj - featureRange.minProj;
+    const double tolerance = std::max(0.35, std::max(feature.depth, feature.width) * 0.15);
+    if (featureSpan > 0.05 &&
+        std::abs(modelRange.maxProj - featureRange.maxProj) <= tolerance) {
+        return FaceRegion::Front;
+    }
+    if (featureSpan > 0.05 &&
+        std::abs(featureRange.minProj - modelRange.minProj) <= tolerance) {
+        return FaceRegion::Back;
+    }
+    return FaceRegion::Unknown;
 }
 
 static bool isNearModelBoundary(const TopoGraph &graph, const QVector3D &point, const QVector3D &axis)
@@ -745,6 +961,27 @@ static FaceRegion dominantFaceRegion(const TopoGraph &graph, const QVector<int> 
     return FaceRegion::Side;
 }
 
+static bool graphProjectionRange(const TopoGraph &graph,
+                                 const QVector3D &direction,
+                                 double &minProj,
+                                 double &maxProj)
+{
+    minProj =  std::numeric_limits<double>::max();
+    maxProj = -std::numeric_limits<double>::max();
+    const QVector3D n = direction.normalized();
+    if (n.lengthSquared() <= 1.0e-8f) {
+        return false;
+    }
+
+    for (int faceIndex = 1; faceIndex <= graph.faceMap.Extent(); ++faceIndex) {
+        const QVector3D center = estimateFaceCentroid(TopoDS::Face(graph.faceMap(faceIndex)));
+        const double proj = QVector3D::dotProduct(center, n);
+        minProj = std::min(minProj, proj);
+        maxProj = std::max(maxProj, proj);
+    }
+    return minProj <= maxProj;
+}
+
 static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
                                             const MachiningFeature &feature,
                                             const QVector3D &frontNormal)
@@ -759,7 +996,32 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
     if (feature.kind == FeatureKind::Hole ||
         feature.kind == FeatureKind::Thread ||
         feature.kind == FeatureKind::Boss) {
-        // 鐎涙梻娈戝鈧崣锝嗘煙閸氭垶妲告潪瀵告畱閸欏秴鎮滈敍姘抽叡閺堟繀绗?-Z)鐠囧瓨妲戞禒搴㈩劀闂?+Z)鏉╂稑鍙?
+        if (feature.subType.contains(QStringLiteral("through_hole"))) {
+            if (axisRegion == FaceRegion::Side) {
+                return FaceRegion::Side;
+            }
+
+            double minProjection = 0.0;
+            double maxProjection = 0.0;
+            const QVector3D setupNormal = frontNormal.normalized();
+            if (setupNormal.lengthSquared() > 1.0e-8f &&
+                graphProjectionRange(graph,
+                                     setupNormal,
+                                     minProjection,
+                                     maxProjection)) {
+                const double centerProjection =
+                    QVector3D::dotProduct(feature.center, setupNormal);
+                const double distanceToFront =
+                    std::abs(maxProjection - centerProjection);
+                const double distanceToBack =
+                    std::abs(centerProjection - minProjection);
+                return distanceToFront <= distanceToBack
+                    ? FaceRegion::Front
+                    : FaceRegion::Back;
+            }
+        }
+
+        // Hole-like features are machined from the opening side opposite to the feature axis.
         const FaceRegion openingRegion = regionFromAxis(-feature.axis, frontNormal);
         if (openingRegion != FaceRegion::Unknown) {
             return openingRegion;
@@ -773,6 +1035,47 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
         feature.kind == FeatureKind::Pocket ||
         feature.kind == FeatureKind::Chamfer ||
         feature.kind == FeatureKind::Fillet) {
+        if (feature.kind == FeatureKind::Slot && !feature.faceIndices.isEmpty()) {
+            const FaceRegion openingRegion =
+                slotOpeningRegionFromFaceRange(graph, feature, frontNormal);
+            if (openingRegion != FaceRegion::Unknown) {
+                return openingRegion;
+            }
+
+            const QVector3D fn = frontNormal.normalized();
+            const QVector3D slotAxis = feature.axis.normalized();
+            const double axisAlignment = std::abs(double(QVector3D::dotProduct(slotAxis, fn)));
+            if (fn.lengthSquared() > 1.0e-8f &&
+                slotAxis.lengthSquared() > 1.0e-8f &&
+                axisAlignment >= 0.65 &&
+                feature.depth > 0.0) {
+                double minProj = 0.0;
+                double maxProj = 0.0;
+                if (graphProjectionRange(graph, fn, minProj, maxProj)) {
+                    const double bottomProj = QVector3D::dotProduct(feature.center, fn);
+                    const double frontOpeningProj = bottomProj + feature.depth * axisAlignment;
+                    const double backOpeningProj = bottomProj - feature.depth * axisAlignment;
+                    const double tolerance = std::max(0.35, feature.depth * 0.15);
+                    if (std::abs(maxProj - frontOpeningProj) <= tolerance) {
+                        return FaceRegion::Front;
+                    }
+                    if (std::abs(backOpeningProj - minProj) <= tolerance) {
+                        return FaceRegion::Back;
+                    }
+                }
+            }
+
+            const FaceRegion reverseAxisRegion = regionFromAxis(-feature.axis, frontNormal);
+            if (axisRegion == FaceRegion::Side && reverseAxisRegion == FaceRegion::Side) {
+                return FaceRegion::Side;
+            }
+            if (axisRegion == FaceRegion::Front || reverseAxisRegion == FaceRegion::Front) {
+                return FaceRegion::Front;
+            }
+            if (axisRegion == FaceRegion::Back || reverseAxisRegion == FaceRegion::Back) {
+                return FaceRegion::Back;
+            }
+        }
         if (faceRegion != FaceRegion::Unknown && regionPriority(faceRegion) >= regionPriority(axisRegion)) {
             return faceRegion;
         }
@@ -987,7 +1290,7 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
         // Compute opening-face position: the axial end of the combined bore
         // that is farthest from the cylinder midpoints (i.e. the entry side).
         // Cylinders store their center at the geometric midpoint, so the two
-        // axial ends of each cylinder are center 鍗?depth/2 along the axis.
+        // axial ends of each cylinder are center +/- depth/2 along the axis.
         const QVector3D axN = outer.axis.normalized();
         const float outerProj  = QVector3D::dotProduct(outer.center, axN);
         const float outerEnd1  = outerProj - float(outer.depth) * 0.5f;
@@ -1107,7 +1410,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
         }
     }
 
-    // 缁楊兛绨╁銉窗娑?FlatSurface 闁插秵鏌婄拋锛勭暬 minZ/maxZ閿涘牆鐔€娴?frontNormal 鏉炲瓨鏌熼崥鎴炲瑜版唻绱?
+    // Compute the planar feature projection range before assigning top, bottom, and step subtypes.
     double minProj =  1e100;
     double maxProj = -1e100;
     for (const MachiningFeature &feature : features) {
@@ -1119,7 +1422,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
         maxProj = std::max(maxProj, proj);
     }
 
-    // 缁楊兛绗佸銉窗闁劒閲滈悧鐟扮窙闁插秵鏌婇崚鍡欒閸栧搫鐓?
+    // Assign machining regions and planar subtypes after the projection range is known.
     for (MachiningFeature &feature : features) {
         if (feature.kind == FeatureKind::FlatSurface) {
             if (!feature.faceIndices.isEmpty()) {
@@ -1128,7 +1431,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
                     feature.region = graph.nodes[fi - 1].region;
                 }
             }
-            // 閻劍閮?frontNormal 閻ㄥ嫭濮囪ぐ鍗炩偓濂稿櫢閺傜増甯圭€电厧鐡欑猾璇茬€?
+            // Use the configured front-normal projection to classify top, bottom, and step surfaces.
             const double proj = double(QVector3D::dotProduct(feature.center, fn));
             feature.subType = planarSurfaceSubtype(feature.region, proj, minProj, maxProj);
         } else {
@@ -1146,6 +1449,16 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
         const TopoDS_Face face = TopoDS::Face(graph.faceMap(faceIndex));
         BRepAdaptor_Surface surface(face, false);
         if (surface.GetType() != GeomAbs_Cylinder) {
+            continue;
+        }
+
+        const BRepAdaptor_Surface restrictedSurface(face, true);
+        const double angularSpan =
+            std::abs(restrictedSurface.LastUParameter() -
+                     restrictedSurface.FirstUParameter());
+        constexpr double fullCircleRadians = 6.283185307179586;
+        if (!std::isfinite(angularSpan) ||
+            angularSpan < fullCircleRadians - 0.05) {
             continue;
         }
 
@@ -1189,7 +1502,7 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
             BRepAdaptor_Surface neighborSurface(neighborFace, false);
             if (neighborSurface.GetType() == GeomAbs_Plane) {
                 const gp_Dir planeAxis = neighborSurface.Plane().Axis().Direction();
-                // 濞夋洖鎮滈崹鍌滄纯鐎涙棁閰遍敍鍧塷t < 0.3閿涘绱伴悳顖氳埌濡茬晫顏棃顫礉娴犲懏绉烽懓妞剧瑝鐠佲€茶礋鎼存洜娲?
+                // Neighbor planes nearly perpendicular to the cylinder axis are not bore end caps.
                 if (std::abs(dotDir(planeAxis, axisDir)) < 0.3) {
                     continue;
                 }
@@ -1345,6 +1658,10 @@ QVector<MachiningFeature> FeatureRecognizer::findFlatSurfaces(const TopoGraph &g
         feature.axis = box.normal;
         feature.width = box.width;
         feature.length = box.length;
+        feature.angle = box.angle;
+        if (feature.subType == QStringLiteral("circular_pocket")) {
+            feature.radius = std::min(feature.width, feature.length) * 0.5;
+        }
         feature.region = node.region;
         feature.faceIndices = {faceIndex};
         features.append(feature);
@@ -1510,7 +1827,7 @@ QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) c
         if (isNearModelBoundary(graph, box.center, bottomNormal)) {
             continue;
         }
-        sideFaces = selectSlotWallFaces(graph, sideFaces, box);
+        sideFaces = selectSlotWallFaces(graph, bottomFaces, sideFaces, box);
         const int convexNeighborCount = convexNeighbors.size();
         if (sideFaces.size() < 2 || sideFaces.size() > 4 ||
             convexNeighborCount > 2 ||
@@ -1558,6 +1875,31 @@ QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) c
             }
         }
         feature.depth = depth;
+        qDebug().noquote()
+            << QStringLiteral("[slot-recognizer] subtype=%1 center=(%2,%3,%4) L=%5 W=%6 D=%7 A=%8 bottomFaces=%9 sideFaces=%10 allFaces=%11")
+                  .arg(feature.subType)
+                  .arg(feature.center.x(), 0, 'f', 3)
+                  .arg(feature.center.y(), 0, 'f', 3)
+                  .arg(feature.center.z(), 0, 'f', 3)
+                  .arg(feature.length, 0, 'f', 3)
+                  .arg(feature.width, 0, 'f', 3)
+                  .arg(feature.depth, 0, 'f', 3)
+                  .arg(feature.angle, 0, 'f', 3)
+                  .arg(QStringList([&]() {
+                      QStringList list;
+                      for (int v : bottomFaces) list << QString::number(v);
+                      return list;
+                  }()).join(QStringLiteral(",")))
+                  .arg(QStringList([&]() {
+                      QStringList list;
+                      for (int v : sideFaces) list << QString::number(v);
+                      return list;
+                  }()).join(QStringLiteral(",")))
+                  .arg(QStringList([&]() {
+                      QStringList list;
+                      for (int v : feature.faceIndices) list << QString::number(v);
+                      return list;
+                  }()).join(QStringLiteral(",")));
         features.append(feature);
     }
 
@@ -1832,6 +2174,11 @@ QVector<MachiningFeature> FeatureRecognizer::findPockets(const TopoGraph &graph,
         feature.axis = box.normal;
         feature.width = box.width;
         feature.length = box.length;
+        feature.angle = box.angle;
+        if (feature.subType == QStringLiteral("circular_pocket")) {
+            feature.radius = std::min(feature.width, feature.length) * 0.5;
+        }
+        extractPocketLoops(face, feature.boundaryPoints, feature.islandBoundaries);
         feature.faceIndices = {faceIndex};
         for (int sideIndex : sideFaces) {
             feature.faceIndices.append(sideIndex);

@@ -186,11 +186,16 @@ ToolpathResult OpenContourMillingStrategy::generate(const ContourFeature &featur
 
         if (camOffset) {
             gc += QStringLiteral("G40\n");
+            gc += feedXY(first.x(), first.y(), F);
         } else {
             const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
-            gc += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
+            gc += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                      .arg(compCode)
+                      .arg(tool.id)
+                      .arg(first.x(), 0, 'f', 3)
+                      .arg(first.y(), 0, 'f', 3)
+                      .arg(int(F));
         }
-        gc += feedXY(first.x(), first.y(), F);
         totalLen += lead;
 
         QVector3D prev = first;
@@ -202,10 +207,17 @@ ToolpathResult OpenContourMillingStrategy::generate(const ContourFeature &featur
         }
 
         // Lead-out along end tangent direction, then cancel compensation.
-        gc += feedXY(leadOutX, leadOutY, F);
+        if (camOffset) {
+            gc += feedXY(leadOutX, leadOutY, F);
+            gc += QStringLiteral("G40\n");
+        } else {
+            gc += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                      .arg(leadOutX, 0, 'f', 3)
+                      .arg(leadOutY, 0, 'f', 3)
+                      .arg(int(F));
+        }
         totalLen += lead;
 
-        gc += QStringLiteral("G40\n");
         gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
     }
 

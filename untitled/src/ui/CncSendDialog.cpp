@@ -28,7 +28,6 @@ CncSendDialog::CncSendDialog(const QString &gcode, QWidget *parent)
     connect(m_comm, &CncCommInterface::responseReceived, this, &CncSendDialog::onResponse);
     connect(m_comm, &CncCommInterface::errorOccurred,    this, &CncSendDialog::onCommError);
 
-    // -- Port / baud row --
     m_portCombo = new QComboBox(this);
 #ifdef CNEXT_ENABLE_SERIALPORT
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
@@ -48,7 +47,6 @@ CncSendDialog::CncSendDialog(const QString &gcode, QWidget *parent)
     formLayout->addRow(tr("端口："), m_portCombo);
     formLayout->addRow(tr("波特率："), m_baudSpin);
 
-    // -- Connect button --
     m_btnConnect = new QPushButton(tr("连接"), this);
     connect(m_btnConnect, &QPushButton::clicked, this, &CncSendDialog::onConnectToggle);
 
@@ -56,16 +54,13 @@ CncSendDialog::CncSendDialog(const QString &gcode, QWidget *parent)
     topRow->addLayout(formLayout, 1);
     topRow->addWidget(m_btnConnect, 0, Qt::AlignBottom);
 
-    // -- Status label --
     m_statusLabel = new QLabel(tr("未连接"), this);
 
-    // -- Log area --
     m_log = new QTextEdit(this);
     m_log->setReadOnly(true);
     m_log->setFixedHeight(160);
-    m_log->setPlaceholderText(tr("机床响应将显示在此处…"));
+    m_log->setPlaceholderText(tr("机床响应将显示在此处..."));
 
-    // -- Send / Close buttons --
     m_btnSend = new QPushButton(tr("发送 G 代码"), this);
     m_btnSend->setEnabled(false);
     connect(m_btnSend, &QPushButton::clicked, this, &CncSendDialog::onSend);
@@ -98,7 +93,7 @@ void CncSendDialog::onConnectToggle()
         m_comm->disconnect();
     } else {
         const QString port = m_portCombo->currentText();
-        const int baud     = m_baudSpin->value();
+        const int baud = m_baudSpin->value();
         m_comm->connect(port, baud);
     }
 }

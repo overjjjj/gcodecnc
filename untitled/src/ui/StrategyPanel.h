@@ -9,6 +9,7 @@
 #include <QTableWidget>
 #include <QWidget>
 #include "../import/StepImporter.h"
+#include "../strategies/OperationProposal.h"
 #include "../strategies/StrategyBase.h"
 #include "../tool/ToolEntry.h"
 
@@ -25,25 +26,17 @@ public:
     ToolEntry currentTool() const;
     void retranslateUi();
 
+public slots:
+    void setActiveRegion(FaceRegion region);
+
 signals:
-    void generateRequested(const HoleFeature &feature,
-                           const QString &strategyId,
-                           const StrategyParams &params,
-                           const ToolEntry &tool);
-    void circleMillRequested(const ContourFeature &feature,
-                             const StrategyParams &params,
-                             const ToolEntry &tool);
-    void millingRequested(const ContourFeature &feature,
-                          const QString &strategyId,
-                          const StrategyParams &params,
-                          const ToolEntry &tool);
+    void operationProposalConfirmed(const OperationProposal &proposal);
 
 private slots:
     void onStrategyChanged(int index);
-    void onGenerate();
+    void onConfirmOperation();
     void onEditHoleParams();
     void onCircleMillClicked();
-    void onMillingClicked();
 
 private:
     void populateStrategies();
@@ -53,6 +46,10 @@ private:
     void refreshParamTable();
     void cacheCurrentParams();
     StrategyParams currentParams() const;
+    StrategyParams paramsForStrategy(const QString &strategyId, bool preferUserParams) const;
+    void setCurrentParams(const StrategyParams &params);
+    void updateParamSummary();
+    QString paramSummaryText(const StrategyParams &params) const;
     ContourFeature currentContourFeature() const;
     QStringList strategyIdsForCurrentContext() const;
     QString paramDisplayName(const QString &key) const;
@@ -61,6 +58,9 @@ private:
     QString preferredToolType(const QString &strategyId) const;
     QString strategyHint(const QString &strategyId) const;
     void updateStrategyHint();
+    void updatePocketEntryUi();
+    void updateToolCompatibilityPreview();
+    void updateProposalState();
     bool isSlotFeatureSelected() const;
     void seedContourParamsFromFeature();
 
@@ -68,18 +68,24 @@ private:
     bool m_hasFeature = false;
     MachiningFeature m_contourFeature;
     bool m_hasContourFeature = false;
+    FaceRegion m_activeRegion = FaceRegion::Unknown;
     QString m_currentStrategyId;
     QMap<QString, StrategyParams> m_userParams;
+    QLabel *m_proposalTitleLabel = nullptr;
+    QLabel *m_proposalStateLabel = nullptr;
     QLabel *m_featureLabel = nullptr;
     QLabel *m_strategyLabel = nullptr;
     QLabel *m_toolLabel = nullptr;
+    QLabel *m_entryModeLabel = nullptr;
     QLabel *m_hintLabel = nullptr;
+    QLabel *m_toolFitLabel = nullptr;
+    QLabel *m_paramSummaryLabel = nullptr;
     QComboBox *m_strategyCombo = nullptr;
     QComboBox *m_toolCombo = nullptr;
+    QComboBox *m_entryModeCombo = nullptr;
     QTableWidget *m_paramTable = nullptr;
     QPushButton *m_editHoleParamsBtn = nullptr;
-    QPushButton *m_generateBtn = nullptr;
+    QPushButton *m_confirmOperationBtn = nullptr;
     QGroupBox *m_millingGroup = nullptr;
-    QPushButton *m_millingBtn = nullptr;
     QPushButton *m_circleMillBtn = nullptr;
 };

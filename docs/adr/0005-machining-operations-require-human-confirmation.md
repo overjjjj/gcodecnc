@@ -1,0 +1,3 @@
+# Machining operations require human confirmation
+
+CNEXT-CAM may automatically recognize features, group compatible geometry, reject infeasible combinations, and recommend strategies, tools, and parameters, but it must not silently convert those recommendations into executable machining operations. The interface may highlight and prefill a recommendation, but a user explicitly selects and confirms the process plan before an Operation Proposal becomes a Machining Operation; identical compatible features may be confirmed as a batch, advanced values remain editable within hard safety constraints, and only confirmed operations may generate controller output.

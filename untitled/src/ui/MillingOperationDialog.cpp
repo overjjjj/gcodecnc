@@ -38,7 +38,8 @@ static bool isMillingStrategy(const QString &id)
         || id == QStringLiteral("mill_closed_contour")
         || id == QStringLiteral("mill_open_contour")
         || id == QStringLiteral("mill_slot")
-        || id == QStringLiteral("mill_blind_slot");
+        || id == QStringLiteral("mill_blind_slot")
+        || id == QStringLiteral("mill_tapered_slot");
 }
 
 static QString featureSubTypeForStrategy(const QString &strategyId)
@@ -63,6 +64,9 @@ static QString featureSubTypeForStrategy(const QString &strategyId)
     }
     if (strategyId == QStringLiteral("mill_blind_slot")) {
         return QStringLiteral("blind_slot");
+    }
+    if (strategyId == QStringLiteral("mill_tapered_slot")) {
+        return QStringLiteral("tapered_slot");
     }
     return QStringLiteral("circle");
 }
@@ -197,7 +201,8 @@ void MillingOperationDialog::populateStrategies()
         QStringLiteral("mill_closed_contour"),
         QStringLiteral("mill_open_contour"),
         QStringLiteral("mill_slot"),
-        QStringLiteral("mill_blind_slot")
+        QStringLiteral("mill_blind_slot"),
+        QStringLiteral("mill_tapered_slot")
     };
     for (const QString &id : ids) {
         auto strategy = StrategyFactory::instance().strategy(id);

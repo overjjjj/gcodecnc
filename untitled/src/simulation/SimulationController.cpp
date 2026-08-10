@@ -437,6 +437,8 @@ QString SimulationController::detectCollisionMessage(const MeshData &mesh, const
     const double bottomTol = 5.0;
     const double xyMoveTol = 0.01;
     const double baryTol = 1.0e-6;
+    const qint64 maxCollisionChecks = 12000000;
+    qint64 estimatedCollisionChecks = 0;
     constexpr double collisionPi = 3.14159265358979323846;
 
     auto meshTopZAtXY = [&](double x, double y, double &topZ) {
@@ -496,6 +498,12 @@ QString SimulationController::detectCollisionMessage(const MeshData &mesh, const
                                                       float(std::sin(a) * toolRadius),
                                                       0.0f));
                 }
+            }
+            estimatedCollisionChecks += qint64(samples + 1)
+                                      * qint64(footprintOffsets.size())
+                                      * qint64(mesh.triangles.size());
+            if (estimatedCollisionChecks > maxCollisionChecks) {
+                return QString();
             }
 
             for (int i = 0; i <= samples; ++i) {

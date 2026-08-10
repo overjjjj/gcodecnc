@@ -7,7 +7,10 @@ struct PostProcessorOptions {
     bool   addComments       = true;
     QString programNumber    = "O0001";
     QString workOffset       = "G54";
+    QStringList safeStartBlocks;
 };
+
+QStringList resolvedSafeStartBlocks(const PostProcessorOptions &opts);
 
 class PostProcessorBase
 {

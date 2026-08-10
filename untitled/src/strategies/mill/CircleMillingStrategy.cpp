@@ -68,6 +68,9 @@ ToolpathResult CircleMillingStrategy::generate(const ContourFeature &feature,
 
     const double entryX = cx + feature.radius + stock;
     const double entryY = cy;
+    const double leadLength = std::max(tool.diameter, 1.0);
+    const double leadX = entryX + leadLength;
+    const double leadY = entryY;
     const int passes = static_cast<int>(std::ceil(feature.depth / stepDown));
     const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
 
@@ -77,14 +80,19 @@ ToolpathResult CircleMillingStrategy::generate(const ContourFeature &feature,
     gc += QStringLiteral("T%1 M6\n").arg(tool.id);
     gc += QStringLiteral("S%1 M3\n").arg(static_cast<int>(spindleSpeed));
     gc += QStringLiteral("G0 Z%1\n").arg(safeH, 0, 'f', 3);
-    gc += QStringLiteral("G0 X%1 Y%2\n").arg(entryX, 0, 'f', 3).arg(entryY, 0, 'f', 3);
+    gc += QStringLiteral("G0 X%1 Y%2\n").arg(leadX, 0, 'f', 3).arg(leadY, 0, 'f', 3);
 
     double totalTime = 0.0;
     for (int i = 1; i <= passes; ++i) {
         const double zLayer = ztop - std::min(i * stepDown, feature.depth);
 
         gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(static_cast<int>(plungeRate));
-        gc += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
+        gc += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                  .arg(compCode)
+                  .arg(tool.id)
+                  .arg(entryX, 0, 'f', 3)
+                  .arg(entryY, 0, 'f', 3)
+                  .arg(static_cast<int>(feedRate));
 
         const double iOffset = cx - entryX;
         gc += QStringLiteral("G2 X%1 Y%2 I%3 J0.000 F%4\n")
@@ -93,12 +101,16 @@ ToolpathResult CircleMillingStrategy::generate(const ContourFeature &feature,
                   .arg(iOffset, 0, 'f', 3)
                   .arg(static_cast<int>(feedRate));
 
-        gc += QStringLiteral("G40\n");
+        gc += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                  .arg(leadX, 0, 'f', 3)
+                  .arg(leadY, 0, 'f', 3)
+                  .arg(static_cast<int>(feedRate));
         if (i < passes) {
             gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
         }
 
-        totalTime += (2.0 * std::acos(-1.0) * feature.radius / feedRate * 60.0)
+        totalTime += ((2.0 * std::acos(-1.0) * feature.radius + 2.0 * leadLength) /
+                      feedRate * 60.0)
                    + (std::min(stepDown, feature.depth) / plungeRate * 60.0);
     }
 

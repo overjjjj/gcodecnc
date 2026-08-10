@@ -7,6 +7,9 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
+#include <QLabel>
+#include <QMessageBox>
+#include <QUuid>
 #include <algorithm>
 
 namespace {
@@ -38,6 +41,9 @@ static QString strategyTypeText(const QString &strategyId, bool zh)
     }
     if (strategyId == QStringLiteral("mill_blind_slot")) {
         return zh ? QStringLiteral("盲槽铣削") : QStringLiteral("Blind Slot");
+    }
+    if (strategyId == QStringLiteral("mill_tapered_slot")) {
+        return zh ? QStringLiteral("斜底槽铣削") : QStringLiteral("Tapered Slot");
     }
     if (strategyId == QStringLiteral("mill_closed_contour")) {
         return zh ? QStringLiteral("封闭轮廓铣") : QStringLiteral("Closed Contour");
@@ -99,45 +105,55 @@ static QString operationStageText(OperationStage stage, bool zh)
     return zh ? QStringLiteral("粗切") : QStringLiteral("Rough");
 }
 
-static OperationStage inferStage(const QString &strategyId, OperationType opType)
+static FaceRegion operationRegion(const MachiningOperation &op)
 {
-    if (strategyId == QStringLiteral("hole_spot")) {
-        return OperationStage::Setup;
+    return op.opType == OperationType::Hole
+        ? op.holeFeature.region
+        : op.contourFeature.region;
+}
+
+static int activeRegionOrder(const MachiningOperation &op, FaceRegion activeRegion)
+{
+    if (activeRegion == FaceRegion::Unknown) {
+        return 0;
     }
-    if (strategyId == QStringLiteral("mill_pocket_rough") ||
-        strategyId == QStringLiteral("mill_slot") ||
-        strategyId == QStringLiteral("mill_blind_slot")) {
-        return OperationStage::RoughCut;
-    }
-    if (strategyId == QStringLiteral("hole_deephole") ||
-        strategyId == QStringLiteral("hole_peck")) {
-        return OperationStage::DeepHole;
-    }
-    if (strategyId == QStringLiteral("hole_chamfer")) {
-        return OperationStage::Cleanup;
-    }
-    if (opType == OperationType::Finish ||
-        strategyId == QStringLiteral("hole_reaming") ||
-        strategyId == QStringLiteral("hole_circular_mill")) {
-        return OperationStage::FinishCut;
-    }
-    return OperationStage::RoughCut;
+    return operationRegion(op) == activeRegion ? 0 : 1;
 }
 
 } // namespace
 
 OperationListPanel::OperationListPanel(QWidget *parent)
     : QWidget(parent)
+    , m_titleLabel(new QLabel(this))
+    , m_summaryLabel(new QLabel(this))
     , m_table(new QTableWidget(this))
     , m_btnUp(new QToolButton(this))
     , m_btnDown(new QToolButton(this))
     , m_btnDelete(new QToolButton(this))
     , m_btnApplyTool(new QToolButton(this))
     , m_btnSortStage(new QToolButton(this))
-    , m_btnGenerate(new QPushButton(this))
+    , m_btnGenerateProgram(new QPushButton(this))
 {
+    setObjectName(QStringLiteral("operationListPanel"));
+    setStyleSheet(QStringLiteral(
+        "#operationListPanel QLabel#operationTitleLabel { color: #172033; font-size: 15px; font-weight: 700; }"
+        "#operationListPanel QLabel#operationSummaryLabel { color: #607089; }"
+        "#operationListPanel QToolButton { min-height: 28px; border: 1px solid #c6d0df; border-radius: 5px; padding: 3px 7px; background: #ffffff; color: #27364d; }"
+        "#operationListPanel QToolButton:hover { background: #f3f6fb; border-color: #9fb0c8; }"
+        "#operationListPanel QPushButton#operationPrimaryAction { min-height: 36px; border: 1px solid #2f6fec; border-radius: 6px; padding: 6px 12px; background: #2f6fec; color: #ffffff; font-weight: 600; }"
+        "#operationListPanel QPushButton#operationPrimaryAction:hover { background: #245fd0; }"
+        "#operationListPanel QPushButton#operationPrimaryAction:disabled { background: #b8c6e3; border-color: #b8c6e3; color: #f8fbff; }"));
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
+
+    auto *heading = new QHBoxLayout;
+    m_titleLabel->setObjectName(QStringLiteral("operationTitleLabel"));
+    m_summaryLabel->setObjectName(QStringLiteral("operationSummaryLabel"));
+    heading->addWidget(m_titleLabel);
+    heading->addStretch(1);
+    heading->addWidget(m_summaryLabel);
+    layout->addLayout(heading);
 
     auto *toolbar = new QHBoxLayout;
     toolbar->addWidget(m_btnUp);
@@ -160,7 +176,8 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     layout->addWidget(m_table, 1);
 
-    layout->addWidget(m_btnGenerate);
+    m_btnGenerateProgram->setObjectName(QStringLiteral("operationPrimaryAction"));
+    layout->addWidget(m_btnGenerateProgram);
 
     retranslateUi();
 
@@ -169,7 +186,8 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     connect(m_btnDelete, &QToolButton::clicked, this, &OperationListPanel::onDelete);
     connect(m_btnApplyTool, &QToolButton::clicked, this, &OperationListPanel::applyCurrentToolRequested);
     connect(m_btnSortStage, &QToolButton::clicked, this, &OperationListPanel::onSortByStage);
-    connect(m_btnGenerate, &QPushButton::clicked, this, &OperationListPanel::onGenerateAll);
+    connect(m_btnGenerateProgram, &QPushButton::clicked,
+            this, &OperationListPanel::onGenerateProgram);
     connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &OperationListPanel::onSelectionChanged);
 
@@ -179,6 +197,11 @@ OperationListPanel::OperationListPanel(QWidget *parent)
 void OperationListPanel::setOperations(const QList<MachiningOperation> &operations)
 {
     m_operations = operations;
+    for (MachiningOperation &op : m_operations) {
+        if (op.id.trimmed().isEmpty()) {
+            op.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        }
+    }
     refreshTable();
 }
 
@@ -188,65 +211,76 @@ int OperationListPanel::currentOperationNumber() const
     return row >= 0 ? row + 1 : -1;
 }
 
-void OperationListPanel::addHoleOperation(const HoleFeature &feature,
-                                          const QString &strategyId,
-                                          const StrategyParams &params,
-                                          int toolId)
+QString OperationListPanel::currentOperationId() const
 {
-    MachiningOperation op;
-    op.opType = OperationType::Hole;
-    op.holeFeature = feature;
-    op.strategyId = strategyId;
-    op.params = params;
-    op.toolId = toolId;
-    op.stage = inferStage(strategyId, op.opType);
-    op.featureRef = QStringLiteral("D%1 Z-%2")
-                        .arg(feature.radius * 2.0, 0, 'f', 1)
-                        .arg(feature.depth, 0, 'f', 1);
-    m_operations.append(op);
-    refreshTable();
+    const int row = m_table->currentRow();
+    if (row < 0 || row >= m_operations.size()) {
+        return QString();
+    }
+    return m_operations[row].id;
 }
 
-void OperationListPanel::addContourOperation(const ContourFeature &feature,
-                                             const QString &strategyId,
-                                             const StrategyParams &params,
-                                             int toolId)
+bool OperationListPanel::selectOperationById(const QString &operationId)
 {
-    MachiningOperation op;
-    op.opType = OperationType::Contour;
-    if (strategyId == QStringLiteral("mill_pocket_rough")) {
-        op.opType = OperationType::Roughing;
-    } else if (strategyId == QStringLiteral("mill_contour_finish") ||
-               strategyId == QStringLiteral("mill_surface_finish") ||
-               strategyId == QStringLiteral("mill_closed_contour") ||
-               strategyId == QStringLiteral("mill_open_contour")) {
-        op.opType = OperationType::Finish;
+    if (operationId.trimmed().isEmpty()) {
+        return false;
     }
-    op.contourFeature = feature;
-    op.strategyId = strategyId;
-    op.params = params;
-    op.toolId = toolId;
-    op.stage = inferStage(strategyId, op.opType);
+    for (int row = 0; row < m_operations.size(); ++row) {
+        if (m_operations[row].id == operationId) {
+            m_table->selectRow(row);
+            return true;
+        }
+    }
+    return false;
+}
 
-    auto strategy = StrategyFactory::instance().strategy(strategyId);
-    const QString strategyName = strategy ? strategy->displayName() : strategyId;
-    if (strategyId == QStringLiteral("mill_slot") ||
-        strategyId == QStringLiteral("mill_blind_slot")) {
-        const double slotLength = params.get(QStringLiteral("slotLength"), feature.radius * 2.0);
-        const double slotWidth = params.get(QStringLiteral("slotWidth"), feature.radius);
-        op.featureRef = QStringLiteral("%1 L%2 W%3 Z-%4")
-                            .arg(strategyName)
-                            .arg(slotLength, 0, 'f', 1)
-                            .arg(slotWidth, 0, 'f', 1)
-                            .arg(feature.depth, 0, 'f', 1);
-    } else {
-        op.featureRef = QStringLiteral("%1 R%2 Z-%3")
-                            .arg(strategyName)
-                            .arg(feature.radius, 0, 'f', 1)
-                            .arg(feature.depth, 0, 'f', 1);
+QStringList OperationListPanel::addConfirmedOperations(
+    const QList<MachiningOperation> &operations)
+{
+    QStringList addedIds;
+    for (MachiningOperation operation : operations) {
+        if (operation.id.trimmed().isEmpty()) {
+            continue;
+        }
+        if (operation.featureRef.trimmed().isEmpty()) {
+            if (operation.opType == OperationType::Hole) {
+                operation.featureRef = QStringLiteral("D%1 Z-%2")
+                    .arg(operation.holeFeature.radius * 2.0, 0, 'f', 1)
+                    .arg(operation.holeFeature.depth, 0, 'f', 1);
+            } else {
+                auto strategy = StrategyFactory::instance().strategy(operation.strategyId);
+                const QString strategyName = strategy
+                    ? strategy->displayName()
+                    : operation.strategyId;
+                if (operation.strategyId == QStringLiteral("mill_slot") ||
+                    operation.strategyId == QStringLiteral("mill_blind_slot") ||
+                    operation.strategyId == QStringLiteral("mill_tapered_slot")) {
+                    const double slotLength = operation.params.get(
+                        QStringLiteral("slotLength"), operation.contourFeature.radius * 2.0);
+                    const double slotWidth = operation.params.get(
+                        QStringLiteral("slotWidth"), operation.contourFeature.radius);
+                    operation.featureRef = QStringLiteral("%1 L%2 W%3 Z-%4")
+                        .arg(strategyName)
+                        .arg(slotLength, 0, 'f', 1)
+                        .arg(slotWidth, 0, 'f', 1)
+                        .arg(operation.contourFeature.depth, 0, 'f', 1);
+                } else {
+                    operation.featureRef = QStringLiteral("%1 R%2 Z-%3")
+                        .arg(strategyName)
+                        .arg(operation.contourFeature.radius, 0, 'f', 1)
+                        .arg(operation.contourFeature.depth, 0, 'f', 1);
+                }
+            }
+        }
+        addedIds.append(operation.id);
+        m_operations.append(operation);
     }
-    m_operations.append(op);
+    if (addedIds.isEmpty()) {
+        return addedIds;
+    }
     refreshTable();
+    emit operationsEdited(m_operations);
+    return addedIds;
 }
 
 bool OperationListPanel::applyToolToSelection(int toolId)
@@ -274,7 +308,13 @@ bool OperationListPanel::applyToolToSelection(int toolId)
         }
     }
     refreshTable();
+    emit operationsEdited(m_operations);
     return true;
+}
+
+void OperationListPanel::setActiveRegion(FaceRegion region)
+{
+    m_activeRegion = region;
 }
 
 void OperationListPanel::refreshTable()
@@ -296,7 +336,19 @@ void OperationListPanel::refreshTable()
         m_table->setItem(row, 4, new QTableWidgetItem(toolText));
         ++row;
     }
+    updateSummary();
     onSelectionChanged();
+}
+
+void OperationListPanel::updateSummary()
+{
+    if (!m_summaryLabel) {
+        return;
+    }
+    const bool zh = isChineseUi();
+    m_summaryLabel->setText(
+        zh ? QStringLiteral("%1 道已确认").arg(m_operations.size())
+           : QStringLiteral("%1 confirmed").arg(m_operations.size()));
 }
 
 QString OperationListPanel::operationLabel(const MachiningOperation &op) const
@@ -308,7 +360,8 @@ QString OperationListPanel::operationLabel(const MachiningOperation &op) const
     }
 
     if (op.strategyId == QStringLiteral("mill_slot") ||
-        op.strategyId == QStringLiteral("mill_blind_slot")) {
+        op.strategyId == QStringLiteral("mill_blind_slot") ||
+        op.strategyId == QStringLiteral("mill_tapered_slot")) {
         const double length = op.params.get(QStringLiteral("slotLength"),
                                             op.contourFeature.length > 0.0 ? op.contourFeature.length
                                                                            : op.contourFeature.radius * 2.0);
@@ -336,6 +389,7 @@ void OperationListPanel::onMoveUp()
     m_operations.swapItemsAt(row, row - 1);
     refreshTable();
     m_table->selectRow(row - 1);
+    emit operationsEdited(m_operations);
 }
 
 void OperationListPanel::onMoveDown()
@@ -347,6 +401,7 @@ void OperationListPanel::onMoveDown()
     m_operations.swapItemsAt(row, row + 1);
     refreshTable();
     m_table->selectRow(row + 1);
+    emit operationsEdited(m_operations);
 }
 
 void OperationListPanel::onDelete()
@@ -355,23 +410,44 @@ void OperationListPanel::onDelete()
     if (row < 0 || row >= m_operations.size()) {
         return;
     }
+    const bool zh = isChineseUi();
+    const QString label = operationLabel(m_operations[row]);
+    const QMessageBox::StandardButton answer = QMessageBox::question(
+        this,
+        zh ? QStringLiteral("确认删除工序") : QStringLiteral("Confirm Operation Deletion"),
+        zh ? QStringLiteral("删除工序“%1”？关联程序将需要重新生成。")
+                 .arg(label)
+           : QStringLiteral("Delete operation \"%1\"? Related programs will need to be regenerated.")
+                 .arg(label),
+        QMessageBox::Yes | QMessageBox::Cancel,
+        QMessageBox::Cancel);
+    if (answer != QMessageBox::Yes) {
+        return;
+    }
     m_operations.removeAt(row);
     refreshTable();
+    emit operationsEdited(m_operations);
 }
 
 void OperationListPanel::onSortByStage()
 {
     std::stable_sort(m_operations.begin(), m_operations.end(),
-                     [](const MachiningOperation &a, const MachiningOperation &b) {
+                     [this](const MachiningOperation &a, const MachiningOperation &b) {
+        const int activeA = activeRegionOrder(a, m_activeRegion);
+        const int activeB = activeRegionOrder(b, m_activeRegion);
+        if (activeA != activeB) {
+            return activeA < activeB;
+        }
         return stageOrder(a.stage) < stageOrder(b.stage);
     });
     refreshTable();
+    emit operationsEdited(m_operations);
 }
 
-void OperationListPanel::onGenerateAll()
+void OperationListPanel::onGenerateProgram()
 {
     if (!m_operations.isEmpty()) {
-        emit generateAllRequested(m_operations);
+        emit generateProgramRequested(m_operations);
     }
 }
 
@@ -383,18 +459,22 @@ void OperationListPanel::onSelectionChanged()
     m_btnDown->setEnabled(hasSelection && row < m_operations.size() - 1);
     m_btnDelete->setEnabled(hasSelection);
     m_btnApplyTool->setEnabled(!m_operations.isEmpty());
+    m_btnGenerateProgram->setEnabled(!m_operations.isEmpty());
     emit currentOperationChanged(hasSelection ? row + 1 : -1);
 }
 
 void OperationListPanel::retranslateUi()
 {
     const bool zh = isChineseUi();
+    m_titleLabel->setText(zh ? QStringLiteral("已确认工序")
+                             : QStringLiteral("Confirmed Operations"));
     m_btnUp->setText(zh ? QStringLiteral("上移") : QStringLiteral("Up"));
     m_btnDown->setText(zh ? QStringLiteral("下移") : QStringLiteral("Down"));
     m_btnDelete->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
     m_btnApplyTool->setText(zh ? QStringLiteral("用当前刀具") : QStringLiteral("Use Tool"));
     m_btnSortStage->setText(zh ? QStringLiteral("按流程排序") : QStringLiteral("Sort Flow"));
-    m_btnGenerate->setText(zh ? QStringLiteral("生成全部 G 代码") : QStringLiteral("Generate All G-code"));
+    m_btnGenerateProgram->setText(zh ? QStringLiteral("从已确认工序生成程序")
+                                     : QStringLiteral("Generate Program from Confirmed Operations"));
     m_table->setHorizontalHeaderLabels({
         QStringLiteral("#"),
         zh ? QStringLiteral("类型") : QStringLiteral("Type"),
@@ -402,5 +482,10 @@ void OperationListPanel::retranslateUi()
         zh ? QStringLiteral("特征") : QStringLiteral("Feature"),
         zh ? QStringLiteral("刀具") : QStringLiteral("Tool")
     });
+    m_table->setAccessibleName(zh ? QStringLiteral("已确认工序列表")
+                                  : QStringLiteral("Confirmed operations list"));
+    m_btnGenerateProgram->setAccessibleName(
+        zh ? QStringLiteral("从已确认工序生成程序")
+           : QStringLiteral("Generate program from confirmed operations"));
     refreshTable();
 }

@@ -29,16 +29,6 @@ static QString feedXYZ(double x, double y, double z, double feed)
         .arg(int(feed));
 }
 
-static void rotateAround(double cx, double cy, double px, double py,
-                         double cosA, double sinA,
-                         double &outX, double &outY)
-{
-    const double dx = px - cx;
-    const double dy = py - cy;
-    outX = cx + dx * cosA - dy * sinA;
-    outY = cy + dx * sinA + dy * cosA;
-}
-
 static double slotLength(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotLength"),
@@ -227,8 +217,6 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         res.errorMsg = QObject::tr("The tool diameter must be smaller than the slot width.");
         return res;
     }
-    const double effectiveStepDown = std::min(stepDown, std::max(0.02, tool.diameter));
-
     const double halfLen = fullLength * 0.5;
     const double halfWid = fullWidth * 0.5;
     const double angleRad = angleDeg * std::acos(-1.0) / 180.0;
@@ -247,11 +235,23 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double cx = feature.center.x();
     const double cy = feature.center.y();
     const double zTop = feature.center.z();
+    const double retractZ = zTop + feedH;
     const double cosA = std::cos(angleRad);
     const double sinA = std::sin(angleRad);
     const bool camOffset = std::abs(comp) < 1.0e-9;
     const double roughCenterInset = tool.diameter * 0.5 + stockToLeave;
     const double finishCenterInset = camOffset ? tool.diameter * 0.5 : 0.0;
+    const double rampAngleForLimit = std::max(1.0, std::min(rampAngle, 10.0));
+    const double centerRampLength = std::max(0.0, halfLen - roughCenterInset);
+    const double centerRampStepDown = centerRampLength *
+                                      std::tan(rampAngleForLimit * std::acos(-1.0) / 180.0);
+    const double effectiveStepDown = helixRadius > 1.0e-6
+                                         ? std::min(stepDown, targetDepth)
+                                         : std::min(stepDown, centerRampStepDown);
+    if (effectiveStepDown < 0.005) {
+        res.errorMsg = QObject::tr("Slot is too short for ramp plunging with the selected tool and stock allowance.");
+        return res;
+    }
     double slopeStartLength = feature.slopeStartLength;
     double slopeEndLength = feature.slopeEndLength;
     double slopeMinWidth = feature.slopeMinWidth;
@@ -311,7 +311,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double slopeFinishMinLength = std::max(0.05, tool.diameter * 0.05);
 
     auto slotToWorld = [&](double u, double v, double &x, double &y) {
-        rotateAround(cx, cy, cx + u, cy + v, cosA, sinA, x, y);
+        x = cx + u * cosA - v * sinA;
+        y = cy + u * sinA + v * cosA;
     };
 
     auto appendRampPlunge = [&](QString &out,
@@ -340,8 +341,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         double endY = 0.0;
         slotToWorld(startU, targetV, startX, startY);
         slotToWorld(targetU, targetV, endX, endY);
-        out += rapidXY(startX, startY);
         out += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
+        out += rapidXY(startX, startY);
         out += QStringLiteral("G1 Z%1 F%2\n").arg(zTop, 0, 'f', 3).arg(int(plungeRate));
         if (std::abs(startU - targetU) > 0.05 && targetZ < zTop - 1.0e-6) {
             out += QStringLiteral("; Blind slot ramp plunge angle %1\n").arg(angle, 0, 'f', 3);
@@ -354,6 +355,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     QString gcode;
     gcode += QStringLiteral("T%1 M6\n").arg(tool.id);
     gcode += QStringLiteral("S%1 M3\n").arg(int(spindleSpeed));
+    gcode += QStringLiteral("M8\n");
     gcode += QStringLiteral("; Blind slot geometry: L=%1 W=%2 D=%3 A=%4\n")
                  .arg(fullLength, 0, 'f', 3)
                  .arg(fullWidth, 0, 'f', 3)
@@ -371,6 +373,12 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                  .arg(finishMaxV, 0, 'f', 3);
     gcode += QStringLiteral("; Blind slot rough stock to leave: %1\n")
                  .arg(stockToLeave, 0, 'f', 3);
+    if (helixRadius <= 1.0e-6 && effectiveStepDown < stepDown - 1.0e-6) {
+        gcode += QStringLiteral("; Blind slot stepdown limited by %1 deg ramp: requested=%2 effective=%3\n")
+                     .arg(rampAngleForLimit, 0, 'f', 3)
+                     .arg(stepDown, 0, 'f', 3)
+                     .arg(effectiveStepDown, 0, 'f', 3);
+    }
     gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
 
     double totalLength = 0.0;
@@ -399,14 +407,22 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                             roughCenterInset,
                             roughMinV,
                             roughMaxV);
+        gcode += QStringLiteral("; Blind slot rough layer %1/%2 Z=%3 U[%4,%5] V[%6,%7]\n")
+                     .arg(layer)
+                     .arg(layerCount)
+                     .arg(zLayer, 0, 'f', 3)
+                     .arg(roughMinU, 0, 'f', 3)
+                     .arg(roughMaxU, 0, 'f', 3)
+                     .arg(roughMinV, 0, 'f', 3)
+                     .arg(roughMaxV, 0, 'f', 3);
 
         if (roughMaxU > roughMinU && roughMaxV > roughMinV) {
             if (helixRadius > 1e-6) {
                 double startX = 0.0;
                 double startY = 0.0;
                 slotToWorld(helixRadius, 0.0, startX, startY);
-                gcode += rapidXY(startX, startY);
                 gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
+                gcode += rapidXY(startX, startY);
                 const int helixLoops = static_cast<int>(std::ceil(((zTop + feedH) - zLayer) / helixPitch));
                 for (int loop = 1; loop <= helixLoops; ++loop) {
                     const double zNext = std::max(zLayer, (zTop + feedH) - loop * helixPitch);
@@ -486,7 +502,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         }
 
         if (layer < layerCount) {
-            gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
             continue;
         }
 
@@ -513,7 +529,6 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                     slotToWorld(startU, layerV, x0, y0);
                     slotToWorld(endU, layerV, x1, y1);
                     if (firstLine) {
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
                         appendRampPlunge(gcode, startU, layerV, bottomFinishMinU, bottomFinishMaxU, zLayer);
                         firstLine = false;
                     } else {
@@ -540,7 +555,6 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                     slotToWorld(layerU, startV, x0, y0);
                     slotToWorld(layerU, endV, x1, y1);
                     if (firstLine) {
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
                         appendRampPlunge(gcode, layerU, startV, bottomFinishMinU, bottomFinishMaxU, zLayer);
                         firstLine = false;
                     } else {
@@ -576,7 +590,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(u0, layerV, x0, y0);
                         slotToWorld(u1, layerV, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
                         gcode += rapidXY(x0, y0);
                         gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
                         gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
@@ -602,7 +616,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(u0, layerV, x0, y0);
                         slotToWorld(u1, layerV, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
                         gcode += rapidXY(x0, y0);
                         gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
                         gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
@@ -674,7 +688,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         }
 
         if (!finishRangeValid) {
-            gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
             continue;
         }
 
@@ -690,26 +704,41 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         double leadY = 0.0;
         slotToWorld(leadU, 0.0, leadX, leadY);
 
-        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+        gcode += QStringLiteral("; Blind slot wall finish\n");
         appendRampPlunge(gcode, leadU, 0.0, finishMinU, finishMaxU, zLayer);
         if (camOffset) {
             gcode += QStringLiteral("G40\n");
-        } else {
-            const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
-            gcode += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
         }
-        for (const Corner &corner : corners) {
+        for (int cornerIndex = 0; cornerIndex < 4; ++cornerIndex) {
+            const Corner &corner = corners[cornerIndex];
             double x = 0.0;
             double y = 0.0;
             slotToWorld(corner.u, corner.v, x, y);
-            gcode += feedXY(x, y, feedRate);
+            if (!camOffset && cornerIndex == 0) {
+                const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
+                gcode += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                             .arg(compCode)
+                             .arg(tool.id)
+                             .arg(x, 0, 'f', 3)
+                             .arg(y, 0, 'f', 3)
+                             .arg(int(feedRate));
+            } else {
+                gcode += feedXY(x, y, feedRate);
+            }
         }
         double firstX = 0.0;
         double firstY = 0.0;
         slotToWorld(corners[0].u, corners[0].v, firstX, firstY);
         gcode += feedXY(firstX, firstY, feedRate);
-        gcode += feedXY(leadX, leadY, feedRate);
-        gcode += QStringLiteral("G40\n");
+        if (camOffset) {
+            gcode += feedXY(leadX, leadY, feedRate);
+            gcode += QStringLiteral("G40\n");
+        } else {
+            gcode += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                         .arg(leadX, 0, 'f', 3)
+                         .arg(leadY, 0, 'f', 3)
+                         .arg(int(feedRate));
+        }
         gcode += QStringLiteral("G1 X%1 Y%2 F%3\n")
                      .arg(cx, 0, 'f', 3)
                      .arg(cy, 0, 'f', 3)

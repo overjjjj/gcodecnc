@@ -9,6 +9,14 @@
 #include <QVector3D>
 #endif
 
+enum class ProjectLoadIssue {
+    None,
+    ProjectFileInvalid,
+    SourceMissing,
+    SourceChanged,
+    SourceImportFailed
+};
+
 class AppController : public QObject
 {
     Q_OBJECT
@@ -19,8 +27,9 @@ public:
 
     void importStep(const QString &filePath);
     void generateGCode();
-    void saveProject(const QString &path);
-    void loadProject(const QString &path);
+    bool saveProject(const QString &path);
+    bool loadProject(const QString &path, const QString &replacementSourcePath = QString());
+    ProjectLoadIssue lastProjectLoadIssue() const { return m_lastProjectLoadIssue; }
 #ifdef CNEXT_ENABLE_OCC
     void reclassifyFeatures(const QVector3D &frontNormal);
     bool reloadStepWithSetupRotation(const QQuaternion &rotation, QString *error = nullptr);
@@ -42,4 +51,5 @@ private:
 #ifdef CNEXT_ENABLE_OCC
     StepImporter m_importer;
 #endif
+    ProjectLoadIssue m_lastProjectLoadIssue = ProjectLoadIssue::None;
 };

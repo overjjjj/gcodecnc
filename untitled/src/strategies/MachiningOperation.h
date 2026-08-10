@@ -19,6 +19,7 @@ enum class OperationStage {
 };
 
 struct MachiningOperation {
+    QString        id;
     OperationType  opType     = OperationType::Hole;
     OperationStage stage      = OperationStage::RoughCut;
     QString        featureRef;   // human-readable label (e.g. "Hole D12 Z-20")

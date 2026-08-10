@@ -37,16 +37,17 @@ static bool isCircularPocket(const ContourFeature &feature)
 static void appendRectangularRows(QVector<ScanLine> &rows,
                                   double cx,
                                   double cy,
-                                  double halfSize,
+                                  double halfLength,
+                                  double halfWidth,
                                   double step)
 {
-    const double yMin = cy - halfSize;
-    const double yMax = cy + halfSize;
+    const double yMin = cy - halfWidth;
+    const double yMax = cy + halfWidth;
     for (double y = yMin; y <= yMax + 0.001; y += step) {
-        rows.push_back({y, cx - halfSize, cx + halfSize});
+        rows.push_back({y, cx - halfLength, cx + halfLength});
     }
     if (rows.isEmpty() || rows.last().y < yMax - 0.001) {
-        rows.push_back({yMax, cx - halfSize, cx + halfSize});
+        rows.push_back({yMax, cx - halfLength, cx + halfLength});
     }
 }
 
@@ -121,34 +122,74 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
     double helixRadius  = params.get("helixRadius",     2.0);
     double helixPitch   = params.get("helixPitch",      0.0);
 
+    if (!params.values.contains(QStringLiteral("entryMode"))) {
+        res.errorMsg = QObject::tr("型腔开粗前必须由操作员选择下刀方式。");
+        return res;
+    }
+    const double entryMode = params.get(QStringLiteral("entryMode"), -1.0);
+    const bool verticalEntry = std::abs(entryMode) <= 1.0e-6;
+    const bool helicalEntry = std::abs(entryMode - 1.0) <= 1.0e-6;
+    if (!verticalEntry && !helicalEntry) {
+        res.errorMsg = QObject::tr("型腔下刀方式无效，请重新选择垂直下刀或螺旋下刀。");
+        return res;
+    }
+
     if (axial <= 0.0 || radial <= 0.0) {
         res.errorMsg = QObject::tr("每层切深和行距必须大于零。");
         return res;
     }
 
-    const double usableSize = feature.radius - tool.diameter / 2.0 - stock;
-    if (usableSize <= 0.0) {
+    const bool circularPocket = isCircularPocket(feature);
+    const double toolRadius = tool.diameter * 0.5;
+    double usableHalfLength = feature.radius - toolRadius - stock;
+    double usableHalfWidth = usableHalfLength;
+    if (!circularPocket && feature.length > 0.0 && feature.width > 0.0) {
+        usableHalfLength = feature.length * 0.5 - toolRadius - stock;
+        usableHalfWidth = feature.width * 0.5 - toolRadius - stock;
+    }
+    if (usableHalfLength <= 0.0 || usableHalfWidth <= 0.0) {
         res.errorMsg = QObject::tr("型腔尺寸小于刀具直径和留量，无法开粗。");
         return res;
     }
 
-    const double maxHelixRadius = std::max(0.0, usableSize - tool.diameter * 0.25);
-    helixRadius = std::max(0.0, std::min(helixRadius, maxHelixRadius));
-    if (helixRadius > 1.0e-6 && helixPitch <= 0.0) {
-        helixPitch = std::min(axial * 0.5, tool.diameter * 0.15);
+    const double limitingHalfSize = std::min(usableHalfLength, usableHalfWidth);
+    if (helicalEntry) {
+        if (helixRadius <= 0.0 || helixPitch <= 0.0) {
+            res.errorMsg = QObject::tr("螺旋下刀半径和节距必须由操作员设置为大于零的数值。");
+            return res;
+        }
+        if (helixRadius > limitingHalfSize + 1.0e-6) {
+            res.errorMsg = QObject::tr("螺旋下刀超出扣除刀具半径和余量后的型腔边界。");
+            return res;
+        }
+    } else {
+        helixRadius = 0.0;
+        helixPitch = 0.0;
     }
 
     QVector<ScanLine> rows;
-    const double step = std::min(radial, usableSize * 2.0);
-    if (isCircularPocket(feature)) {
-        appendCircularRows(rows, cx, cy, usableSize, step);
+    const double step = std::min(radial, usableHalfWidth * 2.0);
+    if (circularPocket) {
+        appendCircularRows(rows, cx, cy, usableHalfLength, step);
     } else {
-        appendRectangularRows(rows, cx, cy, usableSize, step);
+        appendRectangularRows(rows, cx, cy, usableHalfLength, usableHalfWidth, step);
     }
     if (rows.isEmpty()) {
         res.errorMsg = QObject::tr("无法生成型腔行切路径。");
         return res;
     }
+    const double angleRad = circularPocket
+        ? 0.0
+        : feature.angle * std::acos(-1.0) / 180.0;
+    const double cosAngle = std::cos(angleRad);
+    const double sinAngle = std::sin(angleRad);
+    auto mapPocketPoint = [=](double x, double y) {
+        const double localX = x - cx;
+        const double localY = y - cy;
+        return QVector3D(float(cx + localX * cosAngle - localY * sinAngle),
+                         float(cy + localX * sinAngle + localY * cosAngle),
+                         0.0f);
+    };
 
     const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
 
@@ -156,16 +197,19 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
     gc += QStringLiteral("T%1 M6\n").arg(tool.id);
     gc += QStringLiteral("S%1 M3\n").arg(int(S));
     gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+    gc += helicalEntry
+        ? QStringLiteral("; POCKET ENTRY: HELICAL\n")
+        : QStringLiteral("; POCKET ENTRY: VERTICAL\n");
 
     double totalLen = 0.0;
     for (int layer = 1; layer <= zLayers; ++layer) {
         const double zLayer = ztop - std::min(layer * axial, feature.depth);
         bool leftToRight = true;
-        double currentX = rows.first().xMin;
-        double currentY = rows.first().y;
+        double currentX = cx;
+        double currentY = cy;
 
         gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
-        if (helixRadius > 1.0e-6 && helixPitch > 1.0e-6) {
+        if (helicalEntry) {
             currentX = cx + helixRadius;
             currentY = cy;
             gc += QStringLiteral("G0 X%1 Y%2\n")
@@ -188,25 +232,31 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
             currentY = cy;
         } else {
             gc += QStringLiteral("G0 X%1 Y%2\n")
-                      .arg(currentX, 0, 'f', 3)
-                      .arg(currentY, 0, 'f', 3);
+                      .arg(cx, 0, 'f', 3)
+                      .arg(cy, 0, 'f', 3);
             gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(Fp));
         }
 
         for (int i = 0; i < rows.size(); ++i) {
             const ScanLine &row = rows.at(i);
-            const double startX = leftToRight ? row.xMin : row.xMax;
-            const double endX   = leftToRight ? row.xMax : row.xMin;
+            const QVector3D startPoint = mapPocketPoint(
+                leftToRight ? row.xMin : row.xMax, row.y);
+            const QVector3D endPoint = mapPocketPoint(
+                leftToRight ? row.xMax : row.xMin, row.y);
+            const double startX = startPoint.x();
+            const double startY = startPoint.y();
+            const double endX = endPoint.x();
+            const double endY = endPoint.y();
 
-            if (std::abs(currentX - startX) > 0.001 || std::abs(currentY - row.y) > 0.001) {
-                gc += cutMove(startX, row.y, F);
-                totalLen += distance2D(currentX, currentY, startX, row.y);
+            if (std::abs(currentX - startX) > 0.001 || std::abs(currentY - startY) > 0.001) {
+                gc += cutMove(startX, startY, F);
+                totalLen += distance2D(currentX, currentY, startX, startY);
             }
 
-            gc += cutMove(endX, row.y, F);
-            totalLen += std::abs(endX - startX);
+            gc += cutMove(endX, endY, F);
+            totalLen += distance2D(startX, startY, endX, endY);
             currentX = endX;
-            currentY = row.y;
+            currentY = endY;
             leftToRight = !leftToRight;
         }
     }

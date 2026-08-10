@@ -15,6 +15,7 @@
 #include "mill/OpenContourMillingStrategy.h"
 #include "mill/SlotMillingStrategy.h"
 #include "mill/BlindSlotMillingStrategy.h"
+#include "mill/TaperedSlotMillingStrategy.h"
 
 StrategyFactory::StrategyFactory()
 {
@@ -60,4 +61,5 @@ void StrategyFactory::registerDefaults()
     registerStrategy(std::make_shared<OpenContourMillingStrategy>());
     registerStrategy(std::make_shared<SlotMillingStrategy>());
     registerStrategy(std::make_shared<BlindSlotMillingStrategy>());
+    registerStrategy(std::make_shared<TaperedSlotMillingStrategy>());
 }

@@ -276,18 +276,6 @@ SlotMachiningGeometry buildSlotMachiningGeometry(const ContourFeature &feature,
     if (rawEndSlopeLen > 1.0e-6) {
         rawEndSlopeLen += rampCenterComp;
     }
-    if (rawStartSlopeLen <= 1.0e-6 && rawEndSlopeLen <= 1.0e-6) {
-        // Fallback for incomplete feature association: keep a conservative
-        // entry ramp instead of vertical plunging into an open slot.
-        const double fallbackSlopeLen = std::min(geometry.fullLength * 0.25,
-                                                 std::max(geometry.depth, tool.diameter * 0.5));
-        if (geometry.openSign < 0.0) {
-            rawStartSlopeLen = fallbackSlopeLen;
-        } else {
-            rawEndSlopeLen = fallbackSlopeLen;
-        }
-    }
-
     const double availableLength = std::max(0.0, geometry.roughMaxU - geometry.roughMinU);
     geometry.slopeStartLength = std::min(rawStartSlopeLen, availableLength);
     geometry.slopeEndLength = std::min(rawEndSlopeLen,

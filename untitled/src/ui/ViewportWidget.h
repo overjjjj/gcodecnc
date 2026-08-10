@@ -22,6 +22,10 @@ public:
     void setToolDiameter(double diameter);
     void setToolModelPath(const QString &path);
     void clearToolPath();
+    void setContourChoicePreview(const QVector<QVector3D> &points,
+                                 bool closed,
+                                 int cutterSide);
+    void clearContourChoicePreview();
 
 protected:
     void initializeGL()  override;
@@ -43,6 +47,7 @@ private:
     void drawAxes();
     void drawToolPath();
     void drawToolMarker();
+    void drawContourChoicePreview();
     int pickFaceAt(const QPoint &pos, QVector3D *hitPoint = nullptr) const;
 
     MeshData   m_mesh;
@@ -57,6 +62,9 @@ private:
     float              m_toolDiameter = 6.0f;
     MeshData           m_toolModel;
     QString            m_toolModelPath;
+    QVector<QVector3D> m_contourChoicePoints;
+    bool               m_contourChoiceClosed = false;
+    int                m_contourChoiceSide = 1;
 
     float m_rotX   = 30.0f;
     float m_rotZ   = -45.0f;

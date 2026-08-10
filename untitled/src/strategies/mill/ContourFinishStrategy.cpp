@@ -128,14 +128,21 @@ ToolpathResult ContourFinishStrategy::generate(const ContourFeature &feature,
             gc += rapidXY(leadX, leadY);
             gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
             gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(Fp));
-            gc += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
-            gc += feedXY(entryX, entryY, F);
+            gc += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                      .arg(compCode)
+                      .arg(tool.id)
+                      .arg(entryX, 0, 'f', 3)
+                      .arg(entryY, 0, 'f', 3)
+                      .arg(int(F));
             gc += QStringLiteral("G2 X%1 Y%2 I%3 J0.000 F%4\n")
                       .arg(entryX, 0, 'f', 3)
                       .arg(entryY, 0, 'f', 3)
                       .arg(cx - entryX, 0, 'f', 3)
                       .arg(int(F));
-            gc += feedXY(leadX, leadY, F);
+            gc += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                      .arg(leadX, 0, 'f', 3)
+                      .arg(leadY, 0, 'f', 3)
+                      .arg(int(F));
             totalLen += 2.0 * std::acos(-1.0) * r + lead * 2.0;
         } else {
             const QVector3D first = feature.points.first();
@@ -147,8 +154,12 @@ ToolpathResult ContourFinishStrategy::generate(const ContourFeature &feature,
             gc += rapidXY(leadX, leadY);
             gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
             gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(Fp));
-            gc += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
-            gc += feedXY(first.x(), first.y(), F);
+            gc += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                      .arg(compCode)
+                      .arg(tool.id)
+                      .arg(first.x(), 0, 'f', 3)
+                      .arg(first.y(), 0, 'f', 3)
+                      .arg(int(F));
             totalLen += lead;
 
             QVector3D prev = first;
@@ -162,11 +173,13 @@ ToolpathResult ContourFinishStrategy::generate(const ContourFeature &feature,
                 gc += feedXY(first.x(), first.y(), F);
                 totalLen += distance2D(prev.x(), prev.y(), first.x(), first.y());
             }
-            gc += feedXY(leadX, leadY, F);
+            gc += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                      .arg(leadX, 0, 'f', 3)
+                      .arg(leadY, 0, 'f', 3)
+                      .arg(int(F));
             totalLen += lead;
         }
 
-        gc += QStringLiteral("G40\n");
         gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
     }
 

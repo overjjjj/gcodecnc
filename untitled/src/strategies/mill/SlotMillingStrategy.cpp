@@ -137,6 +137,16 @@ static bool validateOpenSlotRoughOffsets(const SlotMachiningGeometry &geometry,
     return true;
 }
 
+static void appendOpenSlotEntryPlunge(QString &gcode,
+                                      const SlotMachiningGeometry &geometry,
+                                      double targetU,
+                                      double targetV,
+                                      double targetZ,
+                                      double feedHeight,
+                                      double plungeRate,
+                                      double leadLength,
+                                      double &totalLength);
+
 static bool appendOpenSlotRoughLayer(QString &gcode,
                                      const SlotMachiningGeometry &geometry,
                                      const std::vector<double> &offsets,
@@ -146,6 +156,7 @@ static bool appendOpenSlotRoughLayer(QString &gcode,
                                      double feedHeight,
                                      double feedRate,
                                      double plungeRate,
+                                     double leadLength,
                                      double &totalLength,
                                      QString &errorMsg)
 {
@@ -184,9 +195,15 @@ static bool appendOpenSlotRoughLayer(QString &gcode,
         slotLocalToWorld(geometry, lineEndU, v, x1, y1);
 
         if (firstLine) {
-            gcode += rapidXY(x0, y0);
-            gcode += QStringLiteral("G0 Z%1\n").arg(geometry.zTop + feedHeight, 0, 'f', 3);
-            gcode += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plungeRate));
+            appendOpenSlotEntryPlunge(gcode,
+                                      geometry,
+                                      lineStartU,
+                                      v,
+                                      zLayer,
+                                      feedHeight,
+                                      plungeRate,
+                                      leadLength,
+                                      totalLength);
             firstLine = false;
         } else {
             gcode += feedXY(x0, y0, feedRate);
@@ -202,6 +219,40 @@ static bool appendOpenSlotRoughLayer(QString &gcode,
     return true;
 }
 
+static void appendOpenSlotEntryPlunge(QString &gcode,
+                                      const SlotMachiningGeometry &geometry,
+                                      double targetU,
+                                      double targetV,
+                                      double targetZ,
+                                      double feedHeight,
+                                      double plungeRate,
+                                      double leadLength,
+                                      double &totalLength)
+{
+    const double cutDir = geometry.openSign < 0.0 ? 1.0 : -1.0;
+    const double startU = targetU - cutDir * std::max(leadLength, 0.0);
+    double startX = 0.0;
+    double startY = 0.0;
+    double endX = 0.0;
+    double endY = 0.0;
+    slotLocalToWorld(geometry, startU, targetV, startX, startY);
+    slotLocalToWorld(geometry, targetU, targetV, endX, endY);
+
+    gcode += QStringLiteral("G0 Z%1\n").arg(geometry.zTop + feedHeight, 0, 'f', 3);
+    gcode += rapidXY(startX, startY);
+    gcode += QStringLiteral("G1 Z%1 F%2\n").arg(geometry.zTop, 0, 'f', 3).arg(int(plungeRate));
+    if (std::abs(startU - targetU) > 0.05 && targetZ < geometry.zTop - 1.0e-6) {
+        gcode += QStringLiteral("; Open slot entry ramp from open side\n");
+        gcode += feedXYZ(endX, endY, targetZ, plungeRate);
+        const double du = targetU - startU;
+        const double dz = targetZ - geometry.zTop;
+        totalLength += std::sqrt(du * du + dz * dz);
+    } else {
+        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(targetZ, 0, 'f', 3).arg(int(plungeRate));
+        totalLength += std::abs(targetZ - geometry.zTop);
+    }
+}
+
 static void appendOpenSlotBottomFinish(QString &gcode,
                                        const SlotMachiningGeometry &geometry,
                                        double zLayer,
@@ -211,6 +262,7 @@ static void appendOpenSlotBottomFinish(QString &gcode,
                                        double feedRate,
                                        double plungeRate,
                                        double toolDiameter,
+                                       double leadLength,
                                        double &totalLength)
 {
     const double startU = geometry.bottomStartU;
@@ -234,9 +286,15 @@ static void appendOpenSlotBottomFinish(QString &gcode,
         slotLocalToWorld(geometry, lineEndU, v, x1, y1);
 
         if (firstLine) {
-            gcode += rapidXY(x0, y0);
-            gcode += QStringLiteral("G0 Z%1\n").arg(geometry.zTop + feedHeight, 0, 'f', 3);
-            gcode += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plungeRate));
+            appendOpenSlotEntryPlunge(gcode,
+                                      geometry,
+                                      lineStartU,
+                                      v,
+                                      zLayer,
+                                      feedHeight,
+                                      plungeRate,
+                                      leadLength,
+                                      totalLength);
             firstLine = false;
         } else {
             gcode += feedXY(x0, y0, feedRate);
@@ -527,6 +585,7 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
     QString gcode;
     gcode += QStringLiteral("T%1 M6\n").arg(tool.id);
     gcode += QStringLiteral("S%1 M3\n").arg(int(spindleSpeed));
+    gcode += QStringLiteral("M8\n");
     gcode += QStringLiteral("; Open slot geometry: L=%1 W=%2 D=%3 A=%4\n")
                  .arg(geometry.fullLength, 0, 'f', 3)
                  .arg(geometry.fullWidth, 0, 'f', 3)
@@ -562,6 +621,7 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
                                           feedH,
                                           feedRate,
                                           plungeRate,
+                                          leadLength,
                                           totalLength,
                                           roughError)) {
                 res.errorMsg = roughError.isEmpty()
@@ -585,6 +645,7 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
                                    feedRate,
                                    plungeRate,
                                    tool.diameter,
+                                   leadLength,
                                    totalLength);
 
         appendOpenSlotSlopeFinish(gcode,
@@ -616,14 +677,17 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
         slotLocalToWorld(geometry, leadStartU, -finishWallV, leadX, leadY);
 
         gcode += QStringLiteral("; Open slot side wall finish\n");
-        gcode += rapidXY(leadX, leadY);
-        gcode += QStringLiteral("G0 Z%1\n").arg(geometry.zTop + feedH, 0, 'f', 3);
-        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plungeRate));
+        appendOpenSlotEntryPlunge(gcode,
+                                  geometry,
+                                  openU,
+                                  -finishWallV,
+                                  zLayer,
+                                  feedH,
+                                  plungeRate,
+                                  std::abs(openU - leadStartU),
+                                  totalLength);
         if (camOffset) {
             gcode += QStringLiteral("G40\n");
-        } else {
-            const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
-            gcode += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
         }
 
         const struct { double u; double v; } points[5] = {
@@ -633,17 +697,35 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
             {openU,  finishWallV},
             {leadStartU, finishWallV}
         };
-        for (const auto &pt : points) {
+        for (int pointIndex = 0; pointIndex < 5; ++pointIndex) {
+            const auto &pt = points[pointIndex];
             double x = 0.0;
             double y = 0.0;
             slotLocalToWorld(geometry, pt.u, pt.v, x, y);
-            gcode += feedXY(x, y, feedRate);
+            if (!camOffset && pointIndex == 0) {
+                const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
+                gcode += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                             .arg(compCode)
+                             .arg(tool.id)
+                             .arg(x, 0, 'f', 3)
+                             .arg(y, 0, 'f', 3)
+                             .arg(int(feedRate));
+            } else if (!camOffset && pointIndex == 4) {
+                gcode += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                             .arg(x, 0, 'f', 3)
+                             .arg(y, 0, 'f', 3)
+                             .arg(int(feedRate));
+            } else {
+                gcode += feedXY(x, y, feedRate);
+            }
         }
         totalLength += 2.0 * std::abs(closedU - openU) +
                        2.0 * finishWallV +
-                       2.0 * leadLength;
+                       leadLength;
 
-        gcode += QStringLiteral("G40\n");
+        if (camOffset) {
+            gcode += QStringLiteral("G40\n");
+        }
         gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
     }
 

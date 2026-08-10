@@ -60,6 +60,8 @@ struct MachiningFeature {
     double    angle = 0.0;       // slot/feature orientation in XY plane (degrees, 0=X axis)
     FaceRegion region = FaceRegion::Unknown;
     QVector<int> faceIndices;
+    QVector<QVector3D> boundaryPoints; // recognized outer boundary for pocket-like features
+    QVector<QVector<QVector3D>> islandBoundaries; // inner loops that must remain uncut
 };
 
 using HoleFeature = MachiningFeature;
@@ -78,7 +80,9 @@ struct ContourFeature {
     double    slopeMinWidth = 0.0;     // side slope/chamfer length at local -V side
     double    slopeMaxWidth = 0.0;     // side slope/chamfer length at local +V side
     QVector3D axis    = {0, 0, 1}; // normal of the contour plane
+    FaceRegion region = FaceRegion::Unknown;
     QVector<QVector3D> points;     // for arbitrary contour subtypes
+    QVector<QVector<QVector3D>> islands; // closed inner loops that must remain uncut
 };
 
 #ifdef CNEXT_ENABLE_OCC

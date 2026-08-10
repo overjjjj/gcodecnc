@@ -22,13 +22,28 @@ SOURCES += \
     main.cpp \
     src/core/AppController.cpp \
     src/core/ProjectManager.cpp \
+    src/core/SourceFileFingerprint.cpp \
+    src/core/SetupOrientation.cpp \
+    src/core/SetupOrigin.cpp \
+    src/core/StockDefinition.cpp \
+    src/core/MachineProfileValidator.cpp \
     src/core/Settings.cpp \
     src/ui/MainWindow.cpp \
     src/ui/ViewportWidget.cpp \
     src/ui/StrategyPanel.cpp \
+    src/ui/ParameterEditorDialog.cpp \
+    src/ui/MachineProfileDialog.cpp \
     src/ui/CircleMillDialog.cpp \
     src/ui/MillingOperationDialog.cpp \
     src/ui/ToolLibraryPanel.cpp \
+    src/ui/FeatureDisplayFilter.cpp \
+    src/ui/ContourMachiningChoice.cpp \
+    src/ui/ContourMachiningChoiceDialog.cpp \
+    src/ui/ToolOperationCompatibility.cpp \
+    src/ui/ContourFeatureGrouping.cpp \
+    src/ui/HoleFeatureGrouping.cpp \
+    src/ui/SetupOriginDialog.cpp \
+    src/ui/StockDefinitionDialog.cpp \
     src/ui/FeatureListPanel.cpp \
     src/ui/BottomBar.cpp \
     src/ui/GCodeEditor.cpp \
@@ -56,12 +71,20 @@ SOURCES += \
     src/strategies/mill/SlotMachiningGeometry.cpp \
     src/strategies/mill/SlotMillingStrategy.cpp \
     src/strategies/mill/BlindSlotMillingStrategy.cpp \
+    src/strategies/mill/TaperedSlotMillingStrategy.cpp \
     src/strategies/StrategyBase.cpp \
     src/strategies/StrategyFactory.cpp \
+    src/strategies/OperationProposal.cpp \
     src/postprocessor/PostProcessorBase.cpp \
     src/postprocessor/SiemensPostProcessor.cpp \
     src/postprocessor/FanucPostProcessor.cpp \
     src/postprocessor/PostProcessorRegistry.cpp \
+    src/gcode/GCodeSafetyValidator.cpp \
+    src/gcode/ProgramPackageExporter.cpp \
+    src/gcode/SiemensProgramPackage.cpp \
+    src/gcode/ProgramSnapshotFingerprint.cpp \
+    src/gcode/ProgramSnapshotStatus.cpp \
+    src/services/ProgramGenerationService.cpp \
     src/simulation/SimulationController.cpp \
     src/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
@@ -69,14 +92,30 @@ SOURCES += \
 
 HEADERS += \
     src/core/AppController.h \
+    src/core/MachineProfile.h \
+    src/core/MachineProfileValidator.h \
     src/core/ProjectManager.h \
+    src/core/SourceFileFingerprint.h \
+    src/core/SetupOrientation.h \
+    src/core/SetupOrigin.h \
+    src/core/StockDefinition.h \
     src/core/Settings.h \
     src/ui/MainWindow.h \
     src/ui/ViewportWidget.h \
     src/ui/StrategyPanel.h \
+    src/ui/ParameterEditorDialog.h \
+    src/ui/MachineProfileDialog.h \
     src/ui/CircleMillDialog.h \
     src/ui/MillingOperationDialog.h \
     src/ui/ToolLibraryPanel.h \
+    src/ui/FeatureDisplayFilter.h \
+    src/ui/ContourMachiningChoice.h \
+    src/ui/ContourMachiningChoiceDialog.h \
+    src/ui/ToolOperationCompatibility.h \
+    src/ui/ContourFeatureGrouping.h \
+    src/ui/HoleFeatureGrouping.h \
+    src/ui/SetupOriginDialog.h \
+    src/ui/StockDefinitionDialog.h \
     src/ui/FeatureListPanel.h \
     src/ui/BottomBar.h \
     src/ui/GCodeEditor.h \
@@ -104,13 +143,21 @@ HEADERS += \
     src/strategies/mill/SlotMachiningGeometry.h \
     src/strategies/mill/SlotMillingStrategy.h \
     src/strategies/mill/BlindSlotMillingStrategy.h \
+    src/strategies/mill/TaperedSlotMillingStrategy.h \
     src/strategies/StrategyBase.h \
     src/strategies/StrategyFactory.h \
     src/strategies/MachiningOperation.h \
+    src/strategies/OperationProposal.h \
     src/postprocessor/PostProcessorBase.h \
     src/postprocessor/SiemensPostProcessor.h \
     src/postprocessor/FanucPostProcessor.h \
     src/postprocessor/PostProcessorRegistry.h \
+    src/gcode/GCodeSafetyValidator.h \
+    src/gcode/ProgramPackageExporter.h \
+    src/gcode/SiemensProgramPackage.h \
+    src/gcode/ProgramSnapshotFingerprint.h \
+    src/gcode/ProgramSnapshotStatus.h \
+    src/services/ProgramGenerationService.h \
     src/simulation/SimulationController.h \
     src/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \

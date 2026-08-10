@@ -129,15 +129,11 @@ QString FanucPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
     // Fanuc program start: % delimiter + O-number
     out += "%\n";
     out += QString("%1\n").arg(opts.programNumber);
-    out += "G17 G40 G49 G80\n";
-    if (opts.useAbsoluteCoords)
-        out += "G90\n";
-    else
-        out += "G91\n";
-    if (!opts.workOffset.trimmed().isEmpty()) {
-        out += opts.workOffset.trimmed() + QStringLiteral("\n");
+    for (const QString &block : resolvedSafeStartBlocks(opts)) {
+        if (!block.trimmed().isEmpty()) {
+            out += block.trimmed() + QStringLiteral("\n");
+        }
     }
-    out += "G94\n";
     out += "\n";
 
     bool activeCycle = false;
@@ -183,8 +179,10 @@ QString FanucPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
 
         closeCycle();
         if (trimmed.startsWith(QStringLiteral("T")) && trimmed.contains(QStringLiteral("M6"))) {
-            if (seenToolChange)
+            if (seenToolChange) {
                 out += QStringLiteral("M5\n");
+                out += QStringLiteral("M9\n");
+            }
             seenToolChange = true;
         }
         out += trimmed + "\n";

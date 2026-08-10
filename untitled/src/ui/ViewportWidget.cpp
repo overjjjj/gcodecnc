@@ -302,6 +302,7 @@ void ViewportWidget::paintGL()
     drawGrid();
     drawAxes();
     drawMesh();
+    drawContourChoicePreview();
     drawToolPath();
     drawToolMarker();
 }
@@ -507,6 +508,89 @@ void ViewportWidget::clearToolPath()
     m_toolPathRapidSegments.clear();
     m_hasToolPos = false;
     update();
+}
+
+void ViewportWidget::setContourChoicePreview(const QVector<QVector3D> &points,
+                                              bool closed,
+                                              int cutterSide)
+{
+    m_contourChoicePoints = points;
+    m_contourChoiceClosed = closed;
+    m_contourChoiceSide = cutterSide;
+    update();
+}
+
+void ViewportWidget::clearContourChoicePreview()
+{
+    if (m_contourChoicePoints.isEmpty()) {
+        return;
+    }
+    m_contourChoicePoints.clear();
+    update();
+}
+
+void ViewportWidget::drawContourChoicePreview()
+{
+    if (m_contourChoicePoints.size() < 2) {
+        return;
+    }
+
+    glDisable(GL_DEPTH_TEST);
+    glLineWidth(3.0f);
+    glColor4f(0.1f, 0.85f, 1.0f, 0.95f);
+    glBegin(GL_LINE_STRIP);
+    for (const QVector3D &point : m_contourChoicePoints) {
+        glVertex3f(point.x(), point.y(), point.z());
+    }
+    if (m_contourChoiceClosed) {
+        const QVector3D &first = m_contourChoicePoints.first();
+        glVertex3f(first.x(), first.y(), first.z());
+    }
+    glEnd();
+
+    const QVector3D start = m_contourChoicePoints.at(0);
+    const QVector3D next = m_contourChoicePoints.at(1);
+    QVector3D direction(next.x() - start.x(), next.y() - start.y(), 0.0f);
+    const float segmentLength = direction.length();
+    if (segmentLength > 1.0e-5f) {
+        direction /= segmentLength;
+        const QVector3D left(-direction.y(), direction.x(), 0.0f);
+        const float arrowLength = qBound(1.5f, segmentLength * 0.25f, 8.0f);
+        const QVector3D tip = start + direction * qMin(segmentLength * 0.65f, arrowLength * 2.0f);
+        const QVector3D wingBase = tip - direction * arrowLength * 0.55f;
+
+        glColor4f(1.0f, 0.85f, 0.1f, 1.0f);
+        glLineWidth(3.5f);
+        glBegin(GL_LINES);
+        glVertex3f(start.x(), start.y(), start.z());
+        glVertex3f(tip.x(), tip.y(), tip.z());
+        const QVector3D wingA = wingBase + left * arrowLength * 0.35f;
+        const QVector3D wingB = wingBase - left * arrowLength * 0.35f;
+        glVertex3f(tip.x(), tip.y(), tip.z());
+        glVertex3f(wingA.x(), wingA.y(), wingA.z());
+        glVertex3f(tip.x(), tip.y(), tip.z());
+        glVertex3f(wingB.x(), wingB.y(), wingB.z());
+        glEnd();
+
+        const float sideSign = m_contourChoiceSide < 0 ? -1.0f : 1.0f;
+        const QVector3D midpoint = (start + next) * 0.5f;
+        const QVector3D sideTip = midpoint + left * (arrowLength * sideSign);
+        glColor4f(1.0f, 0.45f, 0.1f, 1.0f);
+        glLineWidth(2.5f);
+        glBegin(GL_LINES);
+        glVertex3f(midpoint.x(), midpoint.y(), midpoint.z());
+        glVertex3f(sideTip.x(), sideTip.y(), sideTip.z());
+        glEnd();
+    }
+
+    glPointSize(10.0f);
+    glColor4f(1.0f, 0.9f, 0.15f, 1.0f);
+    glBegin(GL_POINTS);
+    glVertex3f(start.x(), start.y(), start.z());
+    glEnd();
+    glPointSize(1.0f);
+    glLineWidth(1.0f);
+    glEnable(GL_DEPTH_TEST);
 }
 
 void ViewportWidget::drawToolPath()

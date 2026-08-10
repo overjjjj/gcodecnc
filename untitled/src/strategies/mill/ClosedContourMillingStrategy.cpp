@@ -200,12 +200,17 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
         if (camOffset) {
             // CAM-side offset: path already shifted, no machine compensation.
             gc += QStringLiteral("G40\n");
+            gc += feedXY(first.x(), first.y(), F);
         } else {
             // Machine-side compensation: G41 (left) or G42 (right).
             const QString compCode = comp > 0.0 ? QStringLiteral("G41") : QStringLiteral("G42");
-            gc += QStringLiteral("%1 D%2\n").arg(compCode).arg(tool.id);
+            gc += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
+                      .arg(compCode)
+                      .arg(tool.id)
+                      .arg(first.x(), 0, 'f', 3)
+                      .arg(first.y(), 0, 'f', 3)
+                      .arg(int(F));
         }
-        gc += feedXY(first.x(), first.y(), F);
         totalLen += lead;
 
         // Traverse polygon vertices.
@@ -222,10 +227,17 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
         totalLen += dist2D(prev.x(), prev.y(), first.x(), first.y());
 
         // Lead-out along same approach direction, then cancel compensation.
-        gc += feedXY(leadX, leadY, F);
+        if (camOffset) {
+            gc += feedXY(leadX, leadY, F);
+            gc += QStringLiteral("G40\n");
+        } else {
+            gc += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
+                      .arg(leadX, 0, 'f', 3)
+                      .arg(leadY, 0, 'f', 3)
+                      .arg(int(F));
+        }
         totalLen += lead;
 
-        gc += QStringLiteral("G40\n");
         gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
     }
 
