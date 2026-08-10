@@ -17,6 +17,10 @@ struct Interval {
     double max = 0.0;
 };
 
+struct ScanChain {
+    QVector<ScanLine> rows;
+};
+
 static double cross2D(const QVector3D &a, const QVector3D &b, const QVector3D &c)
 {
     return (double(b.x()) - a.x()) * (double(c.y()) - a.y())
@@ -267,6 +271,65 @@ static QVector<Interval> safeIntervalsAtY(
     return subtractIntervals(allowed, removed);
 }
 
+static bool hasTopologyVertexBetween(
+    const QVector<QVector3D> &outer,
+    const QVector<QVector<QVector3D>> &islands,
+    double firstY,
+    double secondY)
+{
+    const double minY = std::min(firstY, secondY) + 1.0e-7;
+    const double maxY = std::max(firstY, secondY) - 1.0e-7;
+    auto loopHasVertex = [=](const QVector<QVector3D> &loop) {
+        for (const QVector3D &point : loop) {
+            if (point.y() > minY && point.y() < maxY) {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (loopHasVertex(outer)) {
+        return true;
+    }
+    for (const QVector<QVector3D> &island : islands) {
+        if (loopHasVertex(island)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static QVector<ScanChain> safeScanChains(
+    const QVector<ScanLine> &rows,
+    const QVector<QVector3D> &outer,
+    const QVector<QVector<QVector3D>> &islands,
+    double maximumRowGap)
+{
+    QVector<ScanChain> chains;
+    for (const ScanLine &row : rows) {
+        int matchingChain = -1;
+        for (int index = 0; index < chains.size(); ++index) {
+            const ScanLine &previous = chains.at(index).rows.last();
+            const bool consecutive = row.y > previous.y + 1.0e-7
+                && row.y - previous.y <= maximumRowGap + 0.001;
+            const bool sameRegion = std::abs(row.xMin - previous.xMin) <= 0.001
+                && std::abs(row.xMax - previous.xMax) <= 0.001;
+            if (consecutive && sameRegion
+                && !hasTopologyVertexBetween(outer, islands, previous.y, row.y)) {
+                matchingChain = index;
+                break;
+            }
+        }
+        if (matchingChain < 0) {
+            ScanChain chain;
+            chain.rows.push_back(row);
+            chains.push_back(chain);
+        } else {
+            chains[matchingChain].rows.push_back(row);
+        }
+    }
+    return chains;
+}
+
 static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
                                               const ToolEntry &tool,
                                               const StrategyParams &params)
@@ -348,6 +411,8 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
         res.errorMsg = QObject::tr("No safe clearing region remains after tool-radius and island clearance.");
         return res;
     }
+    const QVector<ScanChain> chains = safeScanChains(
+        rows, feature.points, feature.islands, radial);
 
     const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
     const double ztop = feature.center.z();
@@ -363,19 +428,35 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
     bool leftToRight = true;
     for (int layer = 1; layer <= zLayers; ++layer) {
         const double zLayer = ztop - std::min(layer * axial, feature.depth);
-        for (const ScanLine &row : rows) {
-            const double startX = leftToRight ? row.xMin : row.xMax;
-            const double endX = leftToRight ? row.xMax : row.xMin;
+        for (const ScanChain &chain : chains) {
+            const ScanLine &firstRow = chain.rows.first();
+            const double startX = leftToRight ? firstRow.xMin : firstRow.xMax;
             gc += QStringLiteral("G0 X%1 Y%2\n")
                       .arg(startX, 0, 'f', 3)
-                      .arg(row.y, 0, 'f', 3);
+                      .arg(firstRow.y, 0, 'f', 3);
             gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
             gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plunge));
-            gc += cutMove(endX, row.y, feed);
+            if (chain.rows.size() > 1) {
+                gc += QStringLiteral("; POCKET LINK: SAFE SAME-REGION\n");
+            }
+            for (int rowIndex = 0; rowIndex < chain.rows.size(); ++rowIndex) {
+                const ScanLine &row = chain.rows.at(rowIndex);
+                if (rowIndex > 0) {
+                    const double linkX = leftToRight ? row.xMin : row.xMax;
+                    gc += QStringLiteral("G1 X%1 Y%2 F%3\n")
+                              .arg(linkX, 0, 'f', 3)
+                              .arg(row.y, 0, 'f', 3)
+                              .arg(int(feed));
+                    totalLength += std::abs(
+                        row.y - chain.rows.at(rowIndex - 1).y);
+                }
+                const double endX = leftToRight ? row.xMax : row.xMin;
+                gc += cutMove(endX, row.y, feed);
+                totalLength += std::abs(endX - (leftToRight ? row.xMin : row.xMax));
+                leftToRight = !leftToRight;
+            }
             gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
-            totalLength += std::abs(endX - startX);
             ++plungeCount;
-            leftToRight = !leftToRight;
         }
     }
 

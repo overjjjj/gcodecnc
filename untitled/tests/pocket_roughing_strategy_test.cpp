@@ -53,7 +53,8 @@ QVector<CuttingSegment> horizontalCuttingSegments(const QString &gcode)
         }
         const double nextX = match.captured(2).toDouble();
         const double nextY = match.captured(3).toDouble();
-        if (match.captured(1) == QStringLiteral("G1")) {
+        if (match.captured(1) == QStringLiteral("G1") &&
+            std::abs(currentY - nextY) <= 0.001) {
             segments.push_back({currentX, currentY, nextX, nextY});
         }
         currentX = nextX;
@@ -210,6 +211,11 @@ int main(int argc, char **argv)
     require(foundSplitRow, "at least one scan row should be split around the island");
     require(minimumCutY <= 3.001 && maximumCutY >= 26.999,
             "irregular clearing should reach both effective outer-boundary sides");
+    require(irregularResult.gcode.contains(
+                QStringLiteral("; POCKET LINK: SAFE SAME-REGION")),
+            "equal adjacent safe regions should be linked without a repeated plunge");
+    require(irregularResult.gcode.count(QStringLiteral("G0 X")) < segments.size(),
+            "safe row linking should use fewer rapid entries than horizontal cutting rows");
     require(irregularResult.gcode.count(QStringLiteral("G0 Z50.000")) ==
                 irregularResult.gcode.count(QStringLiteral("G0 X")) + 1,
             "every irregular-pocket rapid XY transition must occur after a safe retract");
@@ -237,6 +243,22 @@ int main(int argc, char **argv)
     }};
     require(!strategy.generate(outsideIsland, irregularTool, irregularParams).ok,
             "islands outside the pocket boundary must be rejected");
+
+    ContourFeature concaveVertexBetweenRows = irregular;
+    concaveVertexBetweenRows.islands.clear();
+    concaveVertexBetweenRows.points = {
+        QVector3D(0, 0, 0), QVector3D(40, 0, 0), QVector3D(40, 30, 0),
+        QVector3D(0, 30, 0), QVector3D(0, 22, 0), QVector3D(8, 15, 0),
+        QVector3D(0, 8, 0)
+    };
+    StrategyParams wideRows = irregularParams;
+    wideRows.set(QStringLiteral("stepover"), 8.0);
+    const ToolpathResult concaveResult = strategy.generate(
+        concaveVertexBetweenRows, irregularTool, wideRows);
+    require(concaveResult.ok, "concave pocket should retain a valid segmented path");
+    require(!concaveResult.gcode.contains(
+                QStringLiteral("; POCKET LINK: SAFE SAME-REGION")),
+            "a topology vertex between adjacent rows must force a safe retract");
 
     QTextStream(stdout) << "PASS pocket_roughing_strategy_test" << Qt::endl;
     return 0;
