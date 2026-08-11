@@ -6,6 +6,7 @@
 #include "../strategies/StrategyBase.h"
 
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QSet>
 #include <QUuid>
 
@@ -72,6 +73,39 @@ QString operationBlock(int operationNumber,
     lines << QStringLiteral("; %1").arg(operationSummary(operation));
     lines << gcode.trimmed();
     return lines.join(QLatin1Char('\n'));
+}
+
+QString internalHoleCycleError(const QString &gcode)
+{
+    static const QRegularExpression codePattern(
+        QStringLiteral("(?:^|\\s)code=([^\\s]+)"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QSet<QString> supportedCodes{
+        QStringLiteral("G81"),
+        QStringLiteral("G82"),
+        QStringLiteral("G83"),
+        QStringLiteral("G84"),
+        QStringLiteral("G85")};
+
+    const QStringList lines = gcode.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QString trimmed = line.trimmed();
+        if (!trimmed.startsWith(QStringLiteral(";CNEXT_HOLE_CYCLE"))) {
+            continue;
+        }
+
+        const QRegularExpressionMatch match = codePattern.match(trimmed);
+        if (!match.hasMatch()) {
+            return QStringLiteral("CNEXT hole cycle marker is missing its code.");
+        }
+
+        const QString code = match.captured(1).toUpper();
+        if (!supportedCodes.contains(code)) {
+            return QStringLiteral("CNEXT hole cycle '%1' is not supported by the postprocessor.")
+                .arg(code);
+        }
+    }
+    return QString();
 }
 
 } // namespace
@@ -172,19 +206,26 @@ ProgramGenerationResult ProgramGenerationService::generate(
 
             const ToolpathResult result = strategy->generate(batch, tool, operation.params);
             if (result.ok && !result.gcode.trimmed().isEmpty()) {
-                QStringList batchOperationIds;
-                for (int batchIndex = index; batchIndex < next; ++batchIndex) {
-                    batchOperationIds << operations[batchIndex].id;
-                }
-                blocks << operationBlock(index + 1,
-                                         operation,
-                                         batchOperationIds,
-                                         result.gcode);
-                if (!result.parametricProgram.isEmpty()) {
-                    ParametricToolpathProgram parametricProgram =
-                        result.parametricProgram;
-                    parametricProgram.sourceOperationIds = batchOperationIds;
-                    parametricPrograms.append(parametricProgram);
+                const QString cycleError = internalHoleCycleError(result.gcode);
+                if (!cycleError.isEmpty()) {
+                    output.errors << QStringLiteral("Operation %1: %2")
+                                         .arg(index + 1)
+                                         .arg(cycleError);
+                } else {
+                    QStringList batchOperationIds;
+                    for (int batchIndex = index; batchIndex < next; ++batchIndex) {
+                        batchOperationIds << operations[batchIndex].id;
+                    }
+                    blocks << operationBlock(index + 1,
+                                             operation,
+                                             batchOperationIds,
+                                             result.gcode);
+                    if (!result.parametricProgram.isEmpty()) {
+                        ParametricToolpathProgram parametricProgram =
+                            result.parametricProgram;
+                        parametricProgram.sourceOperationIds = batchOperationIds;
+                        parametricPrograms.append(parametricProgram);
+                    }
                 }
             } else {
                 const QString reason = result.errorMsg.trimmed().isEmpty()

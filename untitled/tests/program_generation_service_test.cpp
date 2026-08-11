@@ -185,6 +185,47 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const ToolpathResult unsupportedCycleToolpath{
+        QStringLiteral("T1 M6\nS1200 M3\nM8\nG0 Z5\n"
+                       ";CNEXT_HOLE_CYCLE code=G86 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 f=100\n"
+                       "G0 Z5"),
+        true,
+        QString(),
+        1.0};
+    const auto unsupportedCycleStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("unsupported_cycle"), unsupportedCycleToolpath);
+    ProgramGenerationService unsupportedCycleService(
+        [unsupportedCycleStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == unsupportedCycleStrategy->id()
+                ? unsupportedCycleStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.diameter = 6.0;
+            }
+            return tool;
+        });
+    const MachiningOperation unsupportedCycleOperation =
+        holeOperation(QStringLiteral("op-unsupported-cycle"),
+                      QStringLiteral("unsupported_cycle"),
+                      1);
+    const ProgramGenerationResult unsupportedCycleFailure =
+        unsupportedCycleService.generate({unsupportedCycleOperation},
+                                         postProcessor,
+                                         options,
+                                         snapshotOptions);
+    if (!expect(!unsupportedCycleFailure.ok,
+                QStringLiteral("unsupported internal hole cycle must fail atomically")) ||
+        !expect(unsupportedCycleFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("unsupported cycle must not expose a partial snapshot")) ||
+        !expect(unsupportedCycleFailure.errors.join('\n').contains(QStringLiteral("G86")),
+                QStringLiteral("unsupported cycle error should name the rejected code"))) {
+        return 1;
+    }
+
     MachiningOperation unconfirmed = valid;
     unconfirmed.id.clear();
     const ProgramGenerationResult unconfirmedFailure =
