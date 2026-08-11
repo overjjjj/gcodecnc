@@ -102,6 +102,7 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
     bool hasImperialUnits = false;
     bool hasAbsolute = false;
     bool hasIncremental = false;
+    bool hasFeedPerRevolution = false;
     bool hasWorkOffset = false;
     bool hasToolChange = false;
     bool hasSpindleStart = false;
@@ -137,6 +138,7 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         hasImperialUnits = hasImperialUnits || containsWord(line, QStringLiteral("G20"));
         hasAbsolute = hasAbsolute || containsWord(line, QStringLiteral("G90"));
         hasIncremental = hasIncremental || containsWord(line, QStringLiteral("G91"));
+        hasFeedPerRevolution = hasFeedPerRevolution || containsWord(line, QStringLiteral("G95"));
         hasWorkOffset = hasWorkOffset || containsWorkOffset(line);
 
         const bool explicitRapid = containsWord(line, QStringLiteral("G0")) ||
@@ -341,6 +343,9 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
     }
     if (hasIncremental) {
         addError(report, QStringLiteral("Incremental coordinate mode G91 is not supported."));
+    }
+    if (hasFeedPerRevolution) {
+        addError(report, QStringLiteral("Feed-per-revolution mode G95 is not supported; use G94."));
     }
     if (!hasWorkOffset) {
         addError(report, QStringLiteral("Missing work offset G54-G59."));

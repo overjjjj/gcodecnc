@@ -71,6 +71,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString feedPerRevProgram = validProgram;
+    feedPerRevProgram.replace(QStringLiteral("M5\nM9\nM30\n"),
+                              QStringLiteral("G95\nM5\nM9\nM30\n"));
+    const GCodeSafetyReport feedPerRevReport = GCodeSafetyValidator::validate(feedPerRevProgram);
+    if (expect(!feedPerRevReport.ok, "G95 feed-per-revolution should fail in the first phase")) {
+        return 1;
+    }
+    if (expect(feedPerRevReport.messages.join('\n').contains(QStringLiteral("G95")),
+               "feed-per-revolution report should mention G95")) {
+        return 1;
+    }
+
     QString incrementalProgram = validProgram;
     incrementalProgram.replace(QStringLiteral("G90\n"), QStringLiteral("G90\nG91\n"));
     const GCodeSafetyReport incrementalReport =
