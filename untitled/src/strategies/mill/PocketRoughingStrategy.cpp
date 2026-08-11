@@ -330,6 +330,21 @@ static QVector<ScanChain> safeScanChains(
     return chains;
 }
 
+static QString expandParametricProgram(const ParametricToolpathProgram &program)
+{
+    QStringList lines = program.prefixLines;
+    for (const ParametricToolpathCall &call : program.calls) {
+        for (QString line : program.bodyTemplateLines) {
+            for (auto it = call.arguments.cbegin(); it != call.arguments.cend(); ++it) {
+                line.replace(QStringLiteral("${%1}").arg(it.key()), it.value());
+            }
+            lines.append(line);
+        }
+    }
+    lines.append(program.suffixLines);
+    return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
 static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
                                               const ToolEntry &tool,
                                               const StrategyParams &params)
@@ -416,54 +431,69 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
 
     const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
     const double ztop = feature.center.z();
-    QString gc;
-    gc += QStringLiteral("T%1 M6\n").arg(tool.id);
-    gc += QStringLiteral("S%1 M3\n").arg(int(spindle));
-    gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
-    gc += QStringLiteral("; POCKET REGION: IRREGULAR\n");
-    gc += QStringLiteral("; POCKET ENTRY: VERTICAL\n");
+    ParametricToolpathProgram program;
+    program.routineName = QStringLiteral("IRREGULAR_POCKET_LAYER");
+    program.parameterNames = QStringList{QStringLiteral("DEPTH_Z")};
+    program.prefixLines = QStringList{
+        QStringLiteral("T%1 M6").arg(tool.id),
+        QStringLiteral("S%1 M3").arg(int(spindle)),
+        QStringLiteral("G0 Z%1").arg(safe, 0, 'f', 3),
+        QStringLiteral("; POCKET REGION: IRREGULAR"),
+        QStringLiteral("; POCKET ENTRY: VERTICAL")
+    };
 
-    double totalLength = 0.0;
-    int plungeCount = 0;
+    double layerLength = 0.0;
     bool leftToRight = true;
+    for (const ScanChain &chain : chains) {
+        const ScanLine &firstRow = chain.rows.first();
+        const double startX = leftToRight ? firstRow.xMin : firstRow.xMax;
+        program.bodyTemplateLines.append(
+            QStringLiteral("G0 X%1 Y%2")
+                .arg(startX, 0, 'f', 3)
+                .arg(firstRow.y, 0, 'f', 3));
+        program.bodyTemplateLines.append(
+            QStringLiteral("G0 Z%1").arg(ztop + feedH, 0, 'f', 3));
+        program.bodyTemplateLines.append(
+            QStringLiteral("G1 Z${DEPTH_Z} F%1").arg(int(plunge)));
+        if (chain.rows.size() > 1) {
+            program.bodyTemplateLines.append(
+                QStringLiteral("; POCKET LINK: SAFE SAME-REGION"));
+        }
+        for (int rowIndex = 0; rowIndex < chain.rows.size(); ++rowIndex) {
+            const ScanLine &row = chain.rows.at(rowIndex);
+            if (rowIndex > 0) {
+                const double linkX = leftToRight ? row.xMin : row.xMax;
+                program.bodyTemplateLines.append(
+                    QStringLiteral("G1 X%1 Y%2 F%3")
+                        .arg(linkX, 0, 'f', 3)
+                        .arg(row.y, 0, 'f', 3)
+                        .arg(int(feed)));
+                layerLength += std::abs(
+                    row.y - chain.rows.at(rowIndex - 1).y);
+            }
+            const double endX = leftToRight ? row.xMax : row.xMin;
+            program.bodyTemplateLines.append(
+                cutMove(endX, row.y, feed).trimmed());
+            layerLength += std::abs(
+                endX - (leftToRight ? row.xMin : row.xMax));
+            leftToRight = !leftToRight;
+        }
+        program.bodyTemplateLines.append(
+            QStringLiteral("G0 Z%1").arg(safe, 0, 'f', 3));
+    }
     for (int layer = 1; layer <= zLayers; ++layer) {
         const double zLayer = ztop - std::min(layer * axial, feature.depth);
-        for (const ScanChain &chain : chains) {
-            const ScanLine &firstRow = chain.rows.first();
-            const double startX = leftToRight ? firstRow.xMin : firstRow.xMax;
-            gc += QStringLiteral("G0 X%1 Y%2\n")
-                      .arg(startX, 0, 'f', 3)
-                      .arg(firstRow.y, 0, 'f', 3);
-            gc += QStringLiteral("G0 Z%1\n").arg(ztop + feedH, 0, 'f', 3);
-            gc += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 3).arg(int(plunge));
-            if (chain.rows.size() > 1) {
-                gc += QStringLiteral("; POCKET LINK: SAFE SAME-REGION\n");
-            }
-            for (int rowIndex = 0; rowIndex < chain.rows.size(); ++rowIndex) {
-                const ScanLine &row = chain.rows.at(rowIndex);
-                if (rowIndex > 0) {
-                    const double linkX = leftToRight ? row.xMin : row.xMax;
-                    gc += QStringLiteral("G1 X%1 Y%2 F%3\n")
-                              .arg(linkX, 0, 'f', 3)
-                              .arg(row.y, 0, 'f', 3)
-                              .arg(int(feed));
-                    totalLength += std::abs(
-                        row.y - chain.rows.at(rowIndex - 1).y);
-                }
-                const double endX = leftToRight ? row.xMax : row.xMin;
-                gc += cutMove(endX, row.y, feed);
-                totalLength += std::abs(endX - (leftToRight ? row.xMin : row.xMax));
-                leftToRight = !leftToRight;
-            }
-            gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
-            ++plungeCount;
-        }
+        ParametricToolpathCall call;
+        call.arguments.insert(
+            QStringLiteral("DEPTH_Z"), QString::number(zLayer, 'f', 3));
+        program.calls.append(call);
     }
 
-    res.gcode = gc;
+    res.gcode = expandParametricProgram(program);
     res.ok = true;
-    res.estimatedTimeS = totalLength / feed * 60.0
-        + plungeCount * feature.depth / plunge * 60.0;
+    res.estimatedTimeS = layerLength * zLayers / feed * 60.0
+        + chains.size() * zLayers * feature.depth / plunge * 60.0;
+    res.parametricProgram = program;
     return res;
 }
 

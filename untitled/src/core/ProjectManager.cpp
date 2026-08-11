@@ -461,6 +461,71 @@ static OperationStage operationStageFromName(const QString &s)
     return OperationStage::RoughCut;
 }
 
+static QJsonArray serializeStringList(const QStringList &values)
+{
+    QJsonArray array;
+    for (const QString &value : values) {
+        array.append(value);
+    }
+    return array;
+}
+
+static QStringList deserializeStringList(const QJsonArray &array)
+{
+    QStringList values;
+    for (const QJsonValue &value : array) {
+        values.append(value.toString());
+    }
+    return values;
+}
+
+static QJsonObject serializeParametricProgram(
+    const ParametricToolpathProgram &program)
+{
+    QJsonObject obj;
+    obj["sourceOperationIds"] = serializeStringList(program.sourceOperationIds);
+    obj["routineName"] = program.routineName;
+    obj["parameterNames"] = serializeStringList(program.parameterNames);
+    obj["prefixLines"] = serializeStringList(program.prefixLines);
+    obj["bodyTemplateLines"] = serializeStringList(program.bodyTemplateLines);
+    obj["suffixLines"] = serializeStringList(program.suffixLines);
+    QJsonArray calls;
+    for (const ParametricToolpathCall &call : program.calls) {
+        QJsonObject arguments;
+        for (auto it = call.arguments.cbegin(); it != call.arguments.cend(); ++it) {
+            arguments[it.key()] = it.value();
+        }
+        QJsonObject callObject;
+        callObject["arguments"] = arguments;
+        calls.append(callObject);
+    }
+    obj["calls"] = calls;
+    return obj;
+}
+
+static ParametricToolpathProgram deserializeParametricProgram(
+    const QJsonObject &obj)
+{
+    ParametricToolpathProgram program;
+    program.sourceOperationIds = deserializeStringList(
+        obj["sourceOperationIds"].toArray());
+    program.routineName = obj["routineName"].toString();
+    program.parameterNames = deserializeStringList(obj["parameterNames"].toArray());
+    program.prefixLines = deserializeStringList(obj["prefixLines"].toArray());
+    program.bodyTemplateLines = deserializeStringList(
+        obj["bodyTemplateLines"].toArray());
+    program.suffixLines = deserializeStringList(obj["suffixLines"].toArray());
+    for (const QJsonValue &callValue : obj["calls"].toArray()) {
+        ParametricToolpathCall call;
+        const QJsonObject arguments = callValue.toObject()["arguments"].toObject();
+        for (auto it = arguments.constBegin(); it != arguments.constEnd(); ++it) {
+            call.arguments.insert(it.key(), it.value().toString());
+        }
+        program.calls.append(call);
+    }
+    return program;
+}
+
 static QJsonObject serializeProgramEntry(const ProgramEntry &program)
 {
     QJsonObject obj;
@@ -486,6 +551,12 @@ static QJsonObject serializeProgramEntry(const ProgramEntry &program)
         safeStartBlocks.append(block);
     }
     obj["safeStartBlocks"] = safeStartBlocks;
+    QJsonArray parametricPrograms;
+    for (const ParametricToolpathProgram &parametricProgram :
+         program.parametricPrograms) {
+        parametricPrograms.append(serializeParametricProgram(parametricProgram));
+    }
+    obj["parametricPrograms"] = parametricPrograms;
     if (!program.mainProgramFileName.isEmpty() || !program.packageFiles.isEmpty()) {
         QJsonObject package;
         package["mainProgramFileName"] = program.mainProgramFileName;
@@ -524,6 +595,10 @@ static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
     }
     for (const QJsonValue &value : obj["safeStartBlocks"].toArray()) {
         program.safeStartBlocks.append(value.toString());
+    }
+    for (const QJsonValue &value : obj["parametricPrograms"].toArray()) {
+        program.parametricPrograms.append(
+            deserializeParametricProgram(value.toObject()));
     }
     const QJsonObject package = obj["programPackage"].toObject();
     program.mainProgramFileName = package["mainProgramFileName"].toString();

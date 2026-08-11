@@ -71,11 +71,19 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
-    const ToolpathResult safeToolpath{
+    ToolpathResult safeToolpath{
         QStringLiteral("T1 M6\nS1200 M3\nM8\nG0 Z5\nG0 X10 Y20\nG1 Z-5 F100\nG0 Z5"),
         true,
         QString(),
         1.0};
+    safeToolpath.parametricProgram.routineName = QStringLiteral("TEST_LAYER");
+    safeToolpath.parametricProgram.parameterNames =
+        QStringList{QStringLiteral("DEPTH_Z")};
+    safeToolpath.parametricProgram.bodyTemplateLines =
+        QStringList{QStringLiteral("G1 Z${DEPTH_Z} F100")};
+    ParametricToolpathCall safeCall;
+    safeCall.arguments.insert(QStringLiteral("DEPTH_Z"), QStringLiteral("-5.000"));
+    safeToolpath.parametricProgram.calls = {safeCall};
     const auto safeStrategy =
         std::make_shared<FixedStrategy>(QStringLiteral("safe_hole"), safeToolpath);
 
@@ -147,6 +155,16 @@ int main(int argc, char **argv)
                         success.snapshot.gcodeText &&
                     success.snapshot.packageFiles.first().sha256.size() == 64,
                 QStringLiteral("the stored MPF must exactly match the validated final G-code"))) {
+        return 1;
+    }
+    if (!expect(success.snapshot.parametricPrograms.size() == 1 &&
+                    success.snapshot.parametricPrograms.first().sourceOperationIds ==
+                        QStringList{QStringLiteral("op-valid")} &&
+                    success.snapshot.parametricPrograms.first().routineName ==
+                        QStringLiteral("TEST_LAYER"),
+                QStringLiteral("snapshot should retain routine metadata with operation traceability")) ||
+        !expect(success.snapshot.packageFiles.size() == 1,
+                QStringLiteral("routine metadata must not become a machine package file"))) {
         return 1;
     }
 

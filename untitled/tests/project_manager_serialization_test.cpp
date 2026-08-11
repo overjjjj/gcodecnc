@@ -122,6 +122,22 @@ int main(int argc, char **argv)
     subprogramFile.content = QStringLiteral("PROC SP_HOLE_CYCLE_81(REAL PX)\nRET\n");
     subprogramFile.sha256 = QString(64, QLatin1Char('B'));
     program.packageFiles = QList<ProgramFileEntry>{mainFile, subprogramFile};
+    ParametricToolpathProgram parametricProgram;
+    parametricProgram.sourceOperationIds = QStringList{operation.id};
+    parametricProgram.routineName = QStringLiteral("IRREGULAR_POCKET_LAYER");
+    parametricProgram.parameterNames = QStringList{QStringLiteral("DEPTH_Z")};
+    parametricProgram.prefixLines = QStringList{QStringLiteral("T1 M6")};
+    parametricProgram.bodyTemplateLines = QStringList{
+        QStringLiteral("G1 Z${DEPTH_Z} F200"),
+        QStringLiteral("G1 X10.000 Y20.000 F600")
+    };
+    ParametricToolpathCall firstLayer;
+    firstLayer.arguments.insert(QStringLiteral("DEPTH_Z"), QStringLiteral("-2.000"));
+    ParametricToolpathCall secondLayer;
+    secondLayer.arguments.insert(QStringLiteral("DEPTH_Z"), QStringLiteral("-4.000"));
+    parametricProgram.calls = {firstLayer, secondLayer};
+    parametricProgram.suffixLines = QStringList{QStringLiteral("G0 Z50.000")};
+    program.parametricPrograms = {parametricProgram};
 
     ProjectManager project;
     project.setSourceFilePath(QStringLiteral("sample.stp"));
@@ -209,6 +225,10 @@ int main(int argc, char **argv)
                "complete MPF/SPF package metadata should be written")) {
         return 1;
     }
+    if (expect(savedProgram[QStringLiteral("parametricPrograms")].toArray().size() == 1,
+               "controller-neutral routine metadata should be stored outside programPackage")) {
+        return 1;
+    }
 
     ProjectManager loaded;
     if (expect(loaded.loadFromFile(projectPath), "project should load")) {
@@ -235,6 +255,21 @@ int main(int argc, char **argv)
                    loadedProgram.packageFiles.at(1).content == subprogramFile.content &&
                    loadedProgram.packageFiles.at(1).sha256 == subprogramFile.sha256,
                "complete MPF/SPF package should round-trip")) {
+        return 1;
+    }
+    if (expect(loadedProgram.parametricPrograms.size() == 1 &&
+                   loadedProgram.parametricPrograms.first().sourceOperationIds ==
+                       QStringList{operation.id} &&
+                   loadedProgram.parametricPrograms.first().routineName ==
+                       parametricProgram.routineName &&
+                   loadedProgram.parametricPrograms.first().parameterNames ==
+                       parametricProgram.parameterNames &&
+                   loadedProgram.parametricPrograms.first().bodyTemplateLines ==
+                       parametricProgram.bodyTemplateLines &&
+                   loadedProgram.parametricPrograms.first().calls.size() == 2 &&
+                   loadedProgram.parametricPrograms.first().calls.at(1).arguments.value(
+                       QStringLiteral("DEPTH_Z")) == QStringLiteral("-4.000"),
+               "controller-neutral routine metadata should round-trip independently")) {
         return 1;
     }
     if (expect(!loaded.operations().isEmpty() && loaded.operations().first().id == operation.id,

@@ -63,6 +63,21 @@ QVector<CuttingSegment> horizontalCuttingSegments(const QString &gcode)
     return segments;
 }
 
+QString expandParametricProgram(const ParametricToolpathProgram &program)
+{
+    QStringList lines = program.prefixLines;
+    for (const ParametricToolpathCall &call : program.calls) {
+        for (QString line : program.bodyTemplateLines) {
+            for (auto it = call.arguments.cbegin(); it != call.arguments.cend(); ++it) {
+                line.replace(QStringLiteral("${%1}").arg(it.key()), it.value());
+            }
+            lines.append(line);
+        }
+    }
+    lines.append(program.suffixLines);
+    return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -150,7 +165,7 @@ int main(int argc, char **argv)
     ContourFeature irregular;
     irregular.subType = QStringLiteral("irregular_pocket");
     irregular.center = QVector3D(20, 15, 0);
-    irregular.depth = 2.0;
+    irregular.depth = 4.0;
     irregular.points = {
         QVector3D(0, 0, 0), QVector3D(40, 0, 0),
         QVector3D(40, 30, 0), QVector3D(0, 30, 0)
@@ -170,6 +185,22 @@ int main(int argc, char **argv)
             "irregular pocket with one island should generate segmented clearing");
     require(irregularResult.gcode.contains(QStringLiteral("; POCKET REGION: IRREGULAR")),
             "irregular pocket output should identify the geometry mode");
+    require(!irregularResult.parametricProgram.isEmpty(),
+            "irregular multi-layer clearing should expose a reusable layer routine");
+    require(irregularResult.parametricProgram.routineName ==
+                QStringLiteral("IRREGULAR_POCKET_LAYER") &&
+                irregularResult.parametricProgram.parameterNames ==
+                    QStringList{QStringLiteral("DEPTH_Z")} &&
+                irregularResult.parametricProgram.calls.size() == 2,
+            "layer routine should declare one depth parameter and one call per Z layer");
+    require(irregularResult.parametricProgram.calls.at(0).arguments.value(
+                QStringLiteral("DEPTH_Z")) == QStringLiteral("-2.000") &&
+                irregularResult.parametricProgram.calls.at(1).arguments.value(
+                    QStringLiteral("DEPTH_Z")) == QStringLiteral("-4.000"),
+            "layer routine calls should retain each absolute cutting depth");
+    require(expandParametricProgram(irregularResult.parametricProgram) ==
+                irregularResult.gcode,
+            "expanding controller-neutral routine metadata must reproduce final G-code exactly");
 
     const QVector<CuttingSegment> segments = horizontalCuttingSegments(irregularResult.gcode);
     require(!segments.isEmpty(), "irregular pocket should contain cutting segments");

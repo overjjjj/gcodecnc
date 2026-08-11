@@ -153,6 +153,7 @@ HEADERS += \
     src/postprocessor/FanucPostProcessor.h \
     src/postprocessor/PostProcessorRegistry.h \
     src/gcode/GCodeSafetyValidator.h \
+    src/gcode/ParametricToolpathProgram.h \
     src/gcode/ProgramPackageExporter.h \
     src/gcode/SiemensProgramPackage.h \
     src/gcode/ProgramSnapshotFingerprint.h \

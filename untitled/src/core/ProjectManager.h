@@ -12,6 +12,7 @@
 #include "StockDefinition.h"
 #include "../import/StepImporter.h"
 #include "../strategies/MachiningOperation.h"
+#include "../gcode/ParametricToolpathProgram.h"
 
 struct ProgramFileEntry
 {
@@ -37,6 +38,7 @@ struct ProgramEntry
     QString macroText;
     QString mainProgramFileName;
     QList<ProgramFileEntry> packageFiles;
+    QList<ParametricToolpathProgram> parametricPrograms;
     int lineCount = 0;
     QDateTime createdAt;
 };

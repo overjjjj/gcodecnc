@@ -4,6 +4,7 @@
 #include <QVariantMap>
 #include "../import/StepImporter.h"
 #include "../tool/ToolEntry.h"
+#include "../gcode/ParametricToolpathProgram.h"
 
 struct StrategyParams {
     QVariantMap values;
@@ -21,6 +22,7 @@ struct ToolpathResult {
     bool        ok = false;
     QString     errorMsg;
     double      estimatedTimeS = 0.0;
+    ParametricToolpathProgram parametricProgram;
 };
 
 class StrategyBase
@@ -65,6 +67,7 @@ public:
     virtual ToolpathResult generate(const ContourFeature &/*feature*/,
                                     const ToolEntry      &/*tool*/,
                                     const StrategyParams &/*params*/) const {
-        return {QString(), false, QStringLiteral("当前策略不支持铣削特征。"), 0.0};
+        return {QString(), false, QStringLiteral("当前策略不支持铣削特征。"), 0.0,
+                ParametricToolpathProgram()};
     }
 };

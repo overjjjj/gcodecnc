@@ -106,6 +106,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     QStringList blocks;
+    QList<ParametricToolpathProgram> parametricPrograms;
     QSet<QString> holesWithDeepCycle;
     QSet<QString> holesWithCircularMill;
     for (const MachiningOperation &operation : operations) {
@@ -179,6 +180,12 @@ ProgramGenerationResult ProgramGenerationService::generate(
                                          operation,
                                          batchOperationIds,
                                          result.gcode);
+                if (!result.parametricProgram.isEmpty()) {
+                    ParametricToolpathProgram parametricProgram =
+                        result.parametricProgram;
+                    parametricProgram.sourceOperationIds = batchOperationIds;
+                    parametricPrograms.append(parametricProgram);
+                }
             } else {
                 const QString reason = result.errorMsg.trimmed().isEmpty()
                     ? QStringLiteral("strategy produced no G-code")
@@ -203,6 +210,12 @@ ProgramGenerationResult ProgramGenerationService::generate(
                                      operation,
                                      QStringList{operation.id},
                                      result.gcode);
+            if (!result.parametricProgram.isEmpty()) {
+                ParametricToolpathProgram parametricProgram =
+                    result.parametricProgram;
+                parametricProgram.sourceOperationIds = QStringList{operation.id};
+                parametricPrograms.append(parametricProgram);
+            }
         } else {
             const QString reason = result.errorMsg.trimmed().isEmpty()
                 ? QStringLiteral("strategy produced no G-code")
@@ -251,6 +264,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     snapshot.safeStartBlocks = resolvedSafeStartBlocks(options);
     snapshot.sourceSummary = snapshotOptions.sourceSummary;
     snapshot.gcodeText = finalGCode;
+    snapshot.parametricPrograms = parametricPrograms;
     snapshot.lineCount = finalGCode.count(QLatin1Char('\n')) + 1;
 
     if (postProcessor.id() == QStringLiteral("siemens")) {

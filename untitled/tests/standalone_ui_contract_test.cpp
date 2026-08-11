@@ -29,6 +29,10 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     const QString source = readUtf8(QStringLiteral("src/ui/MainWindow.cpp"));
     const QString strategySource = readUtf8(QStringLiteral("src/ui/StrategyPanel.cpp"));
+    const QString strategyBaseSource = readUtf8(
+        QStringLiteral("src/strategies/StrategyBase.h"));
+    const QString projectManagerSource = readUtf8(
+        QStringLiteral("src/core/ProjectManager.h"));
 
     require(source.contains(QStringLiteral("systemHeader")),
             QStringLiteral("main window must provide a persistent system header"));
@@ -89,6 +93,14 @@ int main(int argc, char **argv)
             QStringLiteral("irregular-pocket entry restrictions must be stated directly to the operator"));
     require(strategySource.contains(QStringLiteral("every generated segment entry")),
             QStringLiteral("irregular-pocket confirmation must disclose its repeated plunge condition"));
+    require(strategyBaseSource.contains(
+                QStringLiteral("ParametricToolpathProgram parametricProgram")),
+            QStringLiteral("toolpath results must expose controller-neutral routine metadata"));
+    require(projectManagerSource.contains(
+                QStringLiteral("parametricPrograms")),
+            QStringLiteral("program snapshots must persist routine metadata outside machine package files"));
+    require(source.contains(QStringLiteral("program.parametricPrograms.clear()")),
+            QStringLiteral("manual final-G-code edits must invalidate routine metadata"));
 
     QTextStream(stdout) << "PASS standalone_ui_contract_test" << Qt::endl;
     return 0;

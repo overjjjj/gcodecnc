@@ -2610,6 +2610,7 @@ void MainWindow::syncCurrentProgramSnapshot()
     program.gcodeText = currentText;
     program.mainProgramFileName.clear();
     program.packageFiles.clear();
+    program.parametricPrograms.clear();
     program.postProcessorId = Settings::instance().postProcessorId();
     project->upsertProgram(program);
     project->setCurrentProgramId(program.id);
