@@ -369,5 +369,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString repeatedFixedCycleProgram = cancelledFixedCycleProgram;
+    repeatedFixedCycleProgram.replace(
+        QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\nG80\n"),
+        QStringLiteral("G83 X0.000 Y0.000 Z-5.000 R2.000 Q1.000 F100\n"
+                       "X20.000 Y10.000\n"
+                       "G80\n"));
+    const GCodeSafetyReport repeatedFixedCycleReport =
+        GCodeSafetyValidator::validate(repeatedFixedCycleProgram);
+    if (expect(repeatedFixedCycleReport.ok,
+               "modal X/Y calls in an active fixed cycle should not be treated as G0 moves")) {
+        return 1;
+    }
+
     return 0;
 }

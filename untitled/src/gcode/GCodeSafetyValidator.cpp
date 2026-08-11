@@ -252,7 +252,10 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
             }
         }
 
-        const bool rapidMove = motionMode == MotionMode::Rapid && !fixedCycleStart;
+        const bool fixedCyclePositionCall = fixedCycleActive && hasXY && !explicitRapid;
+        const bool rapidMove = motionMode == MotionMode::Rapid &&
+                               !fixedCycleStart &&
+                               !fixedCyclePositionCall;
         double zValue = 0.0;
         const bool hasZ = readAxisValue(line, QLatin1Char('Z'), zValue);
         const bool rapidZKnown = hasZ || zKnown;
