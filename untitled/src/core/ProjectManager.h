@@ -35,6 +35,7 @@ struct ProgramEntry
     QStringList safeStartBlocks;
     QString sourceSummary;
     QString gcodeText;
+    QString expandedGcodeText;
     QString macroText;
     QString mainProgramFileName;
     QList<ProgramFileEntry> packageFiles;

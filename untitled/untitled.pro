@@ -78,8 +78,11 @@ SOURCES += \
     src/postprocessor/PostProcessorBase.cpp \
     src/postprocessor/SiemensPostProcessor.cpp \
     src/postprocessor/FanucPostProcessor.cpp \
+    src/postprocessor/Cq8PostProcessor.cpp \
     src/postprocessor/PostProcessorRegistry.cpp \
     src/gcode/GCodeSafetyValidator.cpp \
+    src/gcode/GCodeModalOptimizer.cpp \
+    src/gcode/Cq8MacroProgramBuilder.cpp \
     src/gcode/ProgramPackageExporter.cpp \
     src/gcode/SiemensProgramPackage.cpp \
     src/gcode/ProgramSnapshotFingerprint.cpp \
@@ -151,8 +154,11 @@ HEADERS += \
     src/postprocessor/PostProcessorBase.h \
     src/postprocessor/SiemensPostProcessor.h \
     src/postprocessor/FanucPostProcessor.h \
+    src/postprocessor/Cq8PostProcessor.h \
     src/postprocessor/PostProcessorRegistry.h \
     src/gcode/GCodeSafetyValidator.h \
+    src/gcode/GCodeModalOptimizer.h \
+    src/gcode/Cq8MacroProgramBuilder.h \
     src/gcode/ParametricToolpathProgram.h \
     src/gcode/ProgramPackageExporter.h \
     src/gcode/SiemensProgramPackage.h \

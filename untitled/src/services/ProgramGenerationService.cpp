@@ -1,11 +1,14 @@
 #include "ProgramGenerationService.h"
 
+#include "../gcode/GCodeModalOptimizer.h"
 #include "../gcode/GCodeSafetyValidator.h"
+#include "../gcode/Cq8MacroProgramBuilder.h"
 #include "../gcode/ProgramSnapshotFingerprint.h"
 #include "../gcode/SiemensProgramPackage.h"
 #include "../strategies/StrategyBase.h"
 
 #include <QDateTime>
+#include <QCryptographicHash>
 #include <QRegularExpression>
 #include <QSet>
 #include <QUuid>
@@ -106,6 +109,29 @@ QString internalHoleCycleError(const QString &gcode)
         }
     }
     return QString();
+}
+
+QString expandParametricProgram(const ParametricToolpathProgram &program)
+{
+    QStringList lines = program.prefixLines;
+    for (const ParametricToolpathCall &call : program.calls) {
+        for (QString line : program.bodyTemplateLines) {
+            for (auto argument = call.arguments.cbegin(); argument != call.arguments.cend();
+                 ++argument) {
+                line.replace(QStringLiteral("${%1}").arg(argument.key()), argument.value());
+            }
+            lines.append(line);
+        }
+    }
+    lines.append(program.suffixLines);
+    return lines.join(QLatin1Char('\n'));
+}
+
+QString sha256(const QString &content)
+{
+    return QString::fromLatin1(
+        QCryptographicHash::hash(content.toUtf8(), QCryptographicHash::Sha256).toHex())
+        .toUpper();
 }
 
 } // namespace
@@ -276,10 +302,16 @@ ProgramGenerationResult ProgramGenerationService::generate(
         return output;
     }
 
-    const QString finalGCode =
+    const Cq8MacroProgram cq8MacroProgram = Cq8MacroProgramBuilder::build(parametricPrograms);
+    if (!cq8MacroProgram.ok) {
+        output.errors << cq8MacroProgram.error;
+        return output;
+    }
+
+    const QString expandedGCode = GCodeModalOptimizer::optimize(
         postProcessor.wrapGCode(blocks.join(QLatin1Char('\n')).split(QLatin1Char('\n')),
-                                options);
-    const GCodeSafetyReport safetyReport = GCodeSafetyValidator::validate(finalGCode);
+                                options));
+    const GCodeSafetyReport safetyReport = GCodeSafetyValidator::validate(expandedGCode);
     if (!safetyReport.ok) {
         output.errors = safetyReport.messages;
         return output;
@@ -289,6 +321,41 @@ ProgramGenerationResult ProgramGenerationService::generate(
     for (const MachiningOperation &operation : operations) {
         if (!operation.id.trimmed().isEmpty()) {
             sourceOperationIds << operation.id;
+        }
+    }
+
+    QString finalGCode = expandedGCode;
+    if (postProcessor.id() == QStringLiteral("cq8") && !parametricPrograms.isEmpty()) {
+        QStringList compactBlocks = blocks;
+        for (int parametricIndex = 0; parametricIndex < parametricPrograms.size(); ++parametricIndex) {
+            const ParametricToolpathProgram &parametricProgram = parametricPrograms.at(parametricIndex);
+            const QString expanded = expandParametricProgram(parametricProgram).trimmed();
+            const QString compact = (parametricProgram.prefixLines +
+                                     cq8MacroProgram.callBlocks.at(parametricIndex).split(QLatin1Char('\n')) +
+                                     parametricProgram.suffixLines)
+                                        .join(QLatin1Char('\n')).trimmed();
+            bool replaced = false;
+            for (QString &block : compactBlocks) {
+                if (block.contains(expanded)) {
+                    block.replace(expanded, compact);
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) {
+                output.errors << QStringLiteral(
+                    "CQ8 routine '%1' does not reproduce its expanded toolpath exactly.")
+                                     .arg(parametricProgram.routineName);
+                return output;
+            }
+        }
+        finalGCode = GCodeModalOptimizer::optimize(
+            postProcessor.wrapGCode(compactBlocks.join(QLatin1Char('\n')).split(QLatin1Char('\n')),
+                                    options));
+        const GCodeSafetyReport compactSafetyReport = GCodeSafetyValidator::validate(finalGCode);
+        if (!compactSafetyReport.ok) {
+            output.errors = compactSafetyReport.messages;
+            return output;
         }
     }
 
@@ -305,8 +372,31 @@ ProgramGenerationResult ProgramGenerationService::generate(
     snapshot.safeStartBlocks = resolvedSafeStartBlocks(options);
     snapshot.sourceSummary = snapshotOptions.sourceSummary;
     snapshot.gcodeText = finalGCode;
+    snapshot.expandedGcodeText = finalGCode == expandedGCode ? QString() : expandedGCode;
+    if (!cq8MacroProgram.libraryText.isEmpty()) {
+        snapshot.macroText = QStringLiteral("; CQ8 MACRO CALLS\n%1\n\n; CQ8 MACRO LIBRARY\n%2")
+                                 .arg(cq8MacroProgram.callText,
+                                      cq8MacroProgram.libraryText);
+    }
     snapshot.parametricPrograms = parametricPrograms;
     snapshot.lineCount = finalGCode.count(QLatin1Char('\n')) + 1;
+
+    if (postProcessor.id() == QStringLiteral("cq8") && !snapshot.macroText.isEmpty()) {
+        ProgramFileEntry mainFile;
+        mainFile.kind = QStringLiteral("main");
+        mainFile.fileName = QStringLiteral("CQ8_MAIN.NC");
+        mainFile.content = finalGCode;
+        mainFile.sha256 = sha256(mainFile.content);
+        snapshot.mainProgramFileName = mainFile.fileName;
+        snapshot.packageFiles << mainFile;
+
+        ProgramFileEntry macroFile;
+        macroFile.kind = QStringLiteral("macro");
+        macroFile.fileName = QStringLiteral("CQ8_MACROS.NC");
+        macroFile.content = cq8MacroProgram.libraryText;
+        macroFile.sha256 = sha256(macroFile.content);
+        snapshot.packageFiles << macroFile;
+    }
 
     if (postProcessor.id() == QStringLiteral("siemens")) {
         const SiemensProgramPackage package =

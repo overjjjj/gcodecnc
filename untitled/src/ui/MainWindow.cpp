@@ -2680,7 +2680,9 @@ void MainWindow::loadProgramById(const QString &programId, bool syncSelection)
     m_currentProgramId = program.id;
     project->setCurrentProgramId(program.id);
     m_gcodeEditor->setGCode(program.gcodeText);
-    m_simCtrl->loadGCode(program.gcodeText);
+    m_simCtrl->loadGCode(program.expandedGcodeText.isEmpty()
+                              ? program.gcodeText
+                              : program.expandedGcodeText);
     if (m_pageNav) {
         m_pageNav->setCurrentRow(1);
     }

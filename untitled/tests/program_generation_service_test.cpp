@@ -1,5 +1,6 @@
 #include "../src/services/ProgramGenerationService.h"
 #include "../src/postprocessor/SiemensPostProcessor.h"
+#include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 
 #include <QCoreApplication>
@@ -72,15 +73,21 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
 
     ToolpathResult safeToolpath{
-        QStringLiteral("T1 M6\nS1200 M3\nM8\nG0 Z5\nG0 X10 Y20\nG1 Z-5 F100\nG0 Z5"),
+        QStringLiteral("T1 M6\nS1200 M3\nM8\nG0 Z5\nG0 X10 Y20\n"
+                       "G1 Z-5.000 F100\nG1 X15 Y20 F100\nG0 Z5"),
         true,
         QString(),
         1.0};
     safeToolpath.parametricProgram.routineName = QStringLiteral("TEST_LAYER");
     safeToolpath.parametricProgram.parameterNames =
         QStringList{QStringLiteral("DEPTH_Z")};
+    safeToolpath.parametricProgram.prefixLines = QStringList{
+        QStringLiteral("T1 M6"), QStringLiteral("S1200 M3"), QStringLiteral("M8"),
+        QStringLiteral("G0 Z5"), QStringLiteral("G0 X10 Y20")};
     safeToolpath.parametricProgram.bodyTemplateLines =
-        QStringList{QStringLiteral("G1 Z${DEPTH_Z} F100")};
+        QStringList{QStringLiteral("G1 Z${DEPTH_Z} F100"),
+                    QStringLiteral("G1 X15 Y20 F100")};
+    safeToolpath.parametricProgram.suffixLines = QStringList{QStringLiteral("G0 Z5")};
     ParametricToolpathCall safeCall;
     safeCall.arguments.insert(QStringLiteral("DEPTH_Z"), QStringLiteral("-5.000"));
     safeToolpath.parametricProgram.calls = {safeCall};
@@ -157,6 +164,11 @@ int main(int argc, char **argv)
                 QStringLiteral("the stored MPF must exactly match the validated final G-code"))) {
         return 1;
     }
+    if (!expect(success.snapshot.gcodeText.contains(
+                    QStringLiteral("G1 Z-5.000 F100\nX15 Y20\nG0 Z5")),
+                QStringLiteral("final program should omit only repeated modal words"))) {
+        return 1;
+    }
     if (!expect(success.snapshot.parametricPrograms.size() == 1 &&
                     success.snapshot.parametricPrograms.first().sourceOperationIds ==
                         QStringList{QStringLiteral("op-valid")} &&
@@ -165,6 +177,33 @@ int main(int argc, char **argv)
                 QStringLiteral("snapshot should retain routine metadata with operation traceability")) ||
         !expect(success.snapshot.packageFiles.size() == 1,
                 QStringLiteral("routine metadata must not become a machine package file"))) {
+        return 1;
+    }
+    if (!expect(success.snapshot.macroText.contains(QStringLiteral("O9001")) &&
+                    success.snapshot.macroText.contains(QStringLiteral("M98 P9001")) &&
+                    success.snapshot.macroText.contains(QStringLiteral("M99")),
+                QStringLiteral("snapshot should retain CQ8 Macro-B-compatible routine output"))) {
+        return 1;
+    }
+
+    Cq8PostProcessor cq8PostProcessor;
+    const ProgramGenerationResult cq8Success =
+        service.generate({valid}, cq8PostProcessor, options, snapshotOptions);
+    if (!expect(cq8Success.ok,
+                QStringLiteral("CQ8 Macro-B-compatible program should generate")) ||
+        !expect(cq8Success.snapshot.gcodeText.contains(QStringLiteral("M98 P9001")) &&
+                    !cq8Success.snapshot.gcodeText.contains(
+                        QStringLiteral("G1 Z-5.000 F100\nG1 X15")),
+                QStringLiteral("CQ8 main program should call the compact macro instead of expanding it")) ||
+        !expect(!cq8Success.snapshot.expandedGcodeText.isEmpty() &&
+                    cq8Success.snapshot.expandedGcodeText.contains(
+                        QStringLiteral("G1 Z-5.000 F100\nX15 Y20")),
+                QStringLiteral("CQ8 snapshot should retain expanded program for simulation and review")) ||
+        !expect(cq8Success.snapshot.packageFiles.size() == 2 &&
+                    cq8Success.snapshot.packageFiles.at(1).kind == QStringLiteral("macro") &&
+                    cq8Success.snapshot.packageFiles.at(1).content.contains(
+                        QStringLiteral("O9001")),
+                QStringLiteral("CQ8 export should package the main program and macro library separately"))) {
         return 1;
     }
 
