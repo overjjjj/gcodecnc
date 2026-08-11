@@ -2611,6 +2611,8 @@ void MainWindow::syncCurrentProgramSnapshot()
     program.mainProgramFileName.clear();
     program.packageFiles.clear();
     program.parametricPrograms.clear();
+    program.macroText.clear();
+    program.expandedGcodeText.clear();
     program.postProcessorId = Settings::instance().postProcessorId();
     project->upsertProgram(program);
     project->setCurrentProgramId(program.id);
@@ -4289,7 +4291,7 @@ void MainWindow::onExportGCode()
     if (!program.packageFiles.isEmpty()) {
         const QString directory = QFileDialog::getExistingDirectory(
             this,
-            tr("Export Siemens Program Package..."));
+            tr("Export Program Package..."));
         if (directory.isEmpty()) {
             return;
         }

@@ -101,6 +101,9 @@ int main(int argc, char **argv)
             QStringLiteral("program snapshots must persist routine metadata outside machine package files"));
     require(source.contains(QStringLiteral("program.parametricPrograms.clear()")),
             QStringLiteral("manual final-G-code edits must invalidate routine metadata"));
+    require(source.contains(QStringLiteral("program.macroText.clear()")) &&
+                source.contains(QStringLiteral("program.expandedGcodeText.clear()")),
+            QStringLiteral("manual CQ8 main-program edits must invalidate macro and simulation artifacts"));
 
     QTextStream(stdout) << "PASS standalone_ui_contract_test" << Qt::endl;
     return 0;
