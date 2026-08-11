@@ -738,6 +738,53 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
     gc += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
 
     res.gcode = gc;
+    if (verticalEntry) {
+        ParametricToolpathProgram program;
+        program.routineName = QStringLiteral("POCKET_LAYER");
+        program.parameterNames = QStringList{QStringLiteral("DEPTH_Z")};
+        program.prefixLines = QStringList{
+            QStringLiteral("T%1 M6").arg(tool.id),
+            QStringLiteral("S%1 M3").arg(int(S)),
+            QStringLiteral("G0 Z%1").arg(safe, 0, 'f', 3),
+            QStringLiteral("; POCKET ENTRY: VERTICAL")};
+        program.bodyTemplateLines = QStringList{
+            QStringLiteral("G0 Z%1").arg(ztop + feedH, 0, 'f', 3),
+            QStringLiteral("G0 X%1 Y%2").arg(cx, 0, 'f', 3).arg(cy, 0, 'f', 3),
+            QStringLiteral("G1 Z${DEPTH_Z} F%1").arg(int(Fp))};
+
+        bool leftToRight = true;
+        double currentX = cx;
+        double currentY = cy;
+        for (const ScanLine &row : rows) {
+            const QVector3D startPoint = mapPocketPoint(
+                leftToRight ? row.xMin : row.xMax, row.y);
+            const QVector3D endPoint = mapPocketPoint(
+                leftToRight ? row.xMax : row.xMin, row.y);
+            const double startX = startPoint.x();
+            const double startY = startPoint.y();
+            const double endX = endPoint.x();
+            const double endY = endPoint.y();
+            if (std::abs(currentX - startX) > 0.001 || std::abs(currentY - startY) > 0.001) {
+                program.bodyTemplateLines.append(cutMove(startX, startY, F).trimmed());
+            }
+            program.bodyTemplateLines.append(cutMove(endX, endY, F).trimmed());
+            currentX = endX;
+            currentY = endY;
+            leftToRight = !leftToRight;
+        }
+        program.suffixLines = QStringList{
+            QStringLiteral("G0 Z%1").arg(safe, 0, 'f', 3)};
+        for (int layer = 1; layer <= zLayers; ++layer) {
+            ParametricToolpathCall call;
+            call.arguments.insert(
+                QStringLiteral("DEPTH_Z"),
+                QString::number(ztop - std::min(layer * axial, feature.depth), 'f', 3));
+            program.calls.append(call);
+        }
+        if (expandParametricProgram(program) == res.gcode) {
+            res.parametricProgram = program;
+        }
+    }
     res.ok = true;
     res.estimatedTimeS = (totalLen / F * 60.0) + (feature.depth / Fp * 60.0);
     return res;

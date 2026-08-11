@@ -117,6 +117,11 @@ int main(int argc, char **argv)
             "rectangular clearing should reach both effective L/W boundaries");
     require(result.gcode.contains(QStringLiteral("; POCKET ENTRY: VERTICAL")),
             "vertical entry choice should be explicit in generated G-code");
+    require(!result.parametricProgram.isEmpty() &&
+                result.parametricProgram.routineName == QStringLiteral("POCKET_LAYER") &&
+                result.parametricProgram.calls.size() == 2 &&
+                expandParametricProgram(result.parametricProgram) == result.gcode,
+            "vertical regular pocket layers should expose an exactly expandable macro routine");
     require(result.gcode.contains(QStringLiteral("G0 X0.000 Y0.000")),
             "vertical entry should plunge at the pocket center");
     require(!result.gcode.contains(QStringLiteral("G2 ")),
