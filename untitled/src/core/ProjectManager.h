@@ -41,6 +41,7 @@ struct ProgramEntry
     QList<ProgramFileEntry> packageFiles;
     QList<ParametricToolpathProgram> parametricPrograms;
     int lineCount = 0;
+    int expandedLineCount = 0;
     QDateTime createdAt;
 };
 

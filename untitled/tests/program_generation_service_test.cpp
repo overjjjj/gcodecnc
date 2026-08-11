@@ -199,6 +199,9 @@ int main(int argc, char **argv)
                     cq8Success.snapshot.expandedGcodeText.contains(
                         QStringLiteral("G1 Z-5.000 F100\nX15 Y20")),
                 QStringLiteral("CQ8 snapshot should retain expanded program for simulation and review")) ||
+        !expect(cq8Success.snapshot.expandedLineCount ==
+                    cq8Success.snapshot.expandedGcodeText.count(QLatin1Char('\n')) + 1,
+                QStringLiteral("CQ8 snapshot should retain the expanded line count for compression review")) ||
         !expect(cq8Success.snapshot.packageFiles.size() == 2 &&
                     cq8Success.snapshot.packageFiles.at(1).kind == QStringLiteral("macro") &&
                     cq8Success.snapshot.packageFiles.at(1).content.contains(

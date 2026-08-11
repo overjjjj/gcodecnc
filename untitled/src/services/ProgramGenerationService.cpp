@@ -380,6 +380,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
     snapshot.parametricPrograms = parametricPrograms;
     snapshot.lineCount = finalGCode.count(QLatin1Char('\n')) + 1;
+    snapshot.expandedLineCount = expandedGCode.count(QLatin1Char('\n')) + 1;
 
     if (postProcessor.id() == QStringLiteral("cq8") && !snapshot.macroText.isEmpty()) {
         ProgramFileEntry mainFile;

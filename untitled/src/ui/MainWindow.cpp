@@ -2560,6 +2560,11 @@ QString MainWindow::programSourceTooltip(const ProgramEntry &program) const
     if (!program.postProcessorId.trimmed().isEmpty()) {
         lines << tr("Post: %1").arg(program.postProcessorId);
     }
+    if (program.expandedLineCount > program.lineCount && program.lineCount > 0) {
+        lines << tr("CQ8 macro compression: %1 / %2 lines")
+                     .arg(program.lineCount)
+                     .arg(program.expandedLineCount);
+    }
     if (!program.sourceOperationIds.isEmpty()) {
         lines << tr("Operations: %1").arg(program.sourceOperationIds.size());
         if (m_operationPanel) {

@@ -541,6 +541,7 @@ static QJsonObject serializeProgramEntry(const ProgramEntry &program)
     obj["expandedGcodeText"] = program.expandedGcodeText;
     obj["macroText"] = program.macroText;
     obj["lineCount"] = program.lineCount;
+    obj["expandedLineCount"] = program.expandedLineCount;
     obj["createdAt"] = program.createdAt.toString(Qt::ISODate);
     QJsonArray sourceOps;
     for (const QString &sourceOpId : program.sourceOperationIds) {
@@ -591,6 +592,7 @@ static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
     program.expandedGcodeText = obj["expandedGcodeText"].toString();
     program.macroText = obj["macroText"].toString();
     program.lineCount = obj["lineCount"].toInt();
+    program.expandedLineCount = obj["expandedLineCount"].toInt();
     program.createdAt = QDateTime::fromString(obj["createdAt"].toString(), Qt::ISODate);
     for (const QJsonValue &value : obj["sourceOperationIds"].toArray()) {
         program.sourceOperationIds.append(value.toString());
