@@ -157,6 +157,14 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         if (fixedCycleStart) {
             fixedCycleActive = true;
         }
+        if (containsWord(line, QStringLiteral("G83"))) {
+            double peckDepth = 0.0;
+            if (!readAxisValue(line, QLatin1Char('Q'), peckDepth) || peckDepth <= 0.0) {
+                addError(report,
+                         QStringLiteral("Line %1: G83 requires a positive peck depth Q.")
+                             .arg(i + 1));
+            }
+        }
         if (fixedCycleActive && explicitRapid) {
             addError(report,
                      QStringLiteral("Line %1: Cancel fixed cycle with G80 before G0 motion.")

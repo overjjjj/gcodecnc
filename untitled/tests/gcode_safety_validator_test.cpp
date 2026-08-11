@@ -411,5 +411,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString zeroPeckProgram = repeatedFixedCycleProgram;
+    zeroPeckProgram.replace(QStringLiteral("Q1.000"), QStringLiteral("Q0.000"));
+    const GCodeSafetyReport zeroPeckReport = GCodeSafetyValidator::validate(zeroPeckProgram);
+    if (expect(!zeroPeckReport.ok, "G83 with zero peck depth should fail")) {
+        return 1;
+    }
+    if (expect(zeroPeckReport.messages.join('\n').contains(QStringLiteral("Q")),
+               "zero-peck report should mention Q")) {
+        return 1;
+    }
+
     return 0;
 }
