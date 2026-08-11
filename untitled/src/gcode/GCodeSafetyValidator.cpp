@@ -164,6 +164,15 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
                          QStringLiteral("Line %1: G83 requires a positive peck depth Q.")
                              .arg(i + 1));
             }
+            double holeBottom = 0.0;
+            double returnPlane = 0.0;
+            if (!readAxisValue(line, QLatin1Char('Z'), holeBottom) ||
+                !readAxisValue(line, QLatin1Char('R'), returnPlane) ||
+                returnPlane <= holeBottom) {
+                addError(report,
+                         QStringLiteral("Line %1: G83 requires return plane R above hole bottom Z.")
+                             .arg(i + 1));
+            }
         }
         if (fixedCycleActive && explicitRapid) {
             addError(report,

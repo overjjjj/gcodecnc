@@ -422,5 +422,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString invalidReturnPlaneProgram = repeatedFixedCycleProgram;
+    invalidReturnPlaneProgram.replace(QStringLiteral("R2.000"), QStringLiteral("R-6.000"));
+    const GCodeSafetyReport invalidReturnPlaneReport =
+        GCodeSafetyValidator::validate(invalidReturnPlaneProgram);
+    if (expect(!invalidReturnPlaneReport.ok,
+               "G83 return plane at or below the hole bottom should fail")) {
+        return 1;
+    }
+    if (expect(invalidReturnPlaneReport.messages.join('\n').contains(QStringLiteral("R")),
+               "invalid return-plane report should mention R")) {
+        return 1;
+    }
+
     return 0;
 }
