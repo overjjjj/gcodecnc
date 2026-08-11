@@ -2613,6 +2613,9 @@ void MainWindow::syncCurrentProgramSnapshot()
     program.parametricPrograms.clear();
     program.macroText.clear();
     program.expandedGcodeText.clear();
+    if (m_macroLibraryEditor) {
+        m_macroLibraryEditor->clear();
+    }
     program.postProcessorId = Settings::instance().postProcessorId();
     project->upsertProgram(program);
     project->setCurrentProgramId(program.id);
@@ -2682,6 +2685,9 @@ void MainWindow::loadProgramById(const QString &programId, bool syncSelection)
     m_currentProgramId = program.id;
     project->setCurrentProgramId(program.id);
     m_gcodeEditor->setGCode(program.gcodeText);
+    if (m_macroLibraryEditor) {
+        m_macroLibraryEditor->setPlainText(program.macroText);
+    }
     m_simCtrl->loadGCode(program.expandedGcodeText.isEmpty()
                               ? program.gcodeText
                               : program.expandedGcodeText);
@@ -3138,6 +3144,14 @@ void MainWindow::createPages()
     finalProgramHint->setWordWrap(true);
     finalProgramLayout->addWidget(finalProgramHint);
     finalProgramLayout->addWidget(m_gcodeEditor, 1);
+    auto *macroLibraryLabel = new QLabel(m_finalProgramPanel);
+    macroLibraryLabel->setObjectName(QStringLiteral("macroLibraryLabel"));
+    finalProgramLayout->addWidget(macroLibraryLabel);
+    m_macroLibraryEditor = new QPlainTextEdit(m_finalProgramPanel);
+    m_macroLibraryEditor->setObjectName(QStringLiteral("macroLibraryEditor"));
+    m_macroLibraryEditor->setReadOnly(true);
+    m_macroLibraryEditor->setMinimumHeight(100);
+    finalProgramLayout->addWidget(m_macroLibraryEditor);
 
     auto *machiningSplitter = new QSplitter(Qt::Horizontal, m_machiningPage);
     machiningSplitter->setHandleWidth(6);
@@ -4812,6 +4826,16 @@ void MainWindow::retranslateUi()
     if (m_finalProgramPanel) {
         m_finalProgramPanel->setTitle(zh ? QStringLiteral("最终 CQ8 程序")
                                          : QStringLiteral("Final CQ8 Program"));
+        if (QLabel *label = m_finalProgramPanel->findChild<QLabel*>(
+                QStringLiteral("macroLibraryLabel"))) {
+            label->setText(zh ? QStringLiteral("CQ8 宏库（只读）")
+                              : QStringLiteral("CQ8 Macro Library (read-only)"));
+        }
+    }
+    if (m_macroLibraryEditor) {
+        m_macroLibraryEditor->setPlaceholderText(
+            zh ? QStringLiteral("当前程序没有关联的 CQ8 宏库。")
+               : QStringLiteral("No CQ8 macro library is associated with this program."));
     }
     if (m_machiningPage) {
         const QList<QLabel*> contextHints =

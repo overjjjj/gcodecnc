@@ -66,6 +66,8 @@ int main(int argc, char **argv)
             QStringLiteral("program page must label the final-code simulation surface"));
     require(source.contains(QStringLiteral("finalProgramPanel")),
             QStringLiteral("program page must label the final CQ8 program surface"));
+    require(source.contains(QStringLiteral("macroLibraryEditor")),
+            QStringLiteral("program page must expose the CQ8 macro library for operator review"));
     require(source.contains(QStringLiteral("designWorkflowStrip")),
             QStringLiteral("design page must expose the operator workflow"));
     require(source.contains(QStringLiteral("designModelStage")),

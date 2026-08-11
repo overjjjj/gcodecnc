@@ -23,6 +23,7 @@ class QStackedWidget;
 class QLabel;
 class QGroupBox;
 class QToolButton;
+class QPlainTextEdit;
 struct ProgramEntry;
 
 class MainWindow : public QMainWindow
@@ -99,6 +100,7 @@ private:
     ViewportWidget    *m_viewport;
     ViewportWidget    *m_simViewport;
     GCodeEditor       *m_gcodeEditor;
+    QPlainTextEdit    *m_macroLibraryEditor = nullptr;
     QDockWidget       *m_featureDock = nullptr;
     QDockWidget       *m_strategyDock = nullptr;
     QDockWidget       *m_toolDock = nullptr;
