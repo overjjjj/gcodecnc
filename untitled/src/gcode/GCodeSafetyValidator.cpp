@@ -157,6 +157,11 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         if (fixedCycleStart) {
             fixedCycleActive = true;
         }
+        if (fixedCycleActive && explicitRapid) {
+            addError(report,
+                     QStringLiteral("Line %1: Cancel fixed cycle with G80 before G0 motion.")
+                         .arg(i + 1));
+        }
         if (cutterCompCancel) {
             if (cutterCompActive && (motionMode != MotionMode::Linear || !hasXY)) {
                 addError(report,

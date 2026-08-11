@@ -369,6 +369,24 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString fixedCycleRapidProgram = validProgram;
+    fixedCycleRapidProgram.replace(
+        QStringLiteral("G1 Z-1.000 F100\nG0 Z50.000\n"),
+        QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\n"
+                       "G0 Z50.000\n"
+                       "G80\n"));
+    const GCodeSafetyReport fixedCycleRapidReport =
+        GCodeSafetyValidator::validate(fixedCycleRapidProgram);
+    if (expect(!fixedCycleRapidReport.ok,
+               "explicit rapid motion must cancel the active fixed cycle first")) {
+        return 1;
+    }
+    if (expect(fixedCycleRapidReport.messages.join('\n').contains(
+                   QStringLiteral("G80 before G0")),
+               "fixed-cycle rapid report should require G80 before G0")) {
+        return 1;
+    }
+
     QString repeatedFixedCycleProgram = cancelledFixedCycleProgram;
     repeatedFixedCycleProgram.replace(
         QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\nG80\n"),
