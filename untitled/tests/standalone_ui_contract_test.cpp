@@ -33,6 +33,8 @@ int main(int argc, char **argv)
         QStringLiteral("src/strategies/StrategyBase.h"));
     const QString projectManagerSource = readUtf8(
         QStringLiteral("src/core/ProjectManager.h"));
+    const QString highlighterSource = readUtf8(
+        QStringLiteral("src/ui/GCodeHighlighter.cpp"));
 
     require(source.contains(QStringLiteral("systemHeader")),
             QStringLiteral("main window must provide a persistent system header"));
@@ -68,6 +70,10 @@ int main(int argc, char **argv)
             QStringLiteral("program page must label the final CQ8 program surface"));
     require(source.contains(QStringLiteral("macroLibraryEditor")),
             QStringLiteral("program page must expose the CQ8 macro library for operator review"));
+    require(highlighterSource.contains(QStringLiteral("M(?:98|99)")) &&
+                highlighterSource.contains(QStringLiteral("O\\\\d+")) &&
+                highlighterSource.contains(QStringLiteral("#\\\\d+")),
+            QStringLiteral("G-code review must highlight CQ8 macro calls, routines, and variables"));
     require(source.contains(QStringLiteral("designWorkflowStrip")),
             QStringLiteral("design page must expose the operator workflow"));
     require(source.contains(QStringLiteral("designModelStage")),

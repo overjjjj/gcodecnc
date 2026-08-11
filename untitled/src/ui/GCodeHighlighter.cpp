@@ -19,6 +19,10 @@ GCodeHighlighter::GCodeHighlighter(QTextDocument *parent)
     keywordFormat.setForeground(QColor(125, 72, 180));
     keywordFormat.setFontWeight(QFont::Bold);
 
+    QTextCharFormat macroFormat;
+    macroFormat.setForeground(QColor(180, 88, 28));
+    macroFormat.setFontWeight(QFont::Bold);
+
     m_commentFormat.setForeground(QColor(120, 120, 120));
     m_commentFormat.setFontItalic(true);
 
@@ -28,6 +32,9 @@ GCodeHighlighter::GCodeHighlighter(QTextDocument *parent)
                     numberFormat});
     m_rules.append({QRegularExpression(QStringLiteral("\\b(?:MCALL|CYCLE83|CYCLE84|CYCLE85)\\b")),
                     keywordFormat});
+    m_rules.append({QRegularExpression(QStringLiteral("\\bM(?:98|99)\\b")), macroFormat});
+    m_rules.append({QRegularExpression(QStringLiteral("\\bO\\d+\\b")), macroFormat});
+    m_rules.append({QRegularExpression(QStringLiteral("#\\d+\\b")), macroFormat});
 }
 
 void GCodeHighlighter::highlightBlock(const QString &text)
