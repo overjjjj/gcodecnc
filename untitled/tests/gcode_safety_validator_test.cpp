@@ -343,5 +343,31 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString uncancelledFixedCycleProgram = validProgram;
+    uncancelledFixedCycleProgram.replace(
+        QStringLiteral("G1 Z-1.000 F100\nG0 Z50.000\n"),
+        QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\nG0 Z50.000\n"));
+    const GCodeSafetyReport uncancelledFixedCycleReport =
+        GCodeSafetyValidator::validate(uncancelledFixedCycleProgram);
+    if (expect(!uncancelledFixedCycleReport.ok,
+               "fixed cycle without G80 cancellation should fail")) {
+        return 1;
+    }
+    if (expect(uncancelledFixedCycleReport.messages.join('\n').contains(QStringLiteral("G80")),
+               "uncancelled fixed-cycle report should require G80")) {
+        return 1;
+    }
+
+    QString cancelledFixedCycleProgram = uncancelledFixedCycleProgram;
+    cancelledFixedCycleProgram.replace(
+        QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\nG0 Z50.000\n"),
+        QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100\nG80\nG0 Z50.000\n"));
+    const GCodeSafetyReport cancelledFixedCycleReport =
+        GCodeSafetyValidator::validate(cancelledFixedCycleProgram);
+    if (expect(cancelledFixedCycleReport.ok,
+               "fixed cycle cancelled with G80 should pass")) {
+        return 1;
+    }
+
     return 0;
 }

@@ -63,6 +63,19 @@ static void addError(GCodeSafetyReport &report, const QString &message)
     report.messages.append(message);
 }
 
+static bool startsFixedCycle(const QString &line)
+{
+    return containsWord(line, QStringLiteral("G81")) ||
+           containsWord(line, QStringLiteral("G82")) ||
+           containsWord(line, QStringLiteral("G83")) ||
+           containsWord(line, QStringLiteral("G84")) ||
+           containsWord(line, QStringLiteral("G85")) ||
+           containsWord(line, QStringLiteral("G86")) ||
+           containsWord(line, QStringLiteral("G87")) ||
+           containsWord(line, QStringLiteral("G88")) ||
+           containsWord(line, QStringLiteral("G89"));
+}
+
 } // namespace
 
 GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
@@ -87,6 +100,7 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
     bool cutterCompActive = false;
     bool spindleRunning = false;
     bool coolantOn = false;
+    bool fixedCycleActive = false;
     int toolChangeCount = 0;
     MotionMode motionMode = MotionMode::Unknown;
     int firstSpindleStopLine = -1;
@@ -136,6 +150,13 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         const bool cutterCompCancel = containsWord(line, QStringLiteral("G40"));
         const bool cutterCompStart = containsWord(line, QStringLiteral("G41")) ||
                                      containsWord(line, QStringLiteral("G42"));
+        const bool fixedCycleStart = startsFixedCycle(line);
+        if (containsWord(line, QStringLiteral("G80"))) {
+            fixedCycleActive = false;
+        }
+        if (fixedCycleStart) {
+            fixedCycleActive = true;
+        }
         if (cutterCompCancel) {
             if (cutterCompActive && (motionMode != MotionMode::Linear || !hasXY)) {
                 addError(report,
@@ -154,6 +175,11 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         }
 
         if (containsWord(line, QStringLiteral("M6"))) {
+            if (fixedCycleActive) {
+                addError(report,
+                         QStringLiteral("Line %1: Cancel fixed cycle with G80 before tool change.")
+                             .arg(i + 1));
+            }
             if (cutterCompActive) {
                 addError(report,
                          QStringLiteral("Line %1: Cancel cutter compensation with G40 before tool change.")
@@ -219,9 +245,14 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
                          QStringLiteral("Line %1: Turn coolant off with M9 before program end M30.")
                              .arg(i + 1));
             }
+            if (fixedCycleActive) {
+                addError(report,
+                         QStringLiteral("Line %1: Cancel fixed cycle with G80 before program end M30.")
+                             .arg(i + 1));
+            }
         }
 
-        const bool rapidMove = motionMode == MotionMode::Rapid;
+        const bool rapidMove = motionMode == MotionMode::Rapid && !fixedCycleStart;
         double zValue = 0.0;
         const bool hasZ = readAxisValue(line, QLatin1Char('Z'), zValue);
         const bool rapidZKnown = hasZ || zKnown;
