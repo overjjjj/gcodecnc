@@ -157,20 +157,28 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         if (fixedCycleStart) {
             fixedCycleActive = true;
         }
-        if (containsWord(line, QStringLiteral("G83"))) {
-            double peckDepth = 0.0;
-            if (!readAxisValue(line, QLatin1Char('Q'), peckDepth) || peckDepth <= 0.0) {
-                addError(report,
-                         QStringLiteral("Line %1: G83 requires a positive peck depth Q.")
-                             .arg(i + 1));
-            }
+        const bool supportedFixedCycleStart =
+            containsWord(line, QStringLiteral("G81")) ||
+            containsWord(line, QStringLiteral("G82")) ||
+            containsWord(line, QStringLiteral("G83")) ||
+            containsWord(line, QStringLiteral("G84")) ||
+            containsWord(line, QStringLiteral("G85"));
+        if (supportedFixedCycleStart) {
             double holeBottom = 0.0;
             double returnPlane = 0.0;
             if (!readAxisValue(line, QLatin1Char('Z'), holeBottom) ||
                 !readAxisValue(line, QLatin1Char('R'), returnPlane) ||
                 returnPlane <= holeBottom) {
                 addError(report,
-                         QStringLiteral("Line %1: G83 requires return plane R above hole bottom Z.")
+                         QStringLiteral("Line %1: Fixed cycle requires return plane R above hole bottom Z.")
+                             .arg(i + 1));
+            }
+        }
+        if (containsWord(line, QStringLiteral("G83"))) {
+            double peckDepth = 0.0;
+            if (!readAxisValue(line, QLatin1Char('Q'), peckDepth) || peckDepth <= 0.0) {
+                addError(report,
+                         QStringLiteral("Line %1: G83 requires a positive peck depth Q.")
                              .arg(i + 1));
             }
         }
