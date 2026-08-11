@@ -60,6 +60,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString imperialProgram = validProgram;
+    imperialProgram.replace(QStringLiteral("G21\n"), QStringLiteral("G20\n"));
+    const GCodeSafetyReport imperialReport = GCodeSafetyValidator::validate(imperialProgram);
+    if (expect(!imperialReport.ok, "imperial G20 program should fail in the millimetre-only phase")) {
+        return 1;
+    }
+    if (expect(imperialReport.messages.join('\n').contains(QStringLiteral("G20")),
+               "imperial units report should mention G20")) {
+        return 1;
+    }
+
     QString incrementalProgram = validProgram;
     incrementalProgram.replace(QStringLiteral("G90\n"), QStringLiteral("G90\nG91\n"));
     const GCodeSafetyReport incrementalReport =

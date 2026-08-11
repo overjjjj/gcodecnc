@@ -87,7 +87,8 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
     }
 
     bool hasPlaneAndCancel = false;
-    bool hasUnits = false;
+    bool hasMetricUnits = false;
+    bool hasImperialUnits = false;
     bool hasAbsolute = false;
     bool hasIncremental = false;
     bool hasWorkOffset = false;
@@ -121,9 +122,8 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
                              containsWord(line, QStringLiteral("G40")) &&
                              containsWord(line, QStringLiteral("G49")) &&
                              containsWord(line, QStringLiteral("G80")));
-        hasUnits = hasUnits ||
-                   containsWord(line, QStringLiteral("G20")) ||
-                   containsWord(line, QStringLiteral("G21"));
+        hasMetricUnits = hasMetricUnits || containsWord(line, QStringLiteral("G21"));
+        hasImperialUnits = hasImperialUnits || containsWord(line, QStringLiteral("G20"));
         hasAbsolute = hasAbsolute || containsWord(line, QStringLiteral("G90"));
         hasIncremental = hasIncremental || containsWord(line, QStringLiteral("G91"));
         hasWorkOffset = hasWorkOffset || containsWorkOffset(line);
@@ -287,8 +287,11 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
     if (!hasPlaneAndCancel) {
         addError(report, QStringLiteral("Missing safe modal reset line containing G17 G40 G49 G80."));
     }
-    if (!hasUnits) {
+    if (!hasMetricUnits) {
         addError(report, QStringLiteral("Missing explicit units mode G21/G20."));
+    }
+    if (hasImperialUnits) {
+        addError(report, QStringLiteral("Imperial units G20 are not supported; use millimetres G21."));
     }
     if (!hasAbsolute) {
         addError(report, QStringLiteral("Missing absolute coordinate mode G90."));
