@@ -76,6 +76,17 @@ static bool startsFixedCycle(const QString &line)
            containsWord(line, QStringLiteral("G89"));
 }
 
+static QString unsupportedFixedCycleCode(const QString &line)
+{
+    for (const QString &code : {QStringLiteral("G86"), QStringLiteral("G87"),
+                                QStringLiteral("G88"), QStringLiteral("G89")}) {
+        if (containsWord(line, code)) {
+            return code;
+        }
+    }
+    return QString();
+}
+
 } // namespace
 
 GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
@@ -156,6 +167,13 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         }
         if (fixedCycleStart) {
             fixedCycleActive = true;
+        }
+        const QString unsupportedCycle = unsupportedFixedCycleCode(line);
+        if (!unsupportedCycle.isEmpty()) {
+            addError(report,
+                     QStringLiteral("Line %1: Fixed cycle %2 is not supported in the first phase.")
+                         .arg(i + 1)
+                         .arg(unsupportedCycle));
         }
         const bool supportedFixedCycleStart =
             containsWord(line, QStringLiteral("G81")) ||

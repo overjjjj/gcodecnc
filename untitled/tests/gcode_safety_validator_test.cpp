@@ -448,5 +448,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString unsupportedFixedCycleProgram = cancelledFixedCycleProgram;
+    unsupportedFixedCycleProgram.replace(QStringLiteral("G81 X0.000"),
+                                         QStringLiteral("G86 X0.000"));
+    const GCodeSafetyReport unsupportedFixedCycleReport =
+        GCodeSafetyValidator::validate(unsupportedFixedCycleProgram);
+    if (expect(!unsupportedFixedCycleReport.ok,
+               "unsupported fixed cycle should fail in the first phase")) {
+        return 1;
+    }
+    if (expect(unsupportedFixedCycleReport.messages.join('\n').contains(QStringLiteral("G86")),
+               "unsupported fixed-cycle report should name the rejected code")) {
+        return 1;
+    }
+
     return 0;
 }
