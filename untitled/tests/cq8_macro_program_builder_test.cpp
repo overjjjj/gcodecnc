@@ -45,6 +45,13 @@ int main(int argc, char **argv)
                 "M99\n"),
             "routine body should use the assigned variable and terminate with M99");
 
+    ParametricToolpathProgram unsafeLayer = layer;
+    unsafeLayer.calls.first().arguments[QStringLiteral("DEPTH_Z")] =
+        QStringLiteral("-2.000\nM30");
+    const Cq8MacroProgram unsafeMacro = Cq8MacroProgramBuilder::build({unsafeLayer});
+    require(!unsafeMacro.ok && unsafeMacro.error.contains(QStringLiteral("numeric")),
+            "macro parameter values must reject injected G-code words or newlines");
+
     QTextStream(stdout) << "PASS cq8_macro_program_builder_test" << Qt::endl;
     return 0;
 }

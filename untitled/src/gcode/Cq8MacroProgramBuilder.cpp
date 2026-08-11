@@ -1,10 +1,26 @@
 #include "Cq8MacroProgramBuilder.h"
 
+#include <QRegularExpression>
+
+#include <cmath>
+
 namespace {
 
 QString variableForIndex(int index)
 {
     return QStringLiteral("#%1").arg(100 + index);
+}
+
+bool isFiniteNumericLiteral(const QString &text)
+{
+    static const QRegularExpression expression(
+        QStringLiteral("^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)$"));
+    if (!expression.match(text).hasMatch()) {
+        return false;
+    }
+    bool ok = false;
+    const double value = text.toDouble(&ok);
+    return ok && std::isfinite(value);
 }
 
 } // namespace
@@ -37,9 +53,16 @@ Cq8MacroProgram Cq8MacroProgramBuilder::build(
                                        .arg(program.routineName, name);
                     return output;
                 }
+                const QString value = call.arguments.value(name);
+                if (!isFiniteNumericLiteral(value)) {
+                    output.error = QStringLiteral(
+                        "CQ8 routine '%1' parameter '%2' must be a finite numeric literal.")
+                                       .arg(program.routineName, name);
+                    return output;
+                }
                 routineCalls.append(QStringLiteral("%1=%2")
                                  .arg(variableForIndex(parameterIndex),
-                                      call.arguments.value(name)));
+                                      value));
             }
             routineCalls.append(QStringLiteral("M98 P%1").arg(routineNumber));
         }
