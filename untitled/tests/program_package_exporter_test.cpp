@@ -216,5 +216,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir macroAssignmentDir;
+    const ProgramFileEntry macroAssignment = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\n#100=0.000\nG1 Z#100 F100.000\nM99\n"));
+    const ProgramPackageExportReport macroAssignmentReport = ProgramPackageExporter::exportFiles(
+        macroAssignmentDir.path(), cq8Main.fileName, {cq8Main, macroAssignment});
+    if (expect(!macroAssignmentReport.ok &&
+                   macroAssignmentReport.error.contains(QStringLiteral("must not assign")),
+               "CQ8 export must reject macro-library parameter assignments in the first phase")) {
+        return 1;
+    }
+
     return 0;
 }

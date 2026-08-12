@@ -92,6 +92,10 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
     const QRegularExpression expressionPattern(QStringLiteral("[\\[\\]]"));
     for (const QString &line : macroFile->content.split(QLatin1Char('\n'))) {
         const QString code = line.section(QLatin1Char(';'), 0, 0);
+        if (assignmentCandidatePattern.match(code).hasMatch()) {
+            return QStringLiteral("CQ8 macro library must not assign parameters in the first phase: %1")
+                .arg(line.trimmed());
+        }
         if (controlFlowPattern.match(code).hasMatch()) {
             return QStringLiteral("CQ8 macro library contains first-phase unsupported control flow: %1")
                 .arg(line.trimmed());
