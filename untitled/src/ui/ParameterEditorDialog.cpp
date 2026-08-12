@@ -24,6 +24,8 @@ static QStringList preferredParamOrder()
         QStringLiteral("spindleSpeed"),
         QStringLiteral("feedRate"),
         QStringLiteral("plungeRate"),
+        QStringLiteral("sideStockToLeave"),
+        QStringLiteral("floorStockToLeave"),
         QStringLiteral("stockToLeave"),
         QStringLiteral("slotLength"),
         QStringLiteral("slotWidth"),

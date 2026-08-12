@@ -324,6 +324,8 @@ QString MillingOperationDialog::paramDisplayName(const QString &key) const
     if (key == QStringLiteral("spindleSpeed")) return QStringLiteral("主轴转速");
     if (key == QStringLiteral("feedRate")) return QStringLiteral("进给速度");
     if (key == QStringLiteral("plungeRate")) return QStringLiteral("下刀速度");
+    if (key == QStringLiteral("sideStockToLeave")) return QStringLiteral("侧壁余量");
+    if (key == QStringLiteral("floorStockToLeave")) return QStringLiteral("底面余量");
     if (key == QStringLiteral("stockToLeave")) return QStringLiteral("加工余量");
     if (key == QStringLiteral("compensation")) return QStringLiteral("刀补方向");
     if (key == QStringLiteral("leadLength"))   return QStringLiteral("引入长度");

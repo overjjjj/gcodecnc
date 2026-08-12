@@ -182,6 +182,8 @@ static QSet<QString> basicParameterKeys()
 static QSet<QString> nonNegativeParameterKeys()
 {
     return {
+        QStringLiteral("sideStockToLeave"),
+        QStringLiteral("floorStockToLeave"),
         QStringLiteral("stockToLeave"),
         QStringLiteral("finishStock"),
         QStringLiteral("leadLength"),
@@ -1144,6 +1146,8 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
 {
     if (!isChineseUi()) {
         if (key == QStringLiteral("entryMode")) return QStringLiteral("Entry method");
+        if (key == QStringLiteral("sideStockToLeave")) return QStringLiteral("Side stock");
+        if (key == QStringLiteral("floorStockToLeave")) return QStringLiteral("Floor stock");
         return key;
     }
     if (key == QStringLiteral("safeHeight")) return QStringLiteral("安全高度");
@@ -1163,6 +1167,8 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
     if (key == QStringLiteral("chamferWidth")) return QStringLiteral("倒角宽度");
     if (key == QStringLiteral("chamferAngle")) return QStringLiteral("倒角角度");
     if (key == QStringLiteral("compensation")) return QStringLiteral("刀补方向");
+    if (key == QStringLiteral("sideStockToLeave")) return QStringLiteral("侧壁余量");
+    if (key == QStringLiteral("floorStockToLeave")) return QStringLiteral("底面余量");
     if (key == QStringLiteral("stockToLeave")) return QStringLiteral("余量");
     if (key == QStringLiteral("leadLength")) return QStringLiteral("引入引出长度");
     if (key == QStringLiteral("slotLength")) return QStringLiteral("槽长");
@@ -1239,9 +1245,9 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         if (strategyId == QStringLiteral("mill_pocket_rough"))
             return QStringLiteral("Pocket roughing clears the recognized length/width boundary in layers; review tool diameter, side stock, stepover, and entry mode.");
         if (strategyId == QStringLiteral("mill_pocket_finish"))
-            return QStringLiteral("Pocket wall finish plunges at the cleared pocket center, then uses CAM-side offset on rectangular or circular walls; confirm roughing has cleared the center.");
+            return QStringLiteral("Pocket wall finish plunges at the cleared pocket center, then uses CAM-side offset on rectangular or circular walls; review side stock, floor stock, and center clearance.");
         if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
-            return QStringLiteral("Pocket floor finish plunges at the cleared pocket center, then uses CAM-side raster passes inside rectangular or circular boundaries; review bottom stock and stepover.");
+            return QStringLiteral("Pocket floor finish plunges at the cleared pocket center, then uses CAM-side raster passes inside rectangular or circular boundaries; review side stock, floor stock, and stepover.");
         if (strategyId == QStringLiteral("mill_closed_contour"))
             return QStringLiteral("Closed contour milling follows the selected contour for profile cutting.");
         if (strategyId == QStringLiteral("mill_open_contour"))
@@ -1276,9 +1282,9 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
     if (strategyId == QStringLiteral("mill_pocket_rough"))
         return QStringLiteral("型腔开粗按识别到的真实长宽边界分层清腔，请人工核对刀径、侧壁余量、行距和下刀方式。");
     if (strategyId == QStringLiteral("mill_pocket_finish"))
-        return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，以 CAM 侧偏置完成侧壁精修，请核对中心已清空、余量和最终尺寸。");
+        return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，以 CAM 侧偏置完成侧壁精修，请核对侧壁余量、底面余量和中心清空状态。");
     if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
-        return QStringLiteral("型腔底面精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，使用 CAM 刀心平行走刀，请核对中心已清空、底面余量和步距。");
+        return QStringLiteral("型腔底面精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，使用 CAM 刀心平行走刀，请核对侧壁余量、底面余量、中心清空状态和步距。");
     if (strategyId == QStringLiteral("mill_closed_contour"))
         return QStringLiteral("封闭轮廓铣用于外形或闭合边界精修。");
     if (strategyId == QStringLiteral("mill_open_contour"))

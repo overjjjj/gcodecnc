@@ -36,6 +36,12 @@ int main(int argc, char **argv)
     Q_UNUSED(app);
 
     PocketFloorFinishStrategy strategy;
+    if (expect(strategy.defaultParams().values.contains(QStringLiteral("sideStockToLeave")),
+               "pocket-floor finish should expose a separate side-stock parameter") ||
+        expect(strategy.defaultParams().values.contains(QStringLiteral("floorStockToLeave")),
+               "pocket-floor finish should expose a separate floor-stock parameter")) {
+        return 1;
+    }
     ContourFeature rectangle;
     rectangle.subType = QStringLiteral("rectangular_pocket");
     rectangle.center = QVector3D(0.0f, 0.0f, 0.0f);
@@ -65,6 +71,41 @@ int main(int argc, char **argv)
                "pocket-floor finish should rotate its first scan by the feature angle") ||
         expect(passesSafetyGate(rotatedResult.gcode),
                "rotated rectangular pocket floor finish should pass the G-code safety gate")) {
+        return 1;
+    }
+
+    StrategyParams splitStockParams = strategy.defaultParams();
+    splitStockParams.set(QStringLiteral("sideStockToLeave"), 1.0);
+    splitStockParams.set(QStringLiteral("floorStockToLeave"), 0.5);
+    const ToolpathResult splitStockResult = strategy.generate(
+        rectangle, tool(), splitStockParams);
+    if (expect(splitStockResult.ok, "pocket-floor finish should accept separate side and floor stock") ||
+        expect(splitStockResult.gcode.contains(
+                   QStringLiteral("; Pocket floor finish Z=-1.500")),
+               "pocket-floor finish should apply floor stock only to final Z") ||
+        expect(splitStockResult.gcode.contains(
+                   QStringLiteral("G1 X-7.000 Y-3.000 F500")),
+               "pocket-floor finish should apply side stock only to its XY scan boundary")) {
+        return 1;
+    }
+
+    StrategyParams excessiveFloorStock = strategy.defaultParams();
+    excessiveFloorStock.set(QStringLiteral("floorStockToLeave"), rectangle.depth);
+    if (expect(!strategy.generate(rectangle, tool(), excessiveFloorStock).ok,
+               "pocket-floor finish must reject floor stock that consumes the full depth")) {
+        return 1;
+    }
+
+    StrategyParams legacyStockParams = strategy.defaultParams();
+    legacyStockParams.values.remove(QStringLiteral("sideStockToLeave"));
+    legacyStockParams.values.remove(QStringLiteral("floorStockToLeave"));
+    legacyStockParams.set(QStringLiteral("stockToLeave"), 0.5);
+    const ToolpathResult legacyStockResult = strategy.generate(
+        rectangle, tool(), legacyStockParams);
+    if (expect(legacyStockResult.ok, "legacy pocket-floor stock should remain loadable") ||
+        expect(legacyStockResult.gcode.contains(QStringLiteral("Z=-1.500")) &&
+                   legacyStockResult.gcode.contains(QStringLiteral("X-7.500 Y-3.500")),
+               "legacy stock should fall back to both side and floor stock")) {
         return 1;
     }
 

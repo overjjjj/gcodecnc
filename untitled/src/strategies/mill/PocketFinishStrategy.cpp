@@ -12,7 +12,8 @@ StrategyParams PocketFinishStrategy::defaultParams() const
     params.set("spindleSpeed", 3000.0);
     params.set("feedRate", 800.0);
     params.set("plungeRate", 200.0);
-    params.set("stockToLeave", 0.0);
+    params.set("sideStockToLeave", 0.0);
+    params.set("floorStockToLeave", 0.0);
     return params;
 }
 
@@ -44,9 +45,21 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
     const double stepDown = params.get("stepDown", 1.0);
     const double feed = params.get("feedRate", 800.0);
     const double plunge = params.get("plungeRate", 200.0);
-    const double stock = params.get("stockToLeave", 0.0);
-    if (stepDown <= 0.0 || feed <= 0.0 || plunge <= 0.0 || stock < 0.0) {
-        result.errorMsg = QObject::tr("Stepdown, feed, and plunge must be positive; stock to leave cannot be negative.");
+    const double legacyStock = params.get("stockToLeave", 0.0);
+    const double sideStock = params.values.contains(QStringLiteral("sideStockToLeave"))
+        ? params.get("sideStockToLeave", 0.0)
+        : legacyStock;
+    const double floorStock = params.values.contains(QStringLiteral("floorStockToLeave"))
+        ? params.get("floorStockToLeave", 0.0)
+        : legacyStock;
+    if (stepDown <= 0.0 || feed <= 0.0 || plunge <= 0.0 ||
+        sideStock < 0.0 || floorStock < 0.0) {
+        result.errorMsg = QObject::tr("Stepdown, feed, and plunge must be positive; side and floor stock cannot be negative.");
+        return result;
+    }
+    const double effectiveDepth = feature.depth - floorStock;
+    if (effectiveDepth <= 0.0) {
+        result.errorMsg = QObject::tr("Floor stock must be smaller than the pocket depth.");
         return result;
     }
 
@@ -67,14 +80,14 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
     double halfWidth = 0.0;
     double pathRadius = 0.0;
     if (rectangular) {
-        halfLength = feature.length * 0.5 - toolRadius - stock;
-        halfWidth = feature.width * 0.5 - toolRadius - stock;
+        halfLength = feature.length * 0.5 - toolRadius - sideStock;
+        halfWidth = feature.width * 0.5 - toolRadius - sideStock;
         if (halfLength <= 0.0 || halfWidth <= 0.0) {
             result.errorMsg = QObject::tr("Tool diameter plus stock to leave does not fit inside the pocket.");
             return result;
         }
     } else {
-        pathRadius = feature.radius - toolRadius - stock;
+        pathRadius = feature.radius - toolRadius - sideStock;
         if (pathRadius <= 0.0) {
             result.errorMsg = QObject::tr("Tool diameter plus stock to leave does not fit inside the pocket.");
             return result;
@@ -84,7 +97,7 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
     const double topZ = feature.center.z();
     const double safeZ = params.get("safeHeight", 50.0);
     const double feedZ = topZ + params.get("feedHeight", 3.0);
-    const int layers = static_cast<int>(std::ceil(feature.depth / stepDown));
+    const int layers = static_cast<int>(std::ceil(effectiveDepth / stepDown));
     QString gcode;
     gcode += QStringLiteral("T%1 M6\nS%2 M3\nG0 Z%3\n")
                  .arg(tool.id)
@@ -93,7 +106,7 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
 
     double pathLength = 0.0;
     for (int layer = 1; layer <= layers; ++layer) {
-        const double z = topZ - std::min(layer * stepDown, feature.depth);
+        const double z = topZ - std::min(layer * stepDown, effectiveDepth);
         const QVector3D startPoint = rectangular
             ? mapPocketPoint(-halfLength, -halfWidth)
             : QVector3D(float(cx + pathRadius), float(cy), 0.0f);
@@ -133,6 +146,6 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
 
     result.gcode = gcode;
     result.ok = true;
-    result.estimatedTimeS = pathLength / feed * 60.0 + feature.depth / plunge * 60.0;
+    result.estimatedTimeS = pathLength / feed * 60.0 + effectiveDepth / plunge * 60.0;
     return result;
 }
