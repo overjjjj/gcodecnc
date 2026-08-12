@@ -53,7 +53,8 @@ function Invoke-TestBuild {
 function Invoke-OccFixtureTest {
     param(
         [string]$Name,
-        [string]$TestSource
+        [string]$TestSource,
+        [string[]]$ExtraSources = @()
     )
 
     $OccInclude = Join-Path $OccPrefix "include\opencascade"
@@ -81,7 +82,7 @@ function Invoke-OccFixtureTest {
         "src\import\TopoAnalyzer.cpp",
         "src\import\FeatureRecognizer.cpp",
         "src\import\FeatureClassifier.cpp"
-    )
+    ) + $ExtraSources
     $OccNames = @(
         "TKDESTEP", "TKDE", "TKXSBase", "TKXml", "TKXmlL", "TKCDF",
         "TKMesh", "TKTopAlgo", "TKGeomAlgo", "TKShHealing", "TKBool",
@@ -243,7 +244,20 @@ try {
 
     Invoke-OccFixtureTest `
         -Name "acceptance_step_model_test" `
-        -TestSource "tests\acceptance_step_model_test.cpp"
+        -TestSource "tests\acceptance_step_model_test.cpp" `
+        -ExtraSources @(
+            "src\services\ProgramGenerationService.cpp",
+            "src\strategies\StrategyBase.cpp",
+            "src\strategies\hole\PeckDrillingStrategy.cpp",
+            "src\gcode\GCodeSafetyValidator.cpp",
+            "src\gcode\GCodeModalOptimizer.cpp",
+            "src\gcode\Cq8MacroProgramBuilder.cpp",
+            "src\gcode\ProgramSnapshotFingerprint.cpp",
+            "src\gcode\SiemensProgramPackage.cpp",
+            "src\postprocessor\PostProcessorBase.cpp",
+            "src\postprocessor\FanucPostProcessor.cpp",
+            "src\postprocessor\Cq8PostProcessor.cpp"
+        )
 
     Invoke-TestBuild `
         -Name "machine_profile_validator_test" `

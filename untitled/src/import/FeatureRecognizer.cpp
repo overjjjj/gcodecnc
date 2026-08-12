@@ -114,6 +114,7 @@ static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax
     }
 
     const gp_Trsf trsf = loc.Transformation();
+    const bool reversed = face.Orientation() == TopAbs_REVERSED;
     const gp_Pnt axisOrigin = axis.Location();
     const gp_Dir axisDir = axis.Direction();
     double dotAcc = 0.0;
@@ -124,6 +125,9 @@ static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax
         Standard_Integer n2 = 0;
         Standard_Integer n3 = 0;
         tri->Triangle(i).Get(n1, n2, n3);
+        if (reversed) {
+            std::swap(n2, n3);
+        }
         const gp_Pnt p1 = tri->Node(n1).Transformed(trsf);
         const gp_Pnt p2 = tri->Node(n2).Transformed(trsf);
         const gp_Pnt p3 = tri->Node(n3).Transformed(trsf);
@@ -150,6 +154,53 @@ static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax
     }
 
     return dotCount > 0 ? dotAcc / double(dotCount) : 0.0;
+}
+
+static QVector<int> coincidentCylinderFaces(const TopoGraph &graph,
+                                            int seedFaceIndex,
+                                            const gp_Cylinder &seedCylinder)
+{
+    QVector<int> faces;
+    const gp_Dir seedDirection = seedCylinder.Axis().Direction();
+    const gp_Pnt seedOrigin = seedCylinder.Axis().Location();
+    const FaceProjection seedProjection = estimateFaceProjection(
+        TopoDS::Face(graph.faceMap(seedFaceIndex)), seedDirection);
+    if (!seedProjection.valid) {
+        return faces;
+    }
+
+    for (int candidateIndex = 1; candidateIndex <= graph.faceMap.Extent(); ++candidateIndex) {
+        const TopoDS_Face candidateFace = TopoDS::Face(graph.faceMap(candidateIndex));
+        BRepAdaptor_Surface candidateSurface(candidateFace, false);
+        if (candidateSurface.GetType() != GeomAbs_Cylinder) {
+            continue;
+        }
+        const gp_Cylinder candidateCylinder = candidateSurface.Cylinder();
+        if (std::abs(candidateCylinder.Radius() - seedCylinder.Radius()) > 0.02 ||
+            std::abs(dotDir(candidateCylinder.Axis().Direction(), seedDirection)) < 0.999) {
+            continue;
+        }
+
+        const gp_XYZ originDelta = candidateCylinder.Axis().Location().XYZ() - seedOrigin.XYZ();
+        const double axialDelta = originDelta.X() * seedDirection.X()
+                                + originDelta.Y() * seedDirection.Y()
+                                + originDelta.Z() * seedDirection.Z();
+        const gp_XYZ lateralDelta = originDelta - gp_XYZ(seedDirection.X() * axialDelta,
+                                                          seedDirection.Y() * axialDelta,
+                                                          seedDirection.Z() * axialDelta);
+        if (lateralDelta.Modulus() > 0.05) {
+            continue;
+        }
+
+        const FaceProjection candidateProjection = estimateFaceProjection(candidateFace, seedDirection);
+        if (!candidateProjection.valid ||
+            std::abs(candidateProjection.minProj - seedProjection.minProj) > 0.1 ||
+            std::abs(candidateProjection.maxProj - seedProjection.maxProj) > 0.1) {
+            continue;
+        }
+        faces.append(candidateIndex);
+    }
+    return faces;
 }
 
 struct FaceBox2D {
@@ -1457,17 +1508,33 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
             continue;
         }
 
-        const BRepAdaptor_Surface restrictedSurface(face, true);
-        const double angularSpan =
-            std::abs(restrictedSurface.LastUParameter() -
-                     restrictedSurface.FirstUParameter());
         constexpr double fullCircleRadians = 6.283185307179586;
-        if (!std::isfinite(angularSpan) ||
-            angularSpan < fullCircleRadians - 0.05) {
+        const gp_Cylinder cylinder = surface.Cylinder();
+        const QVector<int> cylinderFaces = coincidentCylinderFaces(
+            graph, faceIndex, cylinder);
+        if (cylinderFaces.isEmpty() || cylinderFaces.first() != faceIndex) {
+            continue;
+        }
+        double combinedAngularSpan = 0.0;
+        for (int cylinderFaceIndex : cylinderFaces) {
+            const TopoDS_Face cylinderFace = TopoDS::Face(graph.faceMap(cylinderFaceIndex));
+            const BRepAdaptor_Surface restrictedSurface(cylinderFace, true);
+            const double angularSpan = std::abs(
+                restrictedSurface.LastUParameter() - restrictedSurface.FirstUParameter());
+            if (std::isfinite(angularSpan)) {
+                combinedAngularSpan += angularSpan;
+            }
+        }
+        if (combinedAngularSpan < fullCircleRadians - 0.05) {
             continue;
         }
 
-        const auto neighbors = graph.aag.value(faceIndex);
+        QVector<QPair<int, EdgeAttr>> neighbors;
+        QSet<int> cylinderFaceSet;
+        for (int cylinderFaceIndex : cylinderFaces) {
+            cylinderFaceSet.insert(cylinderFaceIndex);
+            neighbors += graph.aag.value(cylinderFaceIndex);
+        }
         if (neighbors.isEmpty()) {
             continue;
         }
@@ -1479,13 +1546,17 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
         double maxConeHalfAngle = 0.0;
         double maxConeRadius = 0.0;
         QVector<int> featureFaceIndices;
-        featureFaceIndices.append(faceIndex);
+        featureFaceIndices = cylinderFaces;
         QSet<int> visitedNeighbors;
 
-        const gp_Cylinder cylinder = surface.Cylinder();
         const gp_Ax1 axis = cylinder.Axis();
         const gp_Dir axisDir = axis.Direction();
-        const double radialAlignment = cylinderRadialNormalAlignment(face, axis);
+        double radialAlignment = 0.0;
+        for (int cylinderFaceIndex : cylinderFaces) {
+            radialAlignment += cylinderRadialNormalAlignment(
+                TopoDS::Face(graph.faceMap(cylinderFaceIndex)), axis);
+        }
+        radialAlignment /= double(cylinderFaces.size());
 
         const FaceProjection cylinderProjection = estimateFaceProjection(face, axisDir);
         double capProjection = 0.0;
@@ -1494,7 +1565,8 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
         for (const auto &neighbor : neighbors) {
             const int neighborIndex = neighbor.first;
             const EdgeAttr &edgeAttr = neighbor.second;
-            if (visitedNeighbors.contains(neighborIndex)) {
+            if (cylinderFaceSet.contains(neighborIndex) ||
+                visitedNeighbors.contains(neighborIndex)) {
                 continue;
             }
             visitedNeighbors.insert(neighborIndex);
@@ -1551,6 +1623,7 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
         for (const auto &neighbor : neighbors) {
             const int neighborIndex = neighbor.first;
             const EdgeAttr &edgeAttr = neighbor.second;
+            if (cylinderFaceSet.contains(neighborIndex)) continue;
             if (!edgeAttr.isSmooth) continue;
             for (const auto &hop2 : graph.aag.value(neighborIndex)) {
                 const int hop2Index = hop2.first;
@@ -1580,10 +1653,8 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
         }
 
         const bool looksLikeThroughOpening = axialPlanarOpenings >= 2 && planarCaps == 0;
-        if (radialAlignment > 0.25 && !hasConcaveNeighbor && !looksLikeThroughOpening) {
-            continue;
-        }
-        if (!hasConcaveNeighbor && !looksLikeThroughOpening) {
+        const bool inwardCylinder = radialAlignment < -0.25;
+        if (!inwardCylinder && !hasConcaveNeighbor && !looksLikeThroughOpening) {
             continue;
         }
 
