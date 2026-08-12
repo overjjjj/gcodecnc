@@ -65,6 +65,7 @@ SOURCES += \
     src/strategies/mill/FaceMillingStrategy.cpp \
     src/strategies/mill/PocketRoughingStrategy.cpp \
     src/strategies/mill/PocketFinishStrategy.cpp \
+    src/strategies/mill/PocketFloorFinishStrategy.cpp \
     src/strategies/mill/ContourFinishStrategy.cpp \
     src/strategies/mill/SurfaceFinishStrategy.cpp \
     src/strategies/mill/ClosedContourMillingStrategy.cpp \
@@ -141,6 +142,7 @@ HEADERS += \
     src/strategies/mill/FaceMillingStrategy.h \
     src/strategies/mill/PocketRoughingStrategy.h \
     src/strategies/mill/PocketFinishStrategy.h \
+    src/strategies/mill/PocketFloorFinishStrategy.h \
     src/strategies/mill/ContourFinishStrategy.h \
     src/strategies/mill/SurfaceFinishStrategy.h \
     src/strategies/mill/ClosedContourMillingStrategy.h \

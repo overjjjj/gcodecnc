@@ -174,7 +174,8 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
     }
 
     if (strategyId == QStringLiteral("mill_pocket_rough") ||
-        strategyId == QStringLiteral("mill_pocket_finish")) {
+        strategyId == QStringLiteral("mill_pocket_finish") ||
+        strategyId == QStringLiteral("mill_pocket_floor_finish")) {
         const double limitingSize = feature.width > 0.0 && feature.length > 0.0
             ? std::min(feature.width, feature.length)
             : feature.radius * 2.0;
