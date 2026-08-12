@@ -64,6 +64,16 @@ ToolpathResult PocketFloorFinishStrategy::generate(const ContourFeature &feature
     const double toolRadius = tool.diameter * 0.5;
     const double cx = feature.center.x();
     const double cy = feature.center.y();
+    const double angleRad = rectangular
+        ? feature.angle * std::acos(-1.0) / 180.0
+        : 0.0;
+    const double cosAngle = std::cos(angleRad);
+    const double sinAngle = std::sin(angleRad);
+    auto mapPocketPoint = [=](double u, double v) {
+        return QVector3D(float(cx + u * cosAngle - v * sinAngle),
+                         float(cy + u * sinAngle + v * cosAngle),
+                         0.0f);
+    };
     const double halfX = rectangular ? feature.length * 0.5 - toolRadius - stock : 0.0;
     const double halfY = rectangular ? feature.width * 0.5 - toolRadius - stock : 0.0;
     const double radius = circular ? feature.radius - toolRadius - stock : 0.0;
@@ -90,27 +100,30 @@ ToolpathResult PocketFloorFinishStrategy::generate(const ContourFeature &feature
     bool started = false;
     bool forward = true;
     for (int index = 0; index < passes; ++index) {
-        const double y = cy - yLimit + (2.0 * yLimit * index / std::max(1, passes - 1));
-        const double localY = y - cy;
+        const double localY = -yLimit + (2.0 * yLimit * index / std::max(1, passes - 1));
         const double xLimit = rectangular
             ? halfX
             : std::sqrt(std::max(0.0, radius * radius - localY * localY));
         if (xLimit <= 1.0e-6) {
             continue;
         }
-        const double left = cx - xLimit;
-        const double right = cx + xLimit;
-        const double x0 = forward ? left : right;
-        const double x1 = forward ? right : left;
+        const double u0 = forward ? -xLimit : xLimit;
+        const double u1 = forward ? xLimit : -xLimit;
+        const QVector3D startPoint = mapPocketPoint(u0, localY);
+        const QVector3D endPoint = mapPocketPoint(u1, localY);
+        const double x0 = startPoint.x();
+        const double y0 = startPoint.y();
+        const double x1 = endPoint.x();
+        const double y1 = endPoint.y();
         if (!started) {
             gcode += QStringLiteral("G0 X%1 Y%2\nG0 Z%3\nG1 Z%4 F%5\nG40\n")
                          .arg(cx, 0, 'f', 3).arg(cy, 0, 'f', 3)
                          .arg(feedZ, 0, 'f', 3).arg(cutZ, 0, 'f', 3).arg(int(plunge));
             started = true;
         }
-        gcode += linearMove(x0, y, feed);
-        gcode += linearMove(x1, y, feed);
-        totalLength += std::sqrt((x0 - cx) * (x0 - cx) + (y - cy) * (y - cy)) + 2.0 * xLimit;
+        gcode += linearMove(x0, y0, feed);
+        gcode += linearMove(x1, y1, feed);
+        totalLength += std::sqrt(u0 * u0 + localY * localY) + 2.0 * xLimit;
         forward = !forward;
     }
     if (!started) {

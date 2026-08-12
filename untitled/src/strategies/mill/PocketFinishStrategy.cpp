@@ -53,6 +53,16 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
     const double toolRadius = tool.diameter * 0.5;
     const double cx = feature.center.x();
     const double cy = feature.center.y();
+    const double angleRad = rectangular
+        ? feature.angle * std::acos(-1.0) / 180.0
+        : 0.0;
+    const double cosAngle = std::cos(angleRad);
+    const double sinAngle = std::sin(angleRad);
+    auto mapPocketPoint = [=](double u, double v) {
+        return QVector3D(float(cx + u * cosAngle - v * sinAngle),
+                         float(cy + u * sinAngle + v * cosAngle),
+                         0.0f);
+    };
     double halfLength = 0.0;
     double halfWidth = 0.0;
     double pathRadius = 0.0;
@@ -84,8 +94,11 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
     double pathLength = 0.0;
     for (int layer = 1; layer <= layers; ++layer) {
         const double z = topZ - std::min(layer * stepDown, feature.depth);
-        const double startX = rectangular ? cx - halfLength : cx + pathRadius;
-        const double startY = rectangular ? cy - halfWidth : cy;
+        const QVector3D startPoint = rectangular
+            ? mapPocketPoint(-halfLength, -halfWidth)
+            : QVector3D(float(cx + pathRadius), float(cy), 0.0f);
+        const double startX = startPoint.x();
+        const double startY = startPoint.y();
         gcode += QStringLiteral("; Pocket wall finish Z=%1\nG0 X%2 Y%3\nG0 Z%4\nG1 Z%5 F%6\nG40\nG1 X%7 Y%8 F%9\n")
                      .arg(z, 0, 'f', 3)
                      .arg(cx, 0, 'f', 3)
@@ -100,12 +113,13 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
             ? std::sqrt(halfLength * halfLength + halfWidth * halfWidth)
             : pathRadius;
         if (rectangular) {
-            const double right = cx + halfLength;
-            const double top = cy + halfWidth;
+            const QVector3D lowerRight = mapPocketPoint(halfLength, -halfWidth);
+            const QVector3D upperRight = mapPocketPoint(halfLength, halfWidth);
+            const QVector3D upperLeft = mapPocketPoint(-halfLength, halfWidth);
             gcode += QStringLiteral("G1 X%1 Y%2 F%3\nG1 X%4 Y%5\nG1 X%6 Y%7\nG1 X%8 Y%9\n")
-                         .arg(right, 0, 'f', 3).arg(startY, 0, 'f', 3).arg(int(feed))
-                         .arg(right, 0, 'f', 3).arg(top, 0, 'f', 3)
-                         .arg(startX, 0, 'f', 3).arg(top, 0, 'f', 3)
+                         .arg(lowerRight.x(), 0, 'f', 3).arg(lowerRight.y(), 0, 'f', 3).arg(int(feed))
+                         .arg(upperRight.x(), 0, 'f', 3).arg(upperRight.y(), 0, 'f', 3)
+                         .arg(upperLeft.x(), 0, 'f', 3).arg(upperLeft.y(), 0, 'f', 3)
                          .arg(startX, 0, 'f', 3).arg(startY, 0, 'f', 3);
             pathLength += 4.0 * (halfLength + halfWidth);
         } else {

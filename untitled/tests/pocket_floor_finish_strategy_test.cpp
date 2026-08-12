@@ -55,6 +55,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ContourFeature rotatedRectangle = rectangle;
+    rotatedRectangle.angle = 90.0;
+    const ToolpathResult rotatedResult = strategy.generate(
+        rotatedRectangle, tool(), strategy.defaultParams());
+    if (expect(rotatedResult.ok, "rotated rectangular pocket floor finish should generate") ||
+        expect(rotatedResult.gcode.contains(
+                   QStringLiteral("G1 X4.000 Y-8.000 F500\nG1 X4.000 Y8.000 F500")),
+               "pocket-floor finish should rotate its first scan by the feature angle") ||
+        expect(passesSafetyGate(rotatedResult.gcode),
+               "rotated rectangular pocket floor finish should pass the G-code safety gate")) {
+        return 1;
+    }
+
     ContourFeature circle = rectangle;
     circle.subType = QStringLiteral("circular_pocket");
     circle.radius = 10.0;
