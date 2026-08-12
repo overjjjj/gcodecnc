@@ -171,6 +171,18 @@ try {
         -NeedsGui
 
     Invoke-TestBuild `
+        -Name "pocket_finish_strategy_test" `
+        -Sources @("tests\pocket_finish_strategy_test.cpp", "src\strategies\StrategyBase.cpp", "src\strategies\mill\PocketFinishStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "pocket_floor_finish_strategy_test" `
+        -Sources @("tests\pocket_floor_finish_strategy_test.cpp", "src\strategies\StrategyBase.cpp", "src\strategies\mill\PocketFloorFinishStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
         -Name "postprocessor_header_test" `
         -Sources @("tests\postprocessor_header_test.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp") `
         -Libs @("-lQt5Core")
@@ -217,7 +229,7 @@ try {
 
     Invoke-TestBuild `
         -Name "program_generation_service_test" `
-        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp") `
+        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 

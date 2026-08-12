@@ -21,4 +21,30 @@ foreach ($path in $expected) {
     }
 }
 
+$runTestsText = Get-Content -LiteralPath (Join-Path $ProjectDir "scripts\run_tests.ps1") -Raw
+$programGenerationMatch = [regex]::Match(
+    $runTestsText,
+    '(?s)-Name "program_generation_service_test"\s*`\s*-Sources @\((.*?)\)')
+if (!$programGenerationMatch.Success) {
+    throw "cannot locate program_generation_service_test source list"
+}
+$programGenerationSources = $programGenerationMatch.Groups[1].Value
+$programGenerationDependencies = @(
+    "src\postprocessor\Cq8PostProcessor.cpp",
+    "src\postprocessor\FanucPostProcessor.cpp",
+    "src\gcode\Cq8MacroProgramBuilder.cpp",
+    "src\gcode\GCodeModalOptimizer.cpp"
+)
+foreach ($source in $programGenerationDependencies) {
+    if (!$programGenerationSources.Contains($source)) {
+        throw "program_generation_service_test source list is missing: $source"
+    }
+}
+
+foreach ($testName in @("pocket_finish_strategy_test", "pocket_floor_finish_strategy_test")) {
+    if (!$runTestsText.Contains("-Name `"$testName`"")) {
+        throw "full test pipeline is missing: $testName"
+    }
+}
+
 Write-Host "PASS build_pipeline_test"
