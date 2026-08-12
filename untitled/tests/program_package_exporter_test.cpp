@@ -150,5 +150,33 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const ProgramFileEntry validCq8Macros = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nG1 Z#100 F100.000\nM99\n"));
+    QTemporaryDir mainVariableDir;
+    const ProgramFileEntry invalidMainVariable = packageFile(
+        QStringLiteral("main"), QStringLiteral("CQ8_MAIN.NC"),
+        QStringLiteral("O1000\n#99=-2.000\nM98 P9001\nM30\n"));
+    const ProgramPackageExportReport mainVariableReport = ProgramPackageExporter::exportFiles(
+        mainVariableDir.path(), invalidMainVariable.fileName,
+        {invalidMainVariable, validCq8Macros});
+    if (expect(!mainVariableReport.ok &&
+                   mainVariableReport.error.contains(QStringLiteral("#99")),
+               "CQ8 export must reject main-program variables outside #100 through #199")) {
+        return 1;
+    }
+
+    QTemporaryDir macroVariableDir;
+    const ProgramFileEntry invalidMacroVariable = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nG1 Z#200 F100.000\nM99\n"));
+    const ProgramPackageExportReport macroVariableReport = ProgramPackageExporter::exportFiles(
+        macroVariableDir.path(), cq8Main.fileName, {cq8Main, invalidMacroVariable});
+    if (expect(!macroVariableReport.ok &&
+                   macroVariableReport.error.contains(QStringLiteral("#200")),
+               "CQ8 export must reject macro-library variables outside #100 through #199")) {
+        return 1;
+    }
+
     return 0;
 }

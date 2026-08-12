@@ -46,6 +46,28 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
         return QStringLiteral("CQ8 package must contain both CQ8_MAIN.NC and CQ8_MACROS.NC.");
     }
 
+    const QRegularExpression variablePattern(QStringLiteral("#(\\d+)\\b"));
+    const auto variableRangeError = [&variablePattern](const ProgramFileEntry &file) {
+        QRegularExpressionMatchIterator variableIt = variablePattern.globalMatch(file.content);
+        while (variableIt.hasNext()) {
+            const QRegularExpressionMatch match = variableIt.next();
+            const int variable = match.captured(1).toInt();
+            if (variable < 100 || variable > 199) {
+                return QStringLiteral("CQ8 file %1 uses %2 outside the first-phase #100-#199 variable range.")
+                    .arg(file.fileName, match.captured(0));
+            }
+        }
+        return QString();
+    };
+    const QString mainVariableError = variableRangeError(*mainFile);
+    if (!mainVariableError.isEmpty()) {
+        return mainVariableError;
+    }
+    const QString macroVariableError = variableRangeError(*macroFile);
+    if (!macroVariableError.isEmpty()) {
+        return macroVariableError;
+    }
+
     const QRegularExpression callPattern(QStringLiteral("\\bM98\\s+P(\\d+)\\b"),
                                          QRegularExpression::CaseInsensitiveOption);
     const QRegularExpression routinePattern(QStringLiteral("^\\s*O(\\d+)\\b"),
