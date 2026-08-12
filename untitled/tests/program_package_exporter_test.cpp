@@ -98,5 +98,33 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir cq8Dir;
+    const ProgramFileEntry cq8Main = packageFile(
+        QStringLiteral("main"), QStringLiteral("CQ8_MAIN.NC"),
+        QStringLiteral("O1000\nM98 P9001\nM30\n"));
+    const ProgramFileEntry cq8Macros = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9002\nM99\n"));
+    const ProgramPackageExportReport missingRoutineReport = ProgramPackageExporter::exportFiles(
+        cq8Dir.path(), cq8Main.fileName, {cq8Main, cq8Macros});
+    if (expect(!missingRoutineReport.ok &&
+                   missingRoutineReport.error.contains(QStringLiteral("P9001")) &&
+                   QDir(cq8Dir.path()).entryList(QDir::Files).isEmpty(),
+               "CQ8 export must reject a main-program macro call without a matching routine")) {
+        return 1;
+    }
+
+    QTemporaryDir duplicateRoutineDir;
+    const ProgramFileEntry duplicateMacros = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nM99\nO9001\nM99\n"));
+    const ProgramPackageExportReport duplicateRoutineReport = ProgramPackageExporter::exportFiles(
+        duplicateRoutineDir.path(), cq8Main.fileName, {cq8Main, duplicateMacros});
+    if (expect(!duplicateRoutineReport.ok &&
+                   duplicateRoutineReport.error.contains(QStringLiteral("more than once")),
+               "CQ8 export must reject duplicate macro routine numbers")) {
+        return 1;
+    }
+
     return 0;
 }

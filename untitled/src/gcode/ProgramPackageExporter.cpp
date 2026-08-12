@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QSet>
+#include <QRegularExpression>
 
 namespace {
 
@@ -26,6 +27,50 @@ static bool isSafeFileName(const QString &fileName)
            fileName != QStringLiteral("..");
 }
 
+static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
+{
+    const ProgramFileEntry *mainFile = nullptr;
+    const ProgramFileEntry *macroFile = nullptr;
+    for (const ProgramFileEntry &file : files) {
+        if (file.kind == QStringLiteral("main") && file.fileName == QStringLiteral("CQ8_MAIN.NC")) {
+            mainFile = &file;
+        } else if (file.kind == QStringLiteral("macro") &&
+                   file.fileName == QStringLiteral("CQ8_MACROS.NC")) {
+            macroFile = &file;
+        }
+    }
+    if (!mainFile && !macroFile) {
+        return QString();
+    }
+    if (!mainFile || !macroFile) {
+        return QStringLiteral("CQ8 package must contain both CQ8_MAIN.NC and CQ8_MACROS.NC.");
+    }
+
+    const QRegularExpression callPattern(QStringLiteral("\\bM98\\s+P(\\d+)\\b"),
+                                         QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression routinePattern(QStringLiteral("^\\s*O(\\d+)\\b"),
+                                            QRegularExpression::MultilineOption |
+                                            QRegularExpression::CaseInsensitiveOption);
+    QSet<QString> routines;
+    QRegularExpressionMatchIterator routineIt = routinePattern.globalMatch(macroFile->content);
+    while (routineIt.hasNext()) {
+        const QString routine = routineIt.next().captured(1);
+        if (routines.contains(routine)) {
+            return QStringLiteral("CQ8 macro library defines O%1 more than once.").arg(routine);
+        }
+        routines.insert(routine);
+    }
+    QRegularExpressionMatchIterator callIt = callPattern.globalMatch(mainFile->content);
+    while (callIt.hasNext()) {
+        const QString routine = callIt.next().captured(1);
+        if (!routines.contains(routine)) {
+            return QStringLiteral("CQ8 main program calls P%1 without a matching O%1 routine.")
+                .arg(routine);
+        }
+    }
+    return QString();
+}
+
 } // namespace
 
 ProgramPackageExportReport ProgramPackageExporter::exportFiles(
@@ -41,6 +86,11 @@ ProgramPackageExportReport ProgramPackageExporter::exportFiles(
     }
     if (files.isEmpty()) {
         report.error = QStringLiteral("Program Package contains no files.");
+        return report;
+    }
+    const QString macroReferenceError = cq8MacroReferenceError(files);
+    if (!macroReferenceError.isEmpty()) {
+        report.error = macroReferenceError;
         return report;
     }
 
