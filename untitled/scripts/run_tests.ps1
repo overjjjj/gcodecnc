@@ -51,6 +51,11 @@ function Invoke-TestBuild {
 }
 
 function Invoke-OccFixtureTest {
+    param(
+        [string]$Name,
+        [string]$TestSource
+    )
+
     $OccInclude = Join-Path $OccPrefix "include\opencascade"
     $OccLib = Join-Path $OccPrefix "lib"
     $OccBin = Join-Path $OccPrefix "bin"
@@ -61,7 +66,6 @@ function Invoke-OccFixtureTest {
         }
     }
 
-    $Name = "hole_step_fixture_test"
     $Output = Join-Path $DebugDir "$Name.exe"
     $Includes = @(
         "-I.",
@@ -72,7 +76,7 @@ function Invoke-OccFixtureTest {
         "-I$Mkspecs"
     )
     $Sources = @(
-        "tests\hole_step_fixture_test.cpp",
+        $TestSource,
         "src\import\StepImporter.cpp",
         "src\import\TopoAnalyzer.cpp",
         "src\import\FeatureRecognizer.cpp",
@@ -233,7 +237,13 @@ try {
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
-    Invoke-OccFixtureTest
+    Invoke-OccFixtureTest `
+        -Name "hole_step_fixture_test" `
+        -TestSource "tests\hole_step_fixture_test.cpp"
+
+    Invoke-OccFixtureTest `
+        -Name "acceptance_step_model_test" `
+        -TestSource "tests\acceptance_step_model_test.cpp"
 
     Invoke-TestBuild `
         -Name "machine_profile_validator_test" `

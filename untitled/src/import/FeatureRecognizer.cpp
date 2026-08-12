@@ -697,6 +697,11 @@ static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
     if (fn.lengthSquared() <= 1.0e-8f || feature.faceIndices.isEmpty()) {
         return FaceRegion::Unknown;
     }
+    const QVector3D featureAxis = feature.axis.normalized();
+    if (featureAxis.lengthSquared() > 1.0e-8f &&
+        std::abs(double(QVector3D::dotProduct(featureAxis, fn))) < 0.65) {
+        return FaceRegion::Side;
+    }
 
     const ProjectionRange modelRange = estimateModelProjectionRange(graph, fn);
     const ProjectionRange featureRange = estimateFacesProjectionRange(graph, feature.faceIndices, fn);

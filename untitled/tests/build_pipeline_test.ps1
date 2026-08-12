@@ -41,7 +41,11 @@ foreach ($source in $programGenerationDependencies) {
     }
 }
 
-foreach ($testName in @("pocket_finish_strategy_test", "pocket_floor_finish_strategy_test")) {
+foreach ($testName in @(
+    "pocket_finish_strategy_test",
+    "pocket_floor_finish_strategy_test",
+    "acceptance_step_model_test"
+)) {
     if (!$runTestsText.Contains("-Name `"$testName`"")) {
         throw "full test pipeline is missing: $testName"
     }
