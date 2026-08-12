@@ -14,6 +14,7 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
         return OperationType::Roughing;
     }
     if (proposal.strategyId == QStringLiteral("mill_contour_finish") ||
+        proposal.strategyId == QStringLiteral("mill_pocket_finish") ||
         proposal.strategyId == QStringLiteral("mill_surface_finish") ||
         proposal.strategyId == QStringLiteral("mill_closed_contour") ||
         proposal.strategyId == QStringLiteral("mill_open_contour")) {

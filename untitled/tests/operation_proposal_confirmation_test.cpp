@@ -112,6 +112,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    OperationProposal pocketFinishProposal = pocketProposal;
+    pocketFinishProposal.strategyId = QStringLiteral("mill_pocket_finish");
+    pocketFinishProposal.params.values.remove(QStringLiteral("entryMode"));
+    const OperationConfirmationResult pocketFinishConfirmed = confirmOperationProposal(
+        pocketFinishProposal, OperationConfirmationIntent::ExplicitUser);
+    if (expect(pocketFinishConfirmed.ok,
+               "pocket-wall finish must be confirmable without a roughing entry choice") ||
+        expect(pocketFinishConfirmed.operation.opType == OperationType::Finish &&
+                   pocketFinishConfirmed.operation.stage == OperationStage::FinishCut,
+               "pocket-wall finish should become a finish-cut operation")) {
+        return 1;
+    }
+
     OperationProposal missingStrategy = proposal;
     missingStrategy.strategyId.clear();
     if (expect(!confirmOperationProposal(

@@ -9,6 +9,7 @@
 #include "mill/CircleMillingStrategy.h"
 #include "mill/FaceMillingStrategy.h"
 #include "mill/PocketRoughingStrategy.h"
+#include "mill/PocketFinishStrategy.h"
 #include "mill/ContourFinishStrategy.h"
 #include "mill/SurfaceFinishStrategy.h"
 #include "mill/ClosedContourMillingStrategy.h"
@@ -55,6 +56,7 @@ void StrategyFactory::registerDefaults()
     registerStrategy(std::make_shared<CircleMillingStrategy>());
     registerStrategy(std::make_shared<FaceMillingStrategy>());
     registerStrategy(std::make_shared<PocketRoughingStrategy>());
+    registerStrategy(std::make_shared<PocketFinishStrategy>());
     registerStrategy(std::make_shared<ContourFinishStrategy>());
     registerStrategy(std::make_shared<SurfaceFinishStrategy>());
     registerStrategy(std::make_shared<ClosedContourMillingStrategy>());

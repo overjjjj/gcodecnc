@@ -125,6 +125,7 @@ static QString strategyDisplayName(const QString &strategyId, bool zh)
         if (strategyId == QStringLiteral("mill_face")) return QStringLiteral("铣平面");
         if (strategyId == QStringLiteral("mill_surface_finish")) return QStringLiteral("精面铣");
         if (strategyId == QStringLiteral("mill_pocket_rough")) return QStringLiteral("型腔开粗");
+        if (strategyId == QStringLiteral("mill_pocket_finish")) return QStringLiteral("型腔侧壁精加工");
         if (strategyId == QStringLiteral("mill_closed_contour")) return QStringLiteral("封闭轮廓铣");
         if (strategyId == QStringLiteral("mill_open_contour")) return QStringLiteral("开放轮廓铣");
         if (strategyId == QStringLiteral("mill_slot")) return QStringLiteral("开口槽铣");
@@ -141,6 +142,7 @@ static QString strategyDisplayName(const QString &strategyId, bool zh)
         if (strategyId == QStringLiteral("mill_face")) return QStringLiteral("Face Milling");
         if (strategyId == QStringLiteral("mill_surface_finish")) return QStringLiteral("Surface Finish");
         if (strategyId == QStringLiteral("mill_pocket_rough")) return QStringLiteral("Pocket Roughing");
+        if (strategyId == QStringLiteral("mill_pocket_finish")) return QStringLiteral("Pocket Wall Finish");
         if (strategyId == QStringLiteral("mill_closed_contour")) return QStringLiteral("Closed Contour Milling");
         if (strategyId == QStringLiteral("mill_open_contour")) return QStringLiteral("Open Contour Milling");
         if (strategyId == QStringLiteral("mill_slot")) return QStringLiteral("Open Slot Milling");
@@ -352,6 +354,7 @@ QStringList StrategyPanel::strategyIdsForCurrentContext() const
             }
             return {
                 QStringLiteral("mill_pocket_rough"),
+                QStringLiteral("mill_pocket_finish"),
                 QStringLiteral("mill_closed_contour")
             };
         }
@@ -1232,6 +1235,8 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
             return QStringLiteral("Surface finish uses the same planar area with a finer stepover for finishing.");
         if (strategyId == QStringLiteral("mill_pocket_rough"))
             return QStringLiteral("Pocket roughing clears the recognized length/width boundary in layers; review tool diameter, side stock, stepover, and entry mode.");
+        if (strategyId == QStringLiteral("mill_pocket_finish"))
+            return QStringLiteral("Pocket wall finish uses CAM-side offset on rectangular or circular pocket walls; review remaining stock and final dimensions.");
         if (strategyId == QStringLiteral("mill_closed_contour"))
             return QStringLiteral("Closed contour milling follows the selected contour for profile cutting.");
         if (strategyId == QStringLiteral("mill_open_contour"))
@@ -1265,6 +1270,8 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         return QStringLiteral("精面铣会在同一平面区域内使用更小步距生成精加工刀路。");
     if (strategyId == QStringLiteral("mill_pocket_rough"))
         return QStringLiteral("型腔开粗按识别到的真实长宽边界分层清腔，请人工核对刀径、侧壁余量、行距和下刀方式。");
+    if (strategyId == QStringLiteral("mill_pocket_finish"))
+        return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔，使用 CAM 侧偏置完成侧壁精修，请核对余量和最终尺寸。");
     if (strategyId == QStringLiteral("mill_closed_contour"))
         return QStringLiteral("封闭轮廓铣用于外形或闭合边界精修。");
     if (strategyId == QStringLiteral("mill_open_contour"))

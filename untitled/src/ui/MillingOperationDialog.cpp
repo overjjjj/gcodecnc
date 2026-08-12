@@ -33,6 +33,7 @@ static bool isMillingStrategy(const QString &id)
 {
     return id == QStringLiteral("mill_face")
         || id == QStringLiteral("mill_pocket_rough")
+        || id == QStringLiteral("mill_pocket_finish")
         || id == QStringLiteral("mill_contour_finish")
         || id == QStringLiteral("mill_surface_finish")
         || id == QStringLiteral("mill_closed_contour")
@@ -47,7 +48,8 @@ static QString featureSubTypeForStrategy(const QString &strategyId)
     if (strategyId == QStringLiteral("mill_face")) {
         return QStringLiteral("face_area");
     }
-    if (strategyId == QStringLiteral("mill_pocket_rough")) {
+    if (strategyId == QStringLiteral("mill_pocket_rough") ||
+        strategyId == QStringLiteral("mill_pocket_finish")) {
         return QStringLiteral("pocket_area");
     }
     if (strategyId == QStringLiteral("mill_surface_finish")) {
@@ -196,6 +198,7 @@ void MillingOperationDialog::populateStrategies()
     const QStringList ids = {
         QStringLiteral("mill_face"),
         QStringLiteral("mill_pocket_rough"),
+        QStringLiteral("mill_pocket_finish"),
         QStringLiteral("mill_contour_finish"),
         QStringLiteral("mill_surface_finish"),
         QStringLiteral("mill_closed_contour"),
