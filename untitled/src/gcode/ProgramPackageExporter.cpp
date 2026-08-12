@@ -86,6 +86,22 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
         }
     }
 
+    const QRegularExpression controlFlowPattern(
+        QStringLiteral("\\b(?:IF|GOTO|WHILE|DO\\d*|END\\d*)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression expressionPattern(QStringLiteral("[\\[\\]]"));
+    for (const QString &line : macroFile->content.split(QLatin1Char('\n'))) {
+        const QString code = line.section(QLatin1Char(';'), 0, 0);
+        if (controlFlowPattern.match(code).hasMatch()) {
+            return QStringLiteral("CQ8 macro library contains first-phase unsupported control flow: %1")
+                .arg(line.trimmed());
+        }
+        if (expressionPattern.match(code).hasMatch()) {
+            return QStringLiteral("CQ8 macro library contains a first-phase unsupported expression: %1")
+                .arg(line.trimmed());
+        }
+    }
+
     const QRegularExpression callPattern(QStringLiteral("\\bM98\\s+P(\\d+)\\b"),
                                          QRegularExpression::CaseInsensitiveOption);
     const QRegularExpression routinePattern(QStringLiteral("^\\s*O(\\d+)\\b"),

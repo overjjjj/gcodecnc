@@ -192,5 +192,29 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir conditionalMacroDir;
+    const ProgramFileEntry conditionalMacro = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nIF [#100 GT 0] GOTO 10\nM99\n"));
+    const ProgramPackageExportReport conditionalMacroReport = ProgramPackageExporter::exportFiles(
+        conditionalMacroDir.path(), cq8Main.fileName, {cq8Main, conditionalMacro});
+    if (expect(!conditionalMacroReport.ok &&
+                   conditionalMacroReport.error.contains(QStringLiteral("control flow")),
+               "CQ8 export must reject conditional macro control flow in the first phase")) {
+        return 1;
+    }
+
+    QTemporaryDir expressionMacroDir;
+    const ProgramFileEntry expressionMacro = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nG1 Z[#100+1.000] F100.000\nM99\n"));
+    const ProgramPackageExportReport expressionMacroReport = ProgramPackageExporter::exportFiles(
+        expressionMacroDir.path(), cq8Main.fileName, {cq8Main, expressionMacro});
+    if (expect(!expressionMacroReport.ok &&
+                   expressionMacroReport.error.contains(QStringLiteral("expression")),
+               "CQ8 export must reject bracketed macro expressions in the first phase")) {
+        return 1;
+    }
+
     return 0;
 }
