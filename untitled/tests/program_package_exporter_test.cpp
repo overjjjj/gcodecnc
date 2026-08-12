@@ -228,5 +228,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir trailingMacroCodeDir;
+    const ProgramFileEntry trailingMacroCode = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nM99\nG1 X10.000\n"));
+    const ProgramPackageExportReport trailingMacroCodeReport = ProgramPackageExporter::exportFiles(
+        trailingMacroCodeDir.path(), cq8Main.fileName, {cq8Main, trailingMacroCode});
+    if (expect(!trailingMacroCodeReport.ok &&
+                   trailingMacroCodeReport.error.contains(QStringLiteral("terminate")),
+               "CQ8 export must reject executable code after a macro return")) {
+        return 1;
+    }
+
     return 0;
 }

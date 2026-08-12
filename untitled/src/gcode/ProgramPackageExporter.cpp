@@ -133,8 +133,7 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
     }
     const QRegularExpression nestedCallPattern(QStringLiteral("\\bM98\\s+P\\d+\\b"),
                                                QRegularExpression::CaseInsensitiveOption);
-    const QRegularExpression returnPattern(QStringLiteral("^\\s*M99\\s*(?:;.*)?$"),
-                                           QRegularExpression::MultilineOption |
+    const QRegularExpression returnPattern(QStringLiteral("^\\s*M99\\s*$"),
                                            QRegularExpression::CaseInsensitiveOption);
     for (const RoutineRange &range : routineRanges) {
         const QString body = macroFile->content.mid(range.start, range.end - range.start);
@@ -142,7 +141,17 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
             return QStringLiteral("CQ8 macro routine O%1 contains a nested M98 call.")
                 .arg(range.number);
         }
-        if (!returnPattern.match(body).hasMatch()) {
+        bool hasTerminalReturn = false;
+        const QStringList lines = body.split(QLatin1Char('\n'));
+        for (int index = lines.size() - 1; index >= 0; --index) {
+            const QString code = lines.at(index).section(QLatin1Char(';'), 0, 0).trimmed();
+            if (code.isEmpty()) {
+                continue;
+            }
+            hasTerminalReturn = returnPattern.match(code).hasMatch();
+            break;
+        }
+        if (!hasTerminalReturn) {
             return QStringLiteral("CQ8 macro routine O%1 must terminate with M99.")
                 .arg(range.number);
         }
