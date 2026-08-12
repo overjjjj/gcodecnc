@@ -52,13 +52,40 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
                                             QRegularExpression::MultilineOption |
                                             QRegularExpression::CaseInsensitiveOption);
     QSet<QString> routines;
+    struct RoutineRange {
+        QString number;
+        int start = 0;
+        int end = 0;
+    };
+    QList<RoutineRange> routineRanges;
     QRegularExpressionMatchIterator routineIt = routinePattern.globalMatch(macroFile->content);
     while (routineIt.hasNext()) {
-        const QString routine = routineIt.next().captured(1);
+        const QRegularExpressionMatch match = routineIt.next();
+        const QString routine = match.captured(1);
         if (routines.contains(routine)) {
             return QStringLiteral("CQ8 macro library defines O%1 more than once.").arg(routine);
         }
         routines.insert(routine);
+        routineRanges.append({routine, match.capturedStart(), macroFile->content.size()});
+    }
+    for (int index = 0; index + 1 < routineRanges.size(); ++index) {
+        routineRanges[index].end = routineRanges.at(index + 1).start;
+    }
+    const QRegularExpression nestedCallPattern(QStringLiteral("\\bM98\\s+P\\d+\\b"),
+                                               QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression returnPattern(QStringLiteral("^\\s*M99\\s*(?:;.*)?$"),
+                                           QRegularExpression::MultilineOption |
+                                           QRegularExpression::CaseInsensitiveOption);
+    for (const RoutineRange &range : routineRanges) {
+        const QString body = macroFile->content.mid(range.start, range.end - range.start);
+        if (nestedCallPattern.match(body).hasMatch()) {
+            return QStringLiteral("CQ8 macro routine O%1 contains a nested M98 call.")
+                .arg(range.number);
+        }
+        if (!returnPattern.match(body).hasMatch()) {
+            return QStringLiteral("CQ8 macro routine O%1 must terminate with M99.")
+                .arg(range.number);
+        }
     }
     QRegularExpressionMatchIterator callIt = callPattern.globalMatch(mainFile->content);
     while (callIt.hasNext()) {

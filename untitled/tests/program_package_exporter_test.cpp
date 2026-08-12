@@ -126,5 +126,29 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir nestedCallDir;
+    const ProgramFileEntry nestedCallMacros = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nM98 P9002\nM99\nO9002\nM99\n"));
+    const ProgramPackageExportReport nestedCallReport = ProgramPackageExporter::exportFiles(
+        nestedCallDir.path(), cq8Main.fileName, {cq8Main, nestedCallMacros});
+    if (expect(!nestedCallReport.ok &&
+                   nestedCallReport.error.contains(QStringLiteral("nested")),
+               "CQ8 export must reject nested macro calls in the first phase")) {
+        return 1;
+    }
+
+    QTemporaryDir missingReturnDir;
+    const ProgramFileEntry missingReturnMacros = packageFile(
+        QStringLiteral("macro"), QStringLiteral("CQ8_MACROS.NC"),
+        QStringLiteral("O9001\nG1 X10.000\n"));
+    const ProgramPackageExportReport missingReturnReport = ProgramPackageExporter::exportFiles(
+        missingReturnDir.path(), cq8Main.fileName, {cq8Main, missingReturnMacros});
+    if (expect(!missingReturnReport.ok &&
+                   missingReturnReport.error.contains(QStringLiteral("M99")),
+               "CQ8 export must reject a macro routine without M99 return")) {
+        return 1;
+    }
+
     return 0;
 }
