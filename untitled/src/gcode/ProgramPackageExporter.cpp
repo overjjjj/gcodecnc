@@ -7,6 +7,8 @@
 #include <QSet>
 #include <QRegularExpression>
 
+#include <cmath>
+
 namespace {
 
 static QString sha256(const QString &content)
@@ -66,6 +68,22 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
     const QString macroVariableError = variableRangeError(*macroFile);
     if (!macroVariableError.isEmpty()) {
         return macroVariableError;
+    }
+
+    const QRegularExpression assignmentCandidatePattern(QStringLiteral("#\\d+\\s*="));
+    const QRegularExpression numericAssignmentPattern(
+        QStringLiteral("^\\s*#1\\d\\d\\s*=\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*(?:;.*)?$"));
+    for (const QString &line : mainFile->content.split(QLatin1Char('\n'))) {
+        if (!assignmentCandidatePattern.match(line).hasMatch()) {
+            continue;
+        }
+        const QRegularExpressionMatch assignment = numericAssignmentPattern.match(line);
+        bool conversionOk = false;
+        const double value = assignment.captured(1).toDouble(&conversionOk);
+        if (!assignment.hasMatch() || !conversionOk || !std::isfinite(value)) {
+            return QStringLiteral("CQ8 main program parameter assignments must use a finite numeric literal: %1")
+                .arg(line.trimmed());
+        }
     }
 
     const QRegularExpression callPattern(QStringLiteral("\\bM98\\s+P(\\d+)\\b"),

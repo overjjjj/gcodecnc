@@ -178,5 +178,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QTemporaryDir expressionAssignmentDir;
+    const ProgramFileEntry expressionAssignmentMain = packageFile(
+        QStringLiteral("main"), QStringLiteral("CQ8_MAIN.NC"),
+        QStringLiteral("O1000\n#100=#101+1\nM98 P9001\nM30\n"));
+    const ProgramPackageExportReport expressionAssignmentReport =
+        ProgramPackageExporter::exportFiles(expressionAssignmentDir.path(),
+                                            expressionAssignmentMain.fileName,
+                                            {expressionAssignmentMain, validCq8Macros});
+    if (expect(!expressionAssignmentReport.ok &&
+                   expressionAssignmentReport.error.contains(QStringLiteral("numeric literal")),
+               "CQ8 export must reject expression-based macro parameter assignments")) {
+        return 1;
+    }
+
     return 0;
 }
