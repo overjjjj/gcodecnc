@@ -104,14 +104,13 @@ ToolpathResult PocketFloorFinishStrategy::generate(const ContourFeature &feature
         const double x1 = forward ? right : left;
         if (!started) {
             gcode += QStringLiteral("G0 X%1 Y%2\nG0 Z%3\nG1 Z%4 F%5\nG40\n")
-                         .arg(x0, 0, 'f', 3).arg(y, 0, 'f', 3)
+                         .arg(cx, 0, 'f', 3).arg(cy, 0, 'f', 3)
                          .arg(feedZ, 0, 'f', 3).arg(cutZ, 0, 'f', 3).arg(int(plunge));
             started = true;
-        } else {
-            gcode += linearMove(x0, y, feed);
         }
+        gcode += linearMove(x0, y, feed);
         gcode += linearMove(x1, y, feed);
-        totalLength += 2.0 * xLimit;
+        totalLength += std::sqrt((x0 - cx) * (x0 - cx) + (y - cy) * (y - cy)) + 2.0 * xLimit;
         forward = !forward;
     }
     if (!started) {

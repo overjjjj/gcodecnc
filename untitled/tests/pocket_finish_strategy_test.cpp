@@ -45,6 +45,9 @@ int main(int argc, char **argv)
     const ToolpathResult rectangularResult = strategy.generate(
         rectangle, tool(), strategy.defaultParams());
     if (expect(rectangularResult.ok, "rectangular pocket finish should generate") ||
+        expect(rectangularResult.gcode.contains(
+                   QStringLiteral("G0 X0.000 Y0.000\nG0 Z3.000\nG1 Z-1.000 F200\nG40\nG1 X-8.000 Y-4.000 F800")),
+               "rectangular pocket-wall finish must plunge at the cleared pocket center before feeding to the wall") ||
         expect(rectangularResult.gcode.contains(QStringLiteral("G40")) &&
                    !rectangularResult.gcode.contains(QStringLiteral("G41")) &&
                    !rectangularResult.gcode.contains(QStringLiteral("G42")),
@@ -59,6 +62,9 @@ int main(int argc, char **argv)
     circle.radius = 10.0;
     const ToolpathResult circularResult = strategy.generate(circle, tool(), strategy.defaultParams());
     if (expect(circularResult.ok, "circular pocket finish should generate") ||
+        expect(circularResult.gcode.contains(
+                   QStringLiteral("G0 X0.000 Y0.000\nG0 Z3.000\nG1 Z-1.000 F200\nG40\nG1 X8.000 Y0.000 F800")),
+               "circular pocket-wall finish must plunge at the cleared pocket center before feeding to the wall") ||
         expect(circularResult.gcode.contains(QStringLiteral("G2 ")),
                "circular pocket finish should contain a circular wall pass") ||
         expect(passesSafetyGate(circularResult.gcode),

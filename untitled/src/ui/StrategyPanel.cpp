@@ -1239,9 +1239,9 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         if (strategyId == QStringLiteral("mill_pocket_rough"))
             return QStringLiteral("Pocket roughing clears the recognized length/width boundary in layers; review tool diameter, side stock, stepover, and entry mode.");
         if (strategyId == QStringLiteral("mill_pocket_finish"))
-            return QStringLiteral("Pocket wall finish uses CAM-side offset on rectangular or circular pocket walls; review remaining stock and final dimensions.");
+            return QStringLiteral("Pocket wall finish plunges at the cleared pocket center, then uses CAM-side offset on rectangular or circular walls; confirm roughing has cleared the center.");
         if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
-            return QStringLiteral("Pocket floor finish uses CAM-side raster passes inside rectangular or circular pocket boundaries; review bottom stock and stepover.");
+            return QStringLiteral("Pocket floor finish plunges at the cleared pocket center, then uses CAM-side raster passes inside rectangular or circular boundaries; review bottom stock and stepover.");
         if (strategyId == QStringLiteral("mill_closed_contour"))
             return QStringLiteral("Closed contour milling follows the selected contour for profile cutting.");
         if (strategyId == QStringLiteral("mill_open_contour"))
@@ -1276,9 +1276,9 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
     if (strategyId == QStringLiteral("mill_pocket_rough"))
         return QStringLiteral("型腔开粗按识别到的真实长宽边界分层清腔，请人工核对刀径、侧壁余量、行距和下刀方式。");
     if (strategyId == QStringLiteral("mill_pocket_finish"))
-        return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔，使用 CAM 侧偏置完成侧壁精修，请核对余量和最终尺寸。");
+        return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，以 CAM 侧偏置完成侧壁精修，请核对中心已清空、余量和最终尺寸。");
     if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
-        return QStringLiteral("型腔底面精加工仅支持矩形和圆形型腔，使用 CAM 刀心平行走刀，请核对底面余量和步距。");
+        return QStringLiteral("型腔底面精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，使用 CAM 刀心平行走刀，请核对中心已清空、底面余量和步距。");
     if (strategyId == QStringLiteral("mill_closed_contour"))
         return QStringLiteral("封闭轮廓铣用于外形或闭合边界精修。");
     if (strategyId == QStringLiteral("mill_open_contour"))

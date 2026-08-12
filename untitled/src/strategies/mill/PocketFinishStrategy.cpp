@@ -86,13 +86,19 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
         const double z = topZ - std::min(layer * stepDown, feature.depth);
         const double startX = rectangular ? cx - halfLength : cx + pathRadius;
         const double startY = rectangular ? cy - halfWidth : cy;
-        gcode += QStringLiteral("; Pocket wall finish Z=%1\nG0 X%2 Y%3\nG0 Z%4\nG1 Z%5 F%6\nG40\n")
+        gcode += QStringLiteral("; Pocket wall finish Z=%1\nG0 X%2 Y%3\nG0 Z%4\nG1 Z%5 F%6\nG40\nG1 X%7 Y%8 F%9\n")
                      .arg(z, 0, 'f', 3)
-                     .arg(startX, 0, 'f', 3)
-                     .arg(startY, 0, 'f', 3)
+                     .arg(cx, 0, 'f', 3)
+                     .arg(cy, 0, 'f', 3)
                      .arg(feedZ, 0, 'f', 3)
                      .arg(z, 0, 'f', 3)
-                     .arg(int(plunge));
+                     .arg(int(plunge))
+                     .arg(startX, 0, 'f', 3)
+                     .arg(startY, 0, 'f', 3)
+                     .arg(int(feed));
+        pathLength += rectangular
+            ? std::sqrt(halfLength * halfLength + halfWidth * halfWidth)
+            : pathRadius;
         if (rectangular) {
             const double right = cx + halfLength;
             const double top = cy + halfWidth;

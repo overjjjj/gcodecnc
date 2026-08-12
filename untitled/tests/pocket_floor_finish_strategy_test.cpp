@@ -45,6 +45,9 @@ int main(int argc, char **argv)
     const ToolpathResult rectangularResult = strategy.generate(
         rectangle, tool(), strategy.defaultParams());
     if (expect(rectangularResult.ok, "rectangular pocket floor finish should generate") ||
+        expect(rectangularResult.gcode.contains(
+                   QStringLiteral("G0 X0.000 Y0.000\nG0 Z3.000\nG1 Z-2.000 F150\nG40\nG1 X-8.000 Y-4.000 F500")),
+               "rectangular pocket-floor finish must plunge at the cleared pocket center before its first scan") ||
         expect(rectangularResult.gcode.contains(QStringLiteral("; Pocket floor finish")),
                "rectangular floor finish should identify its operation") ||
         expect(passesSafetyGate(rectangularResult.gcode),
