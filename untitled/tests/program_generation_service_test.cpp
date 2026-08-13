@@ -198,6 +198,24 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation sideSlot = valid;
+    sideSlot.id = QStringLiteral("op-side-slot");
+    sideSlot.opType = OperationType::Contour;
+    sideSlot.strategyId = QStringLiteral("mill_blind_slot");
+    sideSlot.contourFeature.subType = QStringLiteral("blind_slot");
+    sideSlot.contourFeature.length = 40.0;
+    sideSlot.contourFeature.width = 8.0;
+    sideSlot.contourFeature.depth = 5.0;
+    sideSlot.contourFeature.region = FaceRegion::Side;
+    const ProgramGenerationResult sideSlotFailure =
+        service.generate({sideSlot}, postProcessor, options, snapshotOptions);
+    if (!expect(!sideSlotFailure.ok,
+                QStringLiteral("side slots must not generate in the front-face Z workflow")) ||
+        !expect(sideSlotFailure.errors.join('\n').contains(QStringLiteral("Side-face slot")),
+                QStringLiteral("side-slot rejection should identify the required Setup change"))) {
+        return 1;
+    }
+
     Cq8PostProcessor cq8PostProcessor;
     const ProgramGenerationResult cq8Success =
         service.generate({valid}, cq8PostProcessor, options, snapshotOptions);

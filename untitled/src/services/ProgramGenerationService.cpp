@@ -197,6 +197,16 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     "Operation %1: Back-face hole requires a transformed Setup before G-code generation.")
                                      .arg(index + 1);
             }
+        } else if (isSlotMillingStrategy(operations[index].strategyId)) {
+            if (operations[index].contourFeature.region == FaceRegion::Side) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Side-face slot requires a dedicated Setup before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Back) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Back-face slot requires a transformed Setup before G-code generation.")
+                                     .arg(index + 1);
+            }
         }
     }
     if (!output.errors.isEmpty()) {
