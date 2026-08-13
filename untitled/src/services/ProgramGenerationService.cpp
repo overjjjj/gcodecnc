@@ -198,7 +198,12 @@ ProgramGenerationResult ProgramGenerationService::generate(
                                      .arg(index + 1);
             }
         } else if (isSlotMillingStrategy(operations[index].strategyId)) {
-            if (operations[index].contourFeature.region == FaceRegion::Side) {
+            const QVector3D slotAxis = operations[index].contourFeature.axis.normalized();
+            if (slotAxis.lengthSquared() > 1.0e-8f && std::abs(slotAxis.z()) < 0.65f) {
+                output.errors << QStringLiteral(
+                    "Operation %1: slot axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Side) {
                 output.errors << QStringLiteral(
                     "Operation %1: Side-face slot requires a dedicated Setup before G-code generation.")
                                      .arg(index + 1);

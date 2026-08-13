@@ -216,6 +216,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation mislabelledSideSlot = sideSlot;
+    mislabelledSideSlot.id = QStringLiteral("op-mislabelled-side-slot");
+    mislabelledSideSlot.contourFeature.region = FaceRegion::Front;
+    mislabelledSideSlot.contourFeature.axis = QVector3D(1.0f, 0.0f, 0.0f);
+    const ProgramGenerationResult mislabelledSideSlotFailure =
+        service.generate({mislabelledSideSlot}, postProcessor, options, snapshotOptions);
+    if (!expect(!mislabelledSideSlotFailure.ok,
+                QStringLiteral("a horizontal slot axis must not generate in the Z workflow")) ||
+        !expect(mislabelledSideSlotFailure.errors.join('\n').contains(QStringLiteral("slot axis")),
+                QStringLiteral("slot-axis rejection should identify the required Setup change"))) {
+        return 1;
+    }
+
     Cq8PostProcessor cq8PostProcessor;
     const ProgramGenerationResult cq8Success =
         service.generate({valid}, cq8PostProcessor, options, snapshotOptions);
