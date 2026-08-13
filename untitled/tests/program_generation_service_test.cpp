@@ -334,5 +334,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation mismatchedHole = secondHole;
+    mismatchedHole.id = QStringLiteral("op-hole-different-depth");
+    mismatchedHole.holeFeature.depth = 8.0;
+    const ProgramGenerationResult splitHoles =
+        peckService.generate({firstHole, mismatchedHole},
+                             postProcessor,
+                             options,
+                             holeSnapshotOptions);
+    if (!expect(splitHoles.ok,
+                QStringLiteral("different hole groups should still generate as separate operations")) ||
+        !expect(splitHoles.snapshot.gcodeText.contains(
+                    QStringLiteral("---- Operation 1 [op:op-hole-1] ----")) &&
+                    splitHoles.snapshot.gcodeText.contains(
+                    QStringLiteral("---- Operation 2 [op:op-hole-different-depth] ----")),
+                QStringLiteral("different hole geometry must not share one batch trace block"))) {
+        return 1;
+    }
+
     return 0;
 }

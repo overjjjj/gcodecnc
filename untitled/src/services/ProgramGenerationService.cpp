@@ -13,6 +13,7 @@
 #include <QSet>
 #include <QUuid>
 
+#include <cmath>
 #include <utility>
 
 namespace {
@@ -42,6 +43,31 @@ QString holeKey(const HoleFeature &hole)
         .arg(hole.center.x(), 0, 'f', 3)
         .arg(hole.center.y(), 0, 'f', 3)
         .arg(hole.center.z(), 0, 'f', 3);
+}
+
+QString holeBatchKey(const HoleFeature &hole)
+{
+    const QVector3D axis = hole.axis.normalized();
+    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10")
+        .arg(static_cast<int>(hole.kind))
+        .arg(hole.subType)
+        .arg(hole.radius, 0, 'f', 4)
+        .arg(hole.depth, 0, 'f', 4)
+        .arg(hole.secondaryRadius, 0, 'f', 4)
+        .arg(hole.pitch, 0, 'f', 4)
+        .arg(static_cast<int>(hole.region))
+        .arg(std::abs(axis.x()), 0, 'f', 4)
+        .arg(std::abs(axis.y()), 0, 'f', 4)
+        .arg(std::abs(axis.z()), 0, 'f', 4);
+}
+
+bool sharesHoleBatch(const MachiningOperation &first,
+                     const MachiningOperation &candidate)
+{
+    if (first.strategyId == QStringLiteral("hole_spot")) {
+        return true;
+    }
+    return holeBatchKey(first.holeFeature) == holeBatchKey(candidate.holeFeature);
 }
 
 QString operationSummary(const MachiningOperation &operation)
@@ -225,7 +251,8 @@ ProgramGenerationResult ProgramGenerationService::generate(
                    operations[next].opType == OperationType::Hole &&
                    operations[next].strategyId == operation.strategyId &&
                    operations[next].toolId == operation.toolId &&
-                   operations[next].params.values == operation.params.values) {
+                   operations[next].params.values == operation.params.values &&
+                   sharesHoleBatch(operation, operations[next])) {
                 batch.append(operations[next].holeFeature);
                 ++next;
             }

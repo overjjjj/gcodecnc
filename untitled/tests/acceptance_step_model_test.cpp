@@ -60,7 +60,9 @@ int main(int argc, char **argv)
     int automaticThreadCount = 0;
     int invalidCountersinkCount = 0;
     HoleFeature selectedThroughHole;
+    HoleFeature pairedThroughHole;
     bool hasSelectedThroughHole = false;
+    bool hasPairedThroughHole = false;
     for (const MachiningFeature &feature : importer.features()) {
         if ((feature.kind == FeatureKind::Hole || feature.kind == FeatureKind::Thread) &&
             feature.region == FaceRegion::Front) {
@@ -79,6 +81,13 @@ int main(int argc, char **argv)
             std::abs(feature.center.y() - 305.0f) < 0.02f) {
             selectedThroughHole = feature;
             hasSelectedThroughHole = true;
+        }
+        if (feature.kind == FeatureKind::Hole &&
+            feature.subType == QStringLiteral("through_hole") &&
+            std::abs(feature.center.x() + 60.0f) < 0.02f &&
+            std::abs(feature.center.y() + 305.0f) < 0.02f) {
+            pairedThroughHole = feature;
+            hasPairedThroughHole = true;
         }
         if (feature.kind != FeatureKind::Slot) {
             continue;
@@ -121,8 +130,11 @@ int main(int argc, char **argv)
     }
     if (!expect(hasSelectedThroughHole &&
                     std::abs(selectedThroughHole.radius - 10.5) < 0.02 &&
-                    std::abs(selectedThroughHole.depth - 50.0) < 0.02,
-                "the acceptance model should retain the selected D21 through hole")) {
+                    std::abs(selectedThroughHole.depth - 50.0) < 0.02 &&
+                    hasPairedThroughHole &&
+                    std::abs(pairedThroughHole.radius - selectedThroughHole.radius) < 0.02 &&
+                    std::abs(pairedThroughHole.depth - selectedThroughHole.depth) < 0.02,
+                "the acceptance model should retain the paired D21 through-hole group")) {
         return 1;
     }
 
@@ -153,6 +165,11 @@ int main(int argc, char **argv)
     operation.params = peckStrategy->defaultParams();
     operation.holeFeature = selectedThroughHole;
 
+    MachiningOperation pairedOperation = operation;
+    pairedOperation.id = QStringLiteral("acceptance-hole-d21-paired");
+    pairedOperation.featureRef = QStringLiteral("WH250852 paired D21 through hole");
+    pairedOperation.holeFeature = pairedThroughHole;
+
     PostProcessorOptions postOptions;
     postOptions.programNumber = QStringLiteral("O250852");
     postOptions.workOffset = QStringLiteral("G54");
@@ -173,11 +190,14 @@ int main(int argc, char **argv)
 
     Cq8PostProcessor postProcessor;
     const ProgramGenerationResult generated = generationService.generate(
-        {operation}, postProcessor, postOptions, snapshotOptions);
+        {operation, pairedOperation}, postProcessor, postOptions, snapshotOptions);
     if (!expect(generated.ok, "the confirmed acceptance hole should generate final G-code") ||
+        !expect(generated.snapshot.gcodeText.count(
+                    QStringLiteral("G98 G83 Z-51.000 R3.000 Q3.000 F60.000 X-60.000 Y305.000")) == 1,
+                "the final CQ8-interface program should define one shared G83 cycle") ||
         !expect(generated.snapshot.gcodeText.contains(
-                    QStringLiteral("G98 G83 Z-51.000 R3.000 Q3.000 F60.000 X-60.000 Y305.000")),
-                "the final CQ8-interface program should drill the recognized hole with G83") ||
+                    QStringLiteral("X-60.000 Y-305.000")),
+                "the shared G83 cycle should call the paired D21 coordinate") ||
         !expect(generated.snapshot.gcodeText.contains(QStringLiteral("G80")) &&
                     generated.snapshot.gcodeText.contains(QStringLiteral("M5")) &&
                     generated.snapshot.gcodeText.contains(QStringLiteral("M9")) &&
@@ -185,8 +205,9 @@ int main(int argc, char **argv)
                 "the final program should cancel cycles and shut down safely") ||
         !expect(generated.snapshot.postProcessorId == QStringLiteral("cq8") &&
                     generated.snapshot.sourceOperationIds ==
-                        QStringList{QStringLiteral("acceptance-hole-d21")},
-                "the final snapshot should retain CQ8-interface and operation traceability")) {
+                        QStringList{QStringLiteral("acceptance-hole-d21"),
+                                    QStringLiteral("acceptance-hole-d21-paired")},
+                "the final snapshot should retain CQ8-interface and both operation IDs")) {
         if (!generated.errors.isEmpty()) {
             std::cerr << generated.errors.join(QLatin1Char('\n')).toStdString() << '\n';
         }
