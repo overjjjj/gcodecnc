@@ -57,12 +57,21 @@ int main(int argc, char **argv)
 
     int sideAxisSlots = 0;
     int frontHoleCount = 0;
+    int automaticThreadCount = 0;
+    int invalidCountersinkCount = 0;
     HoleFeature selectedThroughHole;
     bool hasSelectedThroughHole = false;
     for (const MachiningFeature &feature : importer.features()) {
         if ((feature.kind == FeatureKind::Hole || feature.kind == FeatureKind::Thread) &&
             feature.region == FaceRegion::Front) {
             ++frontHoleCount;
+        }
+        if (feature.kind == FeatureKind::Thread) {
+            ++automaticThreadCount;
+        }
+        if (feature.subType.startsWith(QStringLiteral("countersunk_")) &&
+            feature.secondaryRadius <= feature.radius + 0.05) {
+            ++invalidCountersinkCount;
         }
         if (feature.kind == FeatureKind::Hole &&
             feature.subType == QStringLiteral("through_hole") &&
@@ -98,6 +107,16 @@ int main(int argc, char **argv)
     }
     if (!expect(frontHoleCount > 0,
                 "the acceptance model should expose front hole features")) {
+        return 1;
+    }
+    if (!expect(automaticThreadCount == 0,
+                "smooth STEP cylinders must not be promoted to threads without explicit thread evidence")) {
+        std::cerr << "automatically classified threads: " << automaticThreadCount << '\n';
+        return 1;
+    }
+    if (!expect(invalidCountersinkCount == 0,
+                "a countersink candidate must visibly enlarge the cylindrical bore at its conical face")) {
+        std::cerr << "countersinks without an enlarged cone: " << invalidCountersinkCount << '\n';
         return 1;
     }
     if (!expect(hasSelectedThroughHole &&
