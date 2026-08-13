@@ -238,6 +238,24 @@ try {
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
+    $SimulationControllerMoc = Join-Path $DebugDir "moc_SimulationController_test.cpp"
+    & moc src\simulation\SimulationController.h -o $SimulationControllerMoc
+    if ($LASTEXITCODE -ne 0) {
+        throw "SimulationController moc failed"
+    }
+
+    $ToolLibraryMoc = Join-Path $DebugDir "moc_ToolLibrary_test.cpp"
+    & moc src\tool\ToolLibrary.h -o $ToolLibraryMoc
+    if ($LASTEXITCODE -ne 0) {
+        throw "ToolLibrary moc failed"
+    }
+
+    Invoke-TestBuild `
+        -Name "simulation_gcode_test" `
+        -Sources @("tests\simulation_gcode_test.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
     Invoke-OccFixtureTest `
         -Name "hole_step_fixture_test" `
         -TestSource "tests\hole_step_fixture_test.cpp"

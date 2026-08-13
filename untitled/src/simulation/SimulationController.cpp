@@ -137,7 +137,7 @@ void SimulationController::onTick()
 // ---------------------------------------------------------------------------
 // G-code parser: extracts G0/G1/G2/G3 moves, tracks current X/Y/Z position.
 // G2/G3 arcs are approximated as short line segments for visual simulation.
-// Also expands Siemens CYCLE81/82/83/84/85 modal canned cycles into simulation moves.
+// Also expands Siemens CYCLE81/82/83/84/85 and Fanuc-style G81-G85 modal canned cycles.
 // ---------------------------------------------------------------------------
 
 namespace {
@@ -293,12 +293,25 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
     static const QRegularExpression cycleRe(
         QStringLiteral("MCALL\\s+CYCLE(8[12345])\\s*\\("),
         QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression fanucCycleRe(
+        QStringLiteral("(?:^|\\s)G(8[12345])(?:\\s|$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression fanucCycleCancelRe(
+        QStringLiteral("(?:^|\\s)G80(?:\\s|$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression fanucReturnInitialRe(
+        QStringLiteral("(?:^|\\s)G98(?:\\s|$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression fanucReturnReferenceRe(
+        QStringLiteral("(?:^|\\s)G99(?:\\s|$)"),
+        QRegularExpression::CaseInsensitiveOption);
 
     QVector3D cur(0, 0, 0);
     int gModal = 0;
     double currentToolDiameter = 0.0;
     QString currentToolModelPath;
     DrillCycle cycle;
+    bool fanucReturnToInitial = true;
 
     const QStringList lines = gcode.split('\n');
     for (int lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
@@ -308,6 +321,17 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
 
         // --- MCALL (bare) closes an active cycle ---
         if (line.compare(QStringLiteral("MCALL"), Qt::CaseInsensitive) == 0) {
+            cycle.active = false;
+            continue;
+        }
+
+        if (fanucReturnInitialRe.match(line).hasMatch()) {
+            fanucReturnToInitial = true;
+        } else if (fanucReturnReferenceRe.match(line).hasMatch()) {
+            fanucReturnToInitial = false;
+        }
+
+        if (fanucCycleCancelRe.match(line).hasMatch()) {
             cycle.active = false;
             continue;
         }
@@ -332,6 +356,42 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
             if (kind == 83) {
                 cycle.mdep = a.value(10, 5.0); // MDEP is arg index 10
                 if (cycle.mdep <= 0) cycle.mdep = std::abs(cycle.dp - cycle.rfp);
+            }
+            continue;
+        }
+
+        // --- Fanuc/CQ8 G81-G85 opens a modal canned cycle and drills its first hole ---
+        auto fm = fanucCycleRe.match(line);
+        if (fm.hasMatch()) {
+            double hx = cur.x(), hy = cur.y();
+            double bottomZ = cycle.dp, returnZ = cycle.rfp, peckDepth = cycle.mdep;
+            bool hasX = false, hasY = false, hasZ = false, hasR = false;
+            auto it = wordRe.globalMatch(line);
+            while (it.hasNext()) {
+                const auto m = it.next();
+                const QChar letter = m.captured(1).at(0).toUpper();
+                const double val = m.captured(2).toDouble();
+                if (letter == 'T') {
+                    const ToolEntry tool = ToolLibrary::instance().tool(int(val));
+                    if (tool.diameter > 0.0) currentToolDiameter = tool.diameter;
+                    currentToolModelPath = tool.modelPath;
+                } else if (letter == 'X') { hx = val; hasX = true; }
+                else if (letter == 'Y') { hy = val; hasY = true; }
+                else if (letter == 'Z') { bottomZ = val; hasZ = true; }
+                else if (letter == 'R') { returnZ = val; hasR = true; }
+                else if (letter == 'Q') { peckDepth = val; }
+            }
+
+            cycle.active = true;
+            cycle.kind = fm.captured(1).toInt();
+            cycle.rtp = fanucReturnToInitial ? cur.z() : returnZ;
+            cycle.rfp = returnZ;
+            cycle.sdis = 0.0;
+            if (hasZ) cycle.dp = bottomZ;
+            if (hasR) cycle.rfp = returnZ;
+            if (cycle.kind == 83 && peckDepth > 0.0) cycle.mdep = peckDepth;
+            if (hasX || hasY) {
+                expandDrillHole(moves, cur, hx, hy, cycle, currentToolDiameter, currentToolModelPath, lineIndex);
             }
             continue;
         }
