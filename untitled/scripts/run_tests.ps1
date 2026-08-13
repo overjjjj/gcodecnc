@@ -262,6 +262,12 @@ try {
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
+    Invoke-TestBuild `
+        -Name "open_slot_cq8_integration_test" `
+        -Sources @("tests\open_slot_cq8_integration_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\SlotMillingStrategy.cpp", "src\strategies\mill\SlotMachiningGeometry.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
     Invoke-OccFixtureTest `
         -Name "hole_step_fixture_test" `
         -TestSource "tests\hole_step_fixture_test.cpp"
