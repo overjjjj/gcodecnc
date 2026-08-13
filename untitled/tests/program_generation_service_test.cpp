@@ -186,6 +186,18 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation sideHole = valid;
+    sideHole.id = QStringLiteral("op-side-hole");
+    sideHole.holeFeature.region = FaceRegion::Side;
+    const ProgramGenerationResult sideHoleFailure =
+        service.generate({sideHole}, postProcessor, options, snapshotOptions);
+    if (!expect(!sideHoleFailure.ok,
+                QStringLiteral("side holes must not generate in the front-face Z workflow")) ||
+        !expect(sideHoleFailure.errors.join('\n').contains(QStringLiteral("Side-face")),
+                QStringLiteral("side-hole rejection should identify the required Setup change"))) {
+        return 1;
+    }
+
     Cq8PostProcessor cq8PostProcessor;
     const ProgramGenerationResult cq8Success =
         service.generate({valid}, cq8PostProcessor, options, snapshotOptions);

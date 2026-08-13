@@ -186,6 +186,17 @@ ProgramGenerationResult ProgramGenerationService::generate(
             output.errors << QStringLiteral("Operation %1 is not a confirmed operation.")
                                  .arg(index + 1);
         }
+        if (operations[index].opType == OperationType::Hole) {
+            if (operations[index].holeFeature.region == FaceRegion::Side) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Side-face hole requires a dedicated Setup before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].holeFeature.region == FaceRegion::Back) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Back-face hole requires a transformed Setup before G-code generation.")
+                                     .arg(index + 1);
+            }
+        }
     }
     if (!output.errors.isEmpty()) {
         return output;
