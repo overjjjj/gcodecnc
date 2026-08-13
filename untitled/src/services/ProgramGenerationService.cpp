@@ -48,7 +48,7 @@ QString holeKey(const HoleFeature &hole)
 QString holeBatchKey(const HoleFeature &hole)
 {
     const QVector3D axis = hole.axis.normalized();
-    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10")
+    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11")
         .arg(static_cast<int>(hole.kind))
         .arg(hole.subType)
         .arg(hole.radius, 0, 'f', 4)
@@ -58,7 +58,8 @@ QString holeBatchKey(const HoleFeature &hole)
         .arg(static_cast<int>(hole.region))
         .arg(std::abs(axis.x()), 0, 'f', 4)
         .arg(std::abs(axis.y()), 0, 'f', 4)
-        .arg(std::abs(axis.z()), 0, 'f', 4);
+        .arg(std::abs(axis.z()), 0, 'f', 4)
+        .arg(hole.center.z(), 0, 'f', 4);
 }
 
 bool sharesHoleBatch(const MachiningOperation &first,

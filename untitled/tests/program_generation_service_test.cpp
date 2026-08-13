@@ -364,5 +364,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation steppedHole = secondHole;
+    steppedHole.id = QStringLiteral("op-hole-different-entry");
+    steppedHole.holeFeature.center.setZ(10.0f);
+    const ProgramGenerationResult steppedHoles =
+        peckService.generate({firstHole, steppedHole},
+                             postProcessor,
+                             options,
+                             holeSnapshotOptions);
+    if (!expect(steppedHoles.ok,
+                QStringLiteral("holes on different entry planes should generate as separate operations")) ||
+        !expect(steppedHoles.snapshot.gcodeText.contains(
+                    QStringLiteral("---- Operation 1 [op:op-hole-1] ----")) &&
+                    steppedHoles.snapshot.gcodeText.contains(
+                    QStringLiteral("---- Operation 2 [op:op-hole-different-entry] ----")),
+                QStringLiteral("holes with different entry Z must not share one batch trace block"))) {
+        return 1;
+    }
+
     return 0;
 }
