@@ -38,6 +38,13 @@ public:
         return m_result;
     }
 
+    ToolpathResult generate(const ContourFeature &,
+                            const ToolEntry &,
+                            const StrategyParams &) const override
+    {
+        return m_result;
+    }
+
 private:
     QString m_id;
     ToolpathResult m_result;
@@ -526,6 +533,41 @@ int main(int argc, char **argv)
                 QStringLiteral("the flute-length rejection should explain the depth conflict")) ||
         !expect(shortFluteFailure.snapshot.gcodeText.isEmpty(),
                 QStringLiteral("a short flute must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
+    const auto blindSlotStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("mill_blind_slot"), safeToolpath);
+    ProgramGenerationService oversizedSlotToolService(
+        [blindSlotStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == blindSlotStrategy->id()
+                ? blindSlotStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 8.0;
+            }
+            return tool;
+        });
+    MachiningOperation oversizedSlot = sideSlot;
+    oversizedSlot.id = QStringLiteral("op-oversized-slot-tool");
+    oversizedSlot.contourFeature.region = FaceRegion::Front;
+    oversizedSlot.contourFeature.axis = QVector3D(0.0f, 0.0f, 1.0f);
+    const ProgramGenerationResult oversizedSlotToolFailure =
+        oversizedSlotToolService.generate({oversizedSlot},
+                                          postProcessor,
+                                          options,
+                                          snapshotOptions);
+    if (!expect(!oversizedSlotToolFailure.ok,
+                QStringLiteral("a slot operation must reject a tool that is not narrower than the slot")) ||
+        !expect(oversizedSlotToolFailure.errors.join('\n').contains(QStringLiteral("diameter")),
+                QStringLiteral("the slot rejection should explain the width and diameter conflict")) ||
+        !expect(oversizedSlotToolFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("an oversized slot tool must not expose a partial G-code snapshot"))) {
         return 1;
     }
 

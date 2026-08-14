@@ -92,6 +92,22 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
+QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool)
+{
+    if (tool.type != QStringLiteral("end_mill")) {
+        return QStringLiteral("tool T%1 is type '%2', but slot machining requires 'end_mill'.")
+            .arg(operation.toolId)
+            .arg(tool.type);
+    }
+    if (operation.contourFeature.width > 0.0 &&
+        tool.diameter >= operation.contourFeature.width - 0.01) {
+        return QStringLiteral("tool diameter %1 mm must be smaller than slot width %2 mm.")
+            .arg(tool.diameter, 0, 'f', 3)
+            .arg(operation.contourFeature.width, 0, 'f', 3);
+    }
+    return QString();
+}
+
 StrategyParams generationParams(const MachiningOperation &operation)
 {
     StrategyParams params = operation.params;
@@ -340,6 +356,8 @@ ProgramGenerationResult ProgramGenerationService::generate(
 
         const QString toolError = operation.opType == OperationType::Hole
             ? holeToolError(operation, tool)
+            : isSlotMillingStrategy(operation.strategyId)
+                ? slotToolError(operation, tool)
             : QString();
         if (!toolError.isEmpty()) {
             output.errors << QStringLiteral("Operation %1: %2")
