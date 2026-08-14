@@ -505,6 +505,30 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService shortFluteService(
+        [safeStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == safeStrategy->id() ? safeStrategy : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.diameter = 6.0;
+                tool.fluteLen = 4.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult shortFluteFailure =
+        shortFluteService.generate({valid}, postProcessor, options, snapshotOptions);
+    if (!expect(!shortFluteFailure.ok,
+                QStringLiteral("a hole operation must reject a tool whose flute length is shorter than the cutting depth")) ||
+        !expect(shortFluteFailure.errors.join('\n').contains(QStringLiteral("flute length")),
+                QStringLiteral("the flute-length rejection should explain the depth conflict")) ||
+        !expect(shortFluteFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a short flute must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;

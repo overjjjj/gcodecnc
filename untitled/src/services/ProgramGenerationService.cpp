@@ -53,6 +53,13 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(expectedToolType);
     }
 
+    if (tool.fluteLen > 0.0 &&
+        operation.holeFeature.depth > tool.fluteLen + 0.01) {
+        return QStringLiteral("cutting depth %1 mm exceeds tool flute length %2 mm.")
+            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(tool.fluteLen, 0, 'f', 3);
+    }
+
     if (operation.strategyId == QStringLiteral("hole_peck") ||
         operation.strategyId == QStringLiteral("hole_deephole")) {
         const double targetDiameter = operation.holeFeature.radius * 2.0;
