@@ -26,6 +26,13 @@ bool isSlotMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
+bool isPocketMillingStrategy(const QString &strategyId)
+{
+    return strategyId == QStringLiteral("mill_pocket_rough") ||
+           strategyId == QStringLiteral("mill_pocket_finish") ||
+           strategyId == QStringLiteral("mill_pocket_floor_finish");
+}
+
 QString expectedHoleToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
@@ -118,13 +125,6 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(tool.fluteLen, 0, 'f', 3);
     }
     return QString();
-}
-
-bool isPocketMillingStrategy(const QString &strategyId)
-{
-    return strategyId == QStringLiteral("mill_pocket_rough") ||
-           strategyId == QStringLiteral("mill_pocket_finish") ||
-           strategyId == QStringLiteral("mill_pocket_floor_finish");
 }
 
 QString pocketToolError(const MachiningOperation &operation, const ToolEntry &tool)
@@ -331,6 +331,21 @@ ProgramGenerationResult ProgramGenerationService::generate(
             } else if (operations[index].contourFeature.region == FaceRegion::Back) {
                 output.errors << QStringLiteral(
                     "Operation %1: Back-face slot requires a transformed Setup before G-code generation.")
+                                     .arg(index + 1);
+            }
+        } else if (isPocketMillingStrategy(operations[index].strategyId)) {
+            const QVector3D pocketAxis = operations[index].contourFeature.axis.normalized();
+            if (pocketAxis.lengthSquared() > 1.0e-8f && std::abs(pocketAxis.z()) < 0.65f) {
+                output.errors << QStringLiteral(
+                    "Operation %1: pocket axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Side) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Side-face pocket requires a dedicated Setup before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Back) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Back-face pocket requires a transformed Setup before G-code generation.")
                                      .arg(index + 1);
             }
         }

@@ -662,6 +662,21 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    MachiningOperation sidePocket = oversizedPocket;
+    sidePocket.id = QStringLiteral("op-side-pocket");
+    sidePocket.contourFeature.region = FaceRegion::Side;
+    const ProgramGenerationResult sidePocketFailure =
+        oversizedPocketToolService.generate({sidePocket},
+                                            postProcessor,
+                                            options,
+                                            snapshotOptions);
+    if (!expect(!sidePocketFailure.ok,
+                QStringLiteral("a side-face pocket must not generate in the front-face Z workflow")) ||
+        !expect(sidePocketFailure.errors.join('\n').contains(QStringLiteral("Side-face pocket")),
+                QStringLiteral("side-pocket rejection should identify the required Setup change"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;
