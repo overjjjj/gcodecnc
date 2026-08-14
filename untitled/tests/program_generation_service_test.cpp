@@ -571,6 +571,36 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService shortFluteSlotService(
+        [blindSlotStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == blindSlotStrategy->id()
+                ? blindSlotStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 6.0;
+                tool.fluteLen = 4.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult shortFluteSlotFailure =
+        shortFluteSlotService.generate({oversizedSlot},
+                                       postProcessor,
+                                       options,
+                                       snapshotOptions);
+    if (!expect(!shortFluteSlotFailure.ok,
+                QStringLiteral("a slot operation must reject a tool whose flute length is shorter than the slot depth")) ||
+        !expect(shortFluteSlotFailure.errors.join('\n').contains(QStringLiteral("flute length")),
+                QStringLiteral("the slot flute-length rejection should explain the depth conflict")) ||
+        !expect(shortFluteSlotFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a short slot flute must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;

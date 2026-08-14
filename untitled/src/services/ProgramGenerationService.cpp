@@ -105,6 +105,12 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(tool.diameter, 0, 'f', 3)
             .arg(operation.contourFeature.width, 0, 'f', 3);
     }
+    if (tool.fluteLen > 0.0 &&
+        operation.contourFeature.depth > tool.fluteLen + 0.01) {
+        return QStringLiteral("slot depth %1 mm exceeds tool flute length %2 mm.")
+            .arg(operation.contourFeature.depth, 0, 'f', 3)
+            .arg(tool.fluteLen, 0, 'f', 3);
+    }
     return QString();
 }
 
