@@ -625,6 +625,43 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const auto pocketStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("mill_pocket_rough"), safeToolpath);
+    ProgramGenerationService oversizedPocketToolService(
+        [pocketStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == pocketStrategy->id()
+                ? pocketStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 10.0;
+            }
+            return tool;
+        });
+    MachiningOperation oversizedPocket = oversizedSlot;
+    oversizedPocket.id = QStringLiteral("op-oversized-pocket-tool");
+    oversizedPocket.strategyId = QStringLiteral("mill_pocket_rough");
+    oversizedPocket.contourFeature.subType = QStringLiteral("rectangular_pocket");
+    oversizedPocket.contourFeature.length = 20.0;
+    oversizedPocket.contourFeature.width = 10.0;
+    const ProgramGenerationResult oversizedPocketToolFailure =
+        oversizedPocketToolService.generate({oversizedPocket},
+                                            postProcessor,
+                                            options,
+                                            snapshotOptions);
+    if (!expect(!oversizedPocketToolFailure.ok,
+                QStringLiteral("a pocket operation must reject a tool that is not smaller than its limiting dimension")) ||
+        !expect(oversizedPocketToolFailure.errors.join('\n').contains(QStringLiteral("diameter")),
+                QStringLiteral("the pocket rejection should explain the diameter conflict")) ||
+        !expect(oversizedPocketToolFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("an oversized pocket tool must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;

@@ -120,6 +120,32 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
+bool isPocketMillingStrategy(const QString &strategyId)
+{
+    return strategyId == QStringLiteral("mill_pocket_rough") ||
+           strategyId == QStringLiteral("mill_pocket_finish") ||
+           strategyId == QStringLiteral("mill_pocket_floor_finish");
+}
+
+QString pocketToolError(const MachiningOperation &operation, const ToolEntry &tool)
+{
+    if (tool.type != QStringLiteral("end_mill")) {
+        return QStringLiteral("tool T%1 is type '%2', but pocket machining requires 'end_mill'.")
+            .arg(operation.toolId)
+            .arg(tool.type);
+    }
+    const ContourFeature &feature = operation.contourFeature;
+    const double limitingSize = feature.length > 0.0 && feature.width > 0.0
+        ? std::min(feature.length, feature.width)
+        : feature.radius * 2.0;
+    if (limitingSize > 0.0 && tool.diameter >= limitingSize - 0.01) {
+        return QStringLiteral("tool diameter %1 mm must be smaller than pocket limiting dimension %2 mm.")
+            .arg(tool.diameter, 0, 'f', 3)
+            .arg(limitingSize, 0, 'f', 3);
+    }
+    return QString();
+}
+
 StrategyParams generationParams(const MachiningOperation &operation)
 {
     StrategyParams params = operation.params;
@@ -370,6 +396,8 @@ ProgramGenerationResult ProgramGenerationService::generate(
             ? holeToolError(operation, tool)
             : isSlotMillingStrategy(operation.strategyId)
                 ? slotToolError(operation, tool)
+                : isPocketMillingStrategy(operation.strategyId)
+                    ? pocketToolError(operation, tool)
             : QString();
         if (!toolError.isEmpty()) {
             output.errors << QStringLiteral("Operation %1: %2")
