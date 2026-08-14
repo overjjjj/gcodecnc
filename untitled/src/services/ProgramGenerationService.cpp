@@ -72,6 +72,16 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
                 .arg(targetDiameter, 0, 'f', 3);
         }
     }
+    if (operation.strategyId == QStringLiteral("hole_tapping") &&
+        operation.holeFeature.pitch > 0.0) {
+        const double tolerance = std::max(0.01, operation.holeFeature.pitch * 0.02);
+        if (tool.pitch <= 0.0 ||
+            std::abs(tool.pitch - operation.holeFeature.pitch) > tolerance) {
+            return QStringLiteral("tap pitch %1 mm does not match target thread pitch %2 mm.")
+                .arg(tool.pitch, 0, 'f', 3)
+                .arg(operation.holeFeature.pitch, 0, 'f', 3);
+        }
+    }
     return QString();
 }
 

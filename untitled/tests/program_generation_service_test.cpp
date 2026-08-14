@@ -469,6 +469,42 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const auto tappingStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("hole_tapping"), safeToolpath);
+    ProgramGenerationService wrongPitchTappingService(
+        [tappingStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == tappingStrategy->id()
+                ? tappingStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("tap");
+                tool.diameter = 6.0;
+                tool.pitch = 1.25;
+            }
+            return tool;
+        });
+    MachiningOperation tappingHole = firstHole;
+    tappingHole.id = QStringLiteral("op-wrong-tap-pitch");
+    tappingHole.strategyId = QStringLiteral("hole_tapping");
+    tappingHole.holeFeature.pitch = 1.0;
+    const ProgramGenerationResult wrongPitchTappingFailure =
+        wrongPitchTappingService.generate({tappingHole},
+                                          postProcessor,
+                                          options,
+                                          holeSnapshotOptions);
+    if (!expect(!wrongPitchTappingFailure.ok,
+                QStringLiteral("a tapping operation must reject a tap with a different pitch from the target thread")) ||
+        !expect(wrongPitchTappingFailure.errors.join('\n').contains(QStringLiteral("pitch")),
+                QStringLiteral("the tap rejection should explain the pitch conflict")) ||
+        !expect(wrongPitchTappingFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a mismatched tap must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;
