@@ -625,6 +625,37 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService shortTotalLengthSlotService(
+        [blindSlotStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == blindSlotStrategy->id()
+                ? blindSlotStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 6.0;
+                tool.fluteLen = 8.0;
+                tool.totalLen = 5.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult shortTotalLengthSlotFailure =
+        shortTotalLengthSlotService.generate({oversizedSlot},
+                                              postProcessor,
+                                              options,
+                                              snapshotOptions);
+    if (!expect(!shortTotalLengthSlotFailure.ok,
+                QStringLiteral("a slot operation must reject a tool whose total length reaches slot depth")) ||
+        !expect(shortTotalLengthSlotFailure.errors.join('\n').contains(QStringLiteral("total length")),
+                QStringLiteral("the slot total-length rejection should explain the depth conflict")) ||
+        !expect(shortTotalLengthSlotFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("an insufficient slot total length must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     const auto pocketStrategy = std::make_shared<FixedStrategy>(
         QStringLiteral("mill_pocket_rough"), safeToolpath);
     ProgramGenerationService oversizedPocketToolService(

@@ -124,6 +124,12 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(operation.contourFeature.depth, 0, 'f', 3)
             .arg(tool.fluteLen, 0, 'f', 3);
     }
+    if (tool.totalLen > 0.0 &&
+        operation.contourFeature.depth >= tool.totalLen - 0.01) {
+        return QStringLiteral("slot depth %1 mm reaches tool total length %2 mm; safe stick-out is impossible.")
+            .arg(operation.contourFeature.depth, 0, 'f', 3)
+            .arg(tool.totalLen, 0, 'f', 3);
+    }
     return QString();
 }
 
