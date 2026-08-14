@@ -406,6 +406,35 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService oversizedPeckService(
+        [peckStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == peckStrategy->id()
+                ? peckStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("drill");
+                tool.diameter = 8.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult oversizedPeckFailure =
+        oversizedPeckService.generate({firstHole},
+                                      postProcessor,
+                                      options,
+                                      holeSnapshotOptions);
+    if (!expect(!oversizedPeckFailure.ok,
+                QStringLiteral("a peck-drilling operation must reject a drill larger than the target hole")) ||
+        !expect(oversizedPeckFailure.errors.join('\n').contains(QStringLiteral("diameter")),
+                QStringLiteral("the oversize-drill rejection should explain the diameter conflict")) ||
+        !expect(oversizedPeckFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("an oversize drill must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;

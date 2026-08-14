@@ -13,6 +13,7 @@
 #include <QSet>
 #include <QUuid>
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -37,6 +38,30 @@ QString expectedHoleToolType(const QString &strategyId)
     }
     if (strategyId == QStringLiteral("hole_circular_mill")) {
         return QStringLiteral("end_mill");
+    }
+    return QString();
+}
+
+QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool)
+{
+    const QString expectedToolType = expectedHoleToolType(operation.strategyId);
+    if (!expectedToolType.isEmpty() && tool.type != expectedToolType) {
+        return QStringLiteral("tool T%1 is type '%2', but strategy '%3' requires '%4'.")
+            .arg(operation.toolId)
+            .arg(tool.type)
+            .arg(operation.strategyId)
+            .arg(expectedToolType);
+    }
+
+    if (operation.strategyId == QStringLiteral("hole_peck") ||
+        operation.strategyId == QStringLiteral("hole_deephole")) {
+        const double targetDiameter = operation.holeFeature.radius * 2.0;
+        const double tolerance = std::max(0.05, targetDiameter * 0.01);
+        if (targetDiameter > 0.0 && tool.diameter > targetDiameter + tolerance) {
+            return QStringLiteral("drill diameter %1 mm exceeds target hole diameter %2 mm.")
+                .arg(tool.diameter, 0, 'f', 3)
+                .arg(targetDiameter, 0, 'f', 3);
+        }
     }
     return QString();
 }
@@ -287,17 +312,13 @@ ProgramGenerationResult ProgramGenerationService::generate(
             continue;
         }
 
-        const QString expectedToolType = operation.opType == OperationType::Hole
-            ? expectedHoleToolType(operation.strategyId)
+        const QString toolError = operation.opType == OperationType::Hole
+            ? holeToolError(operation, tool)
             : QString();
-        if (!expectedToolType.isEmpty() && tool.type != expectedToolType) {
-            output.errors << QStringLiteral(
-                "Operation %1: tool T%2 is type '%3', but strategy '%4' requires '%5'.")
+        if (!toolError.isEmpty()) {
+            output.errors << QStringLiteral("Operation %1: %2")
                                  .arg(index + 1)
-                                 .arg(operation.toolId)
-                                 .arg(tool.type)
-                                 .arg(operation.strategyId)
-                                 .arg(expectedToolType);
+                                 .arg(toolError);
             ++index;
             continue;
         }
