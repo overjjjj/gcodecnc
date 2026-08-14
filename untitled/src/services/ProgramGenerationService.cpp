@@ -148,6 +148,11 @@ QString pocketToolError(const MachiningOperation &operation, const ToolEntry &to
             .arg(feature.depth, 0, 'f', 3)
             .arg(tool.fluteLen, 0, 'f', 3);
     }
+    if (tool.totalLen > 0.0 && feature.depth >= tool.totalLen - 0.01) {
+        return QStringLiteral("pocket depth %1 mm reaches tool total length %2 mm; safe stick-out is impossible.")
+            .arg(feature.depth, 0, 'f', 3)
+            .arg(tool.totalLen, 0, 'f', 3);
+    }
     return QString();
 }
 
