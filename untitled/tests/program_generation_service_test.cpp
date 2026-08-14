@@ -536,6 +536,30 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService shortTotalLengthService(
+        [safeStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == safeStrategy->id() ? safeStrategy : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.diameter = 6.0;
+                tool.totalLen = 5.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult shortTotalLengthFailure =
+        shortTotalLengthService.generate({valid}, postProcessor, options, snapshotOptions);
+    if (!expect(!shortTotalLengthFailure.ok,
+                QStringLiteral("a hole operation must reject a tool whose total length cannot provide safe stick-out")) ||
+        !expect(shortTotalLengthFailure.errors.join('\n').contains(QStringLiteral("total length")),
+                QStringLiteral("the total-length rejection should explain the depth conflict")) ||
+        !expect(shortTotalLengthFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("an insufficient total length must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     const auto blindSlotStrategy = std::make_shared<FixedStrategy>(
         QStringLiteral("mill_blind_slot"), safeToolpath);
     ProgramGenerationService oversizedSlotToolService(

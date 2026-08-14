@@ -59,6 +59,12 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(operation.holeFeature.depth, 0, 'f', 3)
             .arg(tool.fluteLen, 0, 'f', 3);
     }
+    if (tool.totalLen > 0.0 &&
+        operation.holeFeature.depth >= tool.totalLen - 0.01) {
+        return QStringLiteral("cutting depth %1 mm reaches tool total length %2 mm; safe stick-out is impossible.")
+            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(tool.totalLen, 0, 'f', 3);
+    }
 
     if (operation.strategyId == QStringLiteral("hole_peck") ||
         operation.strategyId == QStringLiteral("hole_deephole")) {
