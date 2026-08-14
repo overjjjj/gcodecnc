@@ -63,6 +63,15 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
                 .arg(targetDiameter, 0, 'f', 3);
         }
     }
+    if (operation.strategyId == QStringLiteral("hole_reaming")) {
+        const double targetDiameter = operation.holeFeature.radius * 2.0;
+        const double tolerance = std::max(0.05, targetDiameter * 0.01);
+        if (targetDiameter > 0.0 && std::abs(tool.diameter - targetDiameter) > tolerance) {
+            return QStringLiteral("reamer diameter %1 mm does not match target hole diameter %2 mm.")
+                .arg(tool.diameter, 0, 'f', 3)
+                .arg(targetDiameter, 0, 'f', 3);
+        }
+    }
     return QString();
 }
 

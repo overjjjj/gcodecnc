@@ -435,6 +435,40 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const auto reamingStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("hole_reaming"), safeToolpath);
+    ProgramGenerationService wrongDiameterReamingService(
+        [reamingStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == reamingStrategy->id()
+                ? reamingStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("reamer");
+                tool.diameter = 5.0;
+            }
+            return tool;
+        });
+    MachiningOperation reamingHole = firstHole;
+    reamingHole.id = QStringLiteral("op-wrong-reamer-diameter");
+    reamingHole.strategyId = QStringLiteral("hole_reaming");
+    const ProgramGenerationResult wrongDiameterReamingFailure =
+        wrongDiameterReamingService.generate({reamingHole},
+                                             postProcessor,
+                                             options,
+                                             holeSnapshotOptions);
+    if (!expect(!wrongDiameterReamingFailure.ok,
+                QStringLiteral("a reaming operation must reject a reamer with a different diameter from the target hole")) ||
+        !expect(wrongDiameterReamingFailure.errors.join('\n').contains(QStringLiteral("diameter")),
+                QStringLiteral("the reamer rejection should explain the diameter conflict")) ||
+        !expect(wrongDiameterReamingFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a mismatched reamer must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;
