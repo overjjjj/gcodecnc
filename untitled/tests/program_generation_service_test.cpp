@@ -377,6 +377,35 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    ProgramGenerationService wrongToolPeckService(
+        [peckStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == peckStrategy->id()
+                ? peckStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 6.0;
+            }
+            return tool;
+        });
+    const ProgramGenerationResult wrongToolPeckFailure =
+        wrongToolPeckService.generate({firstHole},
+                                      postProcessor,
+                                      options,
+                                      holeSnapshotOptions);
+    if (!expect(!wrongToolPeckFailure.ok,
+                QStringLiteral("a peck-drilling operation must reject a non-drill tool in the generation service")) ||
+        !expect(wrongToolPeckFailure.errors.join('\n').contains(QStringLiteral("drill")),
+                QStringLiteral("the generation-service tool rejection should name the required drill type")) ||
+        !expect(wrongToolPeckFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a rejected tool type must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     MachiningOperation mismatchedHole = secondHole;
     mismatchedHole.id = QStringLiteral("op-hole-different-depth");
     mismatchedHole.holeFeature.depth = 8.0;

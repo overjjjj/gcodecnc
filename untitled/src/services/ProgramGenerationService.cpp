@@ -25,6 +25,22 @@ bool isSlotMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
+QString expectedHoleToolType(const QString &strategyId)
+{
+    if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
+    if (strategyId == QStringLiteral("hole_tapping")) return QStringLiteral("tap");
+    if (strategyId == QStringLiteral("hole_reaming")) return QStringLiteral("reamer");
+    if (strategyId == QStringLiteral("hole_chamfer")) return QStringLiteral("chamfer_mill");
+    if (strategyId == QStringLiteral("hole_peck") ||
+        strategyId == QStringLiteral("hole_deephole")) {
+        return QStringLiteral("drill");
+    }
+    if (strategyId == QStringLiteral("hole_circular_mill")) {
+        return QStringLiteral("end_mill");
+    }
+    return QString();
+}
+
 StrategyParams generationParams(const MachiningOperation &operation)
 {
     StrategyParams params = operation.params;
@@ -267,6 +283,21 @@ ProgramGenerationResult ProgramGenerationService::generate(
             output.errors << QStringLiteral("Operation %1: tool T%2 is invalid or missing.")
                                      .arg(index + 1)
                                      .arg(operation.toolId);
+            ++index;
+            continue;
+        }
+
+        const QString expectedToolType = operation.opType == OperationType::Hole
+            ? expectedHoleToolType(operation.strategyId)
+            : QString();
+        if (!expectedToolType.isEmpty() && tool.type != expectedToolType) {
+            output.errors << QStringLiteral(
+                "Operation %1: tool T%2 is type '%3', but strategy '%4' requires '%5'.")
+                                 .arg(index + 1)
+                                 .arg(operation.toolId)
+                                 .arg(tool.type)
+                                 .arg(operation.strategyId)
+                                 .arg(expectedToolType);
             ++index;
             continue;
         }
