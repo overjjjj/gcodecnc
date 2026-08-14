@@ -364,6 +364,21 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     "Operation %1: Back-face pocket requires a transformed Setup before G-code generation.")
                                      .arg(index + 1);
             }
+        } else if (operations[index].opType == OperationType::Contour) {
+            const QVector3D contourAxis = operations[index].contourFeature.axis.normalized();
+            if (contourAxis.lengthSquared() > 1.0e-8f && std::abs(contourAxis.z()) < 0.65f) {
+                output.errors << QStringLiteral(
+                    "Operation %1: contour axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Side) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Side-face contour requires a dedicated Setup before G-code generation.")
+                                     .arg(index + 1);
+            } else if (operations[index].contourFeature.region == FaceRegion::Back) {
+                output.errors << QStringLiteral(
+                    "Operation %1: Back-face contour requires a transformed Setup before G-code generation.")
+                                     .arg(index + 1);
+            }
         }
     }
     if (!output.errors.isEmpty()) {

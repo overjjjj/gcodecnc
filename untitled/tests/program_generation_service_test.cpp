@@ -708,6 +708,42 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const auto faceStrategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("mill_face"), safeToolpath);
+    ProgramGenerationService sideFaceMillingService(
+        [faceStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == faceStrategy->id()
+                ? faceStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            if (id == 1) {
+                tool.id = 1;
+                tool.type = QStringLiteral("face_mill");
+                tool.diameter = 40.0;
+            }
+            return tool;
+        });
+    MachiningOperation sideFaceMilling = oversizedPocket;
+    sideFaceMilling.id = QStringLiteral("op-side-face-milling");
+    sideFaceMilling.strategyId = QStringLiteral("mill_face");
+    sideFaceMilling.contourFeature.region = FaceRegion::Side;
+    sideFaceMilling.contourFeature.axis = QVector3D(1.0f, 0.0f, 0.0f);
+    const ProgramGenerationResult sideFaceMillingFailure =
+        sideFaceMillingService.generate({sideFaceMilling},
+                                        postProcessor,
+                                        options,
+                                        snapshotOptions);
+    if (!expect(!sideFaceMillingFailure.ok,
+                QStringLiteral("side-face milling must not generate in the front-face Z workflow")) ||
+        !expect(sideFaceMillingFailure.errors.join('\n').contains(QStringLiteral("transformed Setup")),
+                QStringLiteral("side-face milling rejection should identify the required Setup change")) ||
+        !expect(sideFaceMillingFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("side-face milling must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
     ProgramGenerationService shortFlutePocketService(
         [pocketStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
             return id == pocketStrategy->id()
