@@ -1,6 +1,7 @@
 #include "../src/import/StepImporter.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/services/ProgramGenerationService.h"
+#include "../src/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 
 #include <QCoreApplication>
@@ -20,6 +21,18 @@ bool expect(bool condition, const char *message)
         std::cerr << message << '\n';
     }
     return condition;
+}
+
+bool hasFeedMoveTo(const QVector<QVector3D> &path,
+                   const QVector<bool> &rapidSegments,
+                   const QVector3D &target)
+{
+    for (int index = 0; index < rapidSegments.size(); ++index) {
+        if (!rapidSegments[index] && (path[index + 1] - target).length() < 1.0e-3f) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -211,6 +224,22 @@ int main(int argc, char **argv)
         if (!generated.errors.isEmpty()) {
             std::cerr << generated.errors.join(QLatin1Char('\n')).toStdString() << '\n';
         }
+        return 1;
+    }
+
+    SimulationController simulation;
+    QVector<QVector3D> path;
+    QVector<bool> rapidSegments;
+    QObject::connect(&simulation, &SimulationController::toolPathReady,
+                     [&path, &rapidSegments](const QVector<QVector3D> &newPath,
+                                             const QVector<bool> &newRapidSegments) {
+        path = newPath;
+        rapidSegments = newRapidSegments;
+    });
+    simulation.loadGCode(generated.snapshot.gcodeText);
+    if (!expect(hasFeedMoveTo(path, rapidSegments, QVector3D(-60.0f, 305.0f, -51.0f)) &&
+                    hasFeedMoveTo(path, rapidSegments, QVector3D(-60.0f, -305.0f, -51.0f)),
+                "the final acceptance G83 program should simulate both D21 hole-bottom feed moves")) {
         return 1;
     }
     return 0;

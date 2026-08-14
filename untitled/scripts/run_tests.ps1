@@ -316,7 +316,12 @@ try {
             "src\gcode\SiemensProgramPackage.cpp",
             "src\postprocessor\PostProcessorBase.cpp",
             "src\postprocessor\FanucPostProcessor.cpp",
-            "src\postprocessor\Cq8PostProcessor.cpp"
+            "src\postprocessor\Cq8PostProcessor.cpp",
+            "src\simulation\SimulationController.cpp",
+            "src\tool\ToolLibrary.cpp",
+            "src\tool\ToolEntry.cpp",
+            $SimulationControllerMoc,
+            $ToolLibraryMoc
         )
 
     Invoke-TestBuild `
