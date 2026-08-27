@@ -53,6 +53,7 @@ struct MachiningFeature {
     double    width   = 0.0;
     double    length  = 0.0;
     double    secondaryRadius = 0.0; // countersink/counterbore or top radius
+    double    secondaryDepth = 0.0;  // verified counterbore outer-layer depth
     double    pitch = 0.0;           // thread pitch
     QVector3D center;
     QVector3D axis    = {0, 0, 1};

@@ -54,6 +54,7 @@ int main(int argc, char **argv)
     operation.contourFeature.depth = 4.0;
     operation.contourFeature.axis = QVector3D(0.0f, 0.0f, 1.0f);
     operation.contourFeature.region = FaceRegion::Front;
+    operation.markToolpathValid();
 
     PostProcessorOptions options;
     options.programNumber = QStringLiteral("O2401");

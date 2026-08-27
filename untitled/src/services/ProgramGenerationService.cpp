@@ -33,13 +33,33 @@ bool isPocketMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_pocket_floor_finish");
 }
 
+bool isInnerCornerCleanupStrategy(const QString &strategyId)
+{
+    return strategyId == QStringLiteral("mill_inner_corner_cleanup");
+}
+
+int priorOperationIndex(const QList<MachiningOperation> &operations,
+                        int currentIndex,
+                        const QString &operationId)
+{
+    for (int index = 0; index < currentIndex; ++index) {
+        if (operations.at(index).id == operationId) {
+            return index;
+        }
+    }
+    return -1;
+}
+
 QString expectedHoleToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
     if (strategyId == QStringLiteral("hole_tapping")) return QStringLiteral("tap");
+    if (strategyId == QStringLiteral("hole_thread_mill")) return QStringLiteral("thread_mill");
     if (strategyId == QStringLiteral("hole_reaming")) return QStringLiteral("reamer");
+    if (strategyId == QStringLiteral("hole_bore_g86")) return QStringLiteral("boring_bar");
     if (strategyId == QStringLiteral("hole_chamfer")) return QStringLiteral("chamfer_mill");
     if (strategyId == QStringLiteral("hole_peck") ||
+        strategyId == QStringLiteral("hole_peck_g73") ||
         strategyId == QStringLiteral("hole_deephole")) {
         return QStringLiteral("drill");
     }
@@ -60,25 +80,37 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(expectedToolType);
     }
 
+    const double cuttingDepth = operation.strategyId == QStringLiteral("hole_spot")
+        ? operation.params.get(QStringLiteral("depth"), 2.0)
+        : operation.holeFeature.depth;
     if (tool.fluteLen > 0.0 &&
-        operation.holeFeature.depth > tool.fluteLen + 0.01) {
+        cuttingDepth > tool.fluteLen + 0.01) {
         return QStringLiteral("cutting depth %1 mm exceeds tool flute length %2 mm.")
-            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(cuttingDepth, 0, 'f', 3)
             .arg(tool.fluteLen, 0, 'f', 3);
     }
     if (tool.totalLen > 0.0 &&
-        operation.holeFeature.depth >= tool.totalLen - 0.01) {
+        cuttingDepth >= tool.totalLen - 0.01) {
         return QStringLiteral("cutting depth %1 mm reaches tool total length %2 mm; safe stick-out is impossible.")
-            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(cuttingDepth, 0, 'f', 3)
             .arg(tool.totalLen, 0, 'f', 3);
     }
 
     if (operation.strategyId == QStringLiteral("hole_peck") ||
+        operation.strategyId == QStringLiteral("hole_peck_g73") ||
         operation.strategyId == QStringLiteral("hole_deephole")) {
         const double targetDiameter = operation.holeFeature.radius * 2.0;
         const double tolerance = std::max(0.05, targetDiameter * 0.01);
         if (targetDiameter > 0.0 && tool.diameter > targetDiameter + tolerance) {
             return QStringLiteral("drill diameter %1 mm exceeds target hole diameter %2 mm.")
+                .arg(tool.diameter, 0, 'f', 3)
+                .arg(targetDiameter, 0, 'f', 3);
+        }
+    }
+    if (operation.strategyId == QStringLiteral("hole_bore_g86")) {
+        const double targetDiameter = operation.holeFeature.radius * 2.0;
+        if (targetDiameter <= 0.0 || tool.diameter >= targetDiameter) {
+            return QStringLiteral("boring bar diameter %1 mm must be smaller than target hole diameter %2 mm.")
                 .arg(tool.diameter, 0, 'f', 3)
                 .arg(targetDiameter, 0, 'f', 3);
         }
@@ -100,6 +132,22 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
             return QStringLiteral("tap pitch %1 mm does not match target thread pitch %2 mm.")
                 .arg(tool.pitch, 0, 'f', 3)
                 .arg(operation.holeFeature.pitch, 0, 'f', 3);
+        }
+    }
+    if (operation.strategyId == QStringLiteral("hole_thread_mill")) {
+        const double targetDiameter = operation.holeFeature.radius * 2.0;
+        const double pitch = operation.params.get(
+            QStringLiteral("threadPitch"), operation.holeFeature.pitch);
+        if (targetDiameter <= 0.0 || tool.diameter >= targetDiameter) {
+            return QStringLiteral("thread mill diameter %1 mm must be smaller than target inner diameter %2 mm.")
+                .arg(tool.diameter, 0, 'f', 3)
+                .arg(targetDiameter, 0, 'f', 3);
+        }
+        if (pitch <= 0.0 || tool.pitch <= 0.0 ||
+            std::abs(tool.pitch - pitch) > std::max(0.01, pitch * 0.02)) {
+            return QStringLiteral("thread mill pitch %1 mm does not match operation pitch %2 mm.")
+                .arg(tool.pitch, 0, 'f', 3)
+                .arg(pitch, 0, 'f', 3);
         }
     }
     return QString();
@@ -238,6 +286,9 @@ QString operationBlock(int operationNumber,
     header += QStringLiteral(" ----");
     lines << header;
     lines << QStringLiteral("; %1").arg(operationSummary(operation));
+    const int workOffset = static_cast<int>(std::round(
+        operation.params.get(QStringLiteral("workOffset"), 54.0)));
+    lines << QStringLiteral("G%1").arg(workOffset);
     lines << gcode.trimmed();
     return lines.join(QLatin1Char('\n'));
 }
@@ -250,9 +301,11 @@ QString internalHoleCycleError(const QString &gcode)
     const QSet<QString> supportedCodes{
         QStringLiteral("G81"),
         QStringLiteral("G82"),
+        QStringLiteral("G73"),
         QStringLiteral("G83"),
         QStringLiteral("G84"),
-        QStringLiteral("G85")};
+        QStringLiteral("G85"),
+        QStringLiteral("G86")};
 
     const QStringList lines = gcode.split(QLatin1Char('\n'));
     for (const QString &line : lines) {
@@ -320,8 +373,63 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     for (int index = 0; index < operations.size(); ++index) {
+        if (!operations[index].enabled) {
+            output.errors << QStringLiteral(
+                "Operation %1 is disabled and cannot enter final generation.")
+                                 .arg(index + 1);
+        }
+        if (operations[index].toolpathState != ToolpathState::Valid) {
+            output.errors << QStringLiteral(
+                "Operation %1 requires a valid recalculated toolpath before final generation.")
+                                 .arg(index + 1);
+        }
         if (operations[index].id.trimmed().isEmpty()) {
             output.errors << QStringLiteral("Operation %1 is not a confirmed operation.")
+                                 .arg(index + 1);
+        }
+        if (isInnerCornerCleanupStrategy(operations[index].strategyId)) {
+            if (operations[index].dependencyOperationIds.size() != 1) {
+                output.errors << QStringLiteral(
+                    "Operation %1: inner-corner cleanup requires exactly one explicit prior pocket operation.")
+                                     .arg(index + 1);
+            } else {
+                const int dependencyIndex = priorOperationIndex(
+                    operations, index, operations[index].dependencyOperationIds.first());
+                if (dependencyIndex < 0) {
+                    output.errors << QStringLiteral(
+                        "Operation %1: inner-corner cleanup dependency must be an earlier operation in this program.")
+                                         .arg(index + 1);
+                } else {
+                    const MachiningOperation &dependency = operations.at(dependencyIndex);
+                    if (dependency.strategyId != QStringLiteral("mill_pocket_rough") ||
+                        dependency.opType != OperationType::Roughing) {
+                        output.errors << QStringLiteral(
+                            "Operation %1: inner-corner cleanup dependency must be a pocket-roughing operation.")
+                                             .arg(index + 1);
+                    }
+                    if (operations[index].geometryRefs.isEmpty() ||
+                        dependency.geometryRefs != operations[index].geometryRefs) {
+                        output.errors << QStringLiteral(
+                            "Operation %1: inner-corner cleanup and its prior operation must reference identical geometry.")
+                                             .arg(index + 1);
+                    }
+                }
+            }
+        }
+        const double configuredWorkOffset =
+            operations[index].params.get(QStringLiteral("workOffset"), 54.0);
+        if (!std::isfinite(configuredWorkOffset) ||
+            std::round(configuredWorkOffset) != configuredWorkOffset ||
+            configuredWorkOffset < 54.0 || configuredWorkOffset > 59.0) {
+            output.errors << QStringLiteral(
+                "Operation %1: work offset must be an integer from G54-G59.")
+                                 .arg(index + 1);
+        }
+        const double depthMode =
+            operations[index].params.get(QStringLiteral("depthMode"), 0.0);
+        if (depthMode != 0.0) {
+            output.errors << QStringLiteral(
+                "Operation %1: incremental depth mode is not supported; use absolute depth mode.")
                                  .arg(index + 1);
         }
         if (operations[index].opType == OperationType::Hole) {
@@ -436,6 +544,24 @@ ProgramGenerationResult ProgramGenerationService::generate(
                                      .arg(operation.toolId);
             ++index;
             continue;
+        }
+
+        if (isInnerCornerCleanupStrategy(operation.strategyId)) {
+            const int dependencyIndex = priorOperationIndex(
+                operations, index, operation.dependencyOperationIds.value(0));
+            const ToolEntry previousTool = dependencyIndex >= 0 && m_toolLookup
+                ? m_toolLookup(operations.at(dependencyIndex).toolId) : ToolEntry();
+            const double recordedDiameter = operation.params.get(
+                QStringLiteral("previousToolDiameter"), 0.0);
+            if (previousTool.id <= 0 || previousTool.diameter <= tool.diameter ||
+                !std::isfinite(recordedDiameter) ||
+                std::abs(recordedDiameter - previousTool.diameter) > 0.001) {
+                output.errors << QStringLiteral(
+                    "Operation %1: prior tool diameter must match the bound larger pocket tool.")
+                                     .arg(index + 1);
+                ++index;
+                continue;
+            }
         }
 
         const QString toolError = operation.opType == OperationType::Hole

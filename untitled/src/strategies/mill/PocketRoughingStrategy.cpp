@@ -1,5 +1,7 @@
 #include "PocketRoughingStrategy.h"
 
+#include "../../core/geometry2d/ToolpathGeometry2D.h"
+
 #include <QObject>
 #include <algorithm>
 #include <cmath>
@@ -21,118 +23,16 @@ struct ScanChain {
     QVector<ScanLine> rows;
 };
 
-static double cross2D(const QVector3D &a, const QVector3D &b, const QVector3D &c)
-{
-    return (double(b.x()) - a.x()) * (double(c.y()) - a.y())
-        - (double(b.y()) - a.y()) * (double(c.x()) - a.x());
-}
+namespace geometry = cnext::geometry2d;
 
-static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector3D &point)
+geometry::Wire geometryWire(const QVector<QVector3D> &points)
 {
-    if (std::abs(cross2D(a, b, point)) > 1.0e-7) {
-        return false;
+    QVector<geometry::Point> converted;
+    converted.reserve(points.size());
+    for (const QVector3D &point : points) {
+        converted.append({point.x(), point.y()});
     }
-    return point.x() >= std::min(a.x(), b.x()) - 1.0e-7f
-        && point.x() <= std::max(a.x(), b.x()) + 1.0e-7f
-        && point.y() >= std::min(a.y(), b.y()) - 1.0e-7f
-        && point.y() <= std::max(a.y(), b.y()) + 1.0e-7f;
-}
-
-static bool segmentsIntersect(const QVector3D &a,
-                              const QVector3D &b,
-                              const QVector3D &c,
-                              const QVector3D &d)
-{
-    const double abC = cross2D(a, b, c);
-    const double abD = cross2D(a, b, d);
-    const double cdA = cross2D(c, d, a);
-    const double cdB = cross2D(c, d, b);
-    if (((abC > 1.0e-7 && abD < -1.0e-7) || (abC < -1.0e-7 && abD > 1.0e-7))
-        && ((cdA > 1.0e-7 && cdB < -1.0e-7) || (cdA < -1.0e-7 && cdB > 1.0e-7))) {
-        return true;
-    }
-    return (std::abs(abC) <= 1.0e-7 && pointOnSegment(a, b, c))
-        || (std::abs(abD) <= 1.0e-7 && pointOnSegment(a, b, d))
-        || (std::abs(cdA) <= 1.0e-7 && pointOnSegment(c, d, a))
-        || (std::abs(cdB) <= 1.0e-7 && pointOnSegment(c, d, b));
-}
-
-static bool isSimplePolygon(const QVector<QVector3D> &polygon)
-{
-    if (polygon.size() < 3) {
-        return false;
-    }
-    double twiceArea = 0.0;
-    for (int i = 0; i < polygon.size(); ++i) {
-        const QVector3D &a = polygon.at(i);
-        const QVector3D &b = polygon.at((i + 1) % polygon.size());
-        twiceArea += double(a.x()) * b.y() - double(b.x()) * a.y();
-        const double edgeDx = double(b.x()) - a.x();
-        const double edgeDy = double(b.y()) - a.y();
-        if (std::sqrt(edgeDx * edgeDx + edgeDy * edgeDy) <= 1.0e-7) {
-            return false;
-        }
-    }
-    if (std::abs(twiceArea) <= 1.0e-7) {
-        return false;
-    }
-    for (int i = 0; i < polygon.size(); ++i) {
-        const int iNext = (i + 1) % polygon.size();
-        for (int j = i + 1; j < polygon.size(); ++j) {
-            const int jNext = (j + 1) % polygon.size();
-            if (i == j || iNext == j || jNext == i) {
-                continue;
-            }
-            if (segmentsIntersect(polygon.at(i), polygon.at(iNext),
-                                  polygon.at(j), polygon.at(jNext))) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3D &point)
-{
-    bool inside = false;
-    for (int i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
-        const QVector3D &a = polygon.at(j);
-        const QVector3D &b = polygon.at(i);
-        if (pointOnSegment(a, b, point)) {
-            return false;
-        }
-        const bool crosses = (a.y() > point.y()) != (b.y() > point.y());
-        if (crosses) {
-            const double x = a.x() + (double(point.y()) - a.y())
-                * (double(b.x()) - a.x()) / (double(b.y()) - a.y());
-            if (x > point.x()) {
-                inside = !inside;
-            }
-        }
-    }
-    return inside;
-}
-
-static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
-                                    const QVector<QVector3D> &inner)
-{
-    for (const QVector3D &point : inner) {
-        if (!pointInsidePolygon(outer, point)) {
-            return false;
-        }
-    }
-    for (int outerIndex = 0; outerIndex < outer.size(); ++outerIndex) {
-        const QVector3D &outerA = outer.at(outerIndex);
-        const QVector3D &outerB = outer.at((outerIndex + 1) % outer.size());
-        for (int innerIndex = 0; innerIndex < inner.size(); ++innerIndex) {
-            if (segmentsIntersect(outerA, outerB,
-                                  inner.at(innerIndex),
-                                  inner.at((innerIndex + 1) % inner.size()))) {
-                return false;
-            }
-        }
-    }
-    return true;
+    return geometry::WireFromPolyline(converted, true);
 }
 
 static QString cutMove(double x, double y, double feed)
@@ -354,19 +254,18 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
         res.errorMsg = QObject::tr("Irregular pocket requires at least three boundary points.");
         return res;
     }
-    if (!isSimplePolygon(feature.points)) {
-        res.errorMsg = QObject::tr("Irregular pocket boundary must be a simple non-self-intersecting polygon.");
-        return res;
-    }
+    geometry::Region region;
+    region.outer = geometryWire(feature.points);
     for (const QVector<QVector3D> &island : feature.islands) {
-        if (!isSimplePolygon(island)) {
-            res.errorMsg = QObject::tr("Each pocket island must be a simple non-self-intersecting polygon.");
-            return res;
-        }
-        if (!polygonStrictlyContains(feature.points, island)) {
-            res.errorMsg = QObject::tr("Every pocket island must lie strictly inside the outer boundary.");
-            return res;
-        }
+        region.islands.append(geometryWire(island));
+    }
+    const geometry::RegionValidation region_validation =
+        geometry::ValidateRegion(region, geometry::GeometryTolerance());
+    if (!region_validation.ok) {
+        res.errorMsg = QObject::tr(
+            "Irregular pocket outer and island boundaries are invalid: %1")
+            .arg(region_validation.errors.join(QLatin1Char(' ')));
+        return res;
     }
     if (std::abs(params.get(QStringLiteral("entryMode"), -1.0)) > 1.0e-6) {
         res.errorMsg = QObject::tr("Irregular pocket clearing currently supports confirmed vertical entry only.");

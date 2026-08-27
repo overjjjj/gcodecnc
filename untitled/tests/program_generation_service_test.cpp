@@ -70,6 +70,7 @@ MachiningOperation holeOperation(const QString &id,
     operation.holeFeature.center = QVector3D(10.0f, 20.0f, 0.0f);
     operation.holeFeature.radius = 3.0;
     operation.holeFeature.depth = 5.0;
+    operation.markToolpathValid();
     return operation;
 }
 
@@ -133,8 +134,9 @@ int main(int argc, char **argv)
     snapshotOptions.machineProfile.version = QStringLiteral("7");
     snapshotOptions.machineProfile.safeStartBlocks = options.safeStartBlocks;
 
-    const MachiningOperation valid =
+    MachiningOperation valid =
         holeOperation(QStringLiteral("op-valid"), QStringLiteral("safe_hole"), 1);
+    valid.markToolpathValid();
     const ProgramGenerationResult success =
         service.generate({valid}, postProcessor, options, snapshotOptions);
 
@@ -174,6 +176,67 @@ int main(int argc, char **argv)
     if (!expect(success.snapshot.gcodeText.contains(
                     QStringLiteral("G1 Z-5.000 F100\nX15 Y20\nG0 Z5")),
                 QStringLiteral("final program should omit only repeated modal words"))) {
+        return 1;
+    }
+
+    MachiningOperation staleOperation = valid;
+    staleOperation.id = QStringLiteral("op-stale");
+    staleOperation.markToolpathStale(QStringLiteral("tool changed"));
+    const ProgramGenerationResult staleFailure =
+        service.generate({staleOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!staleFailure.ok &&
+                    staleFailure.errors.join(QLatin1Char('\n')).contains(
+                        QStringLiteral("valid recalculated toolpath")),
+                QStringLiteral("stale operations must not enter final generation"))) {
+        return 1;
+    }
+
+    MachiningOperation disabledOperation = valid;
+    disabledOperation.id = QStringLiteral("op-disabled");
+    disabledOperation.enabled = false;
+    const ProgramGenerationResult disabledFailure =
+        service.generate({disabledOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!disabledFailure.ok &&
+                    disabledFailure.errors.join(QLatin1Char('\n')).contains(
+                        QStringLiteral("disabled")),
+                QStringLiteral("disabled operations must not enter final generation"))) {
+        return 1;
+    }
+
+    MachiningOperation offsetOperation = valid;
+    offsetOperation.id = QStringLiteral("op-g56");
+    offsetOperation.params.set(QStringLiteral("workOffset"), 56.0);
+    const ProgramGenerationResult offsetSuccess =
+        service.generate({offsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(offsetSuccess.ok,
+                QStringLiteral("a valid per-operation work offset should generate")) ||
+        !expect(offsetSuccess.snapshot.gcodeText.contains(
+                    QStringLiteral("[op:op-g56] ----\n; safe_hole | D6.000 Z-5.000 | T1\nG56")),
+                QStringLiteral("each operation should emit its configured G54-G59 work offset"))) {
+        return 1;
+    }
+
+    MachiningOperation invalidOffsetOperation = valid;
+    invalidOffsetOperation.params.set(QStringLiteral("workOffset"), 60.0);
+    const ProgramGenerationResult invalidOffset =
+        service.generate({invalidOffsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!invalidOffset.ok,
+                QStringLiteral("an invalid per-operation work offset must be rejected")) ||
+        !expect(!invalidOffset.errors.isEmpty() &&
+                    invalidOffset.errors.first().contains(QStringLiteral("G54-G59")),
+                QStringLiteral("the invalid work-offset error should identify the supported range"))) {
+        return 1;
+    }
+
+    MachiningOperation incrementalDepthOperation = valid;
+    incrementalDepthOperation.params.set(QStringLiteral("depthMode"), 1.0);
+    const ProgramGenerationResult incrementalDepth =
+        service.generate({incrementalDepthOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!incrementalDepth.ok,
+                QStringLiteral("incremental depth mode must be rejected until it is generated safely")) ||
+        !expect(!incrementalDepth.errors.isEmpty() &&
+                    incrementalDepth.errors.first().contains(QStringLiteral("depth mode")),
+                QStringLiteral("the incremental-depth error should identify the unsupported mode"))) {
         return 1;
     }
     if (!expect(success.snapshot.parametricPrograms.size() == 1 &&
@@ -279,7 +342,7 @@ int main(int argc, char **argv)
 
     const ToolpathResult unsupportedCycleToolpath{
         QStringLiteral("T1 M6\nS1200 M3\nM8\nG0 Z5\n"
-                       ";CNEXT_HOLE_CYCLE code=G86 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 f=100\n"
+                       ";CNEXT_HOLE_CYCLE code=G76 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 f=100\n"
                        "G0 Z5"),
         true,
         QString(),
@@ -313,7 +376,7 @@ int main(int argc, char **argv)
                 QStringLiteral("unsupported internal hole cycle must fail atomically")) ||
         !expect(unsupportedCycleFailure.snapshot.gcodeText.isEmpty(),
                 QStringLiteral("unsupported cycle must not expose a partial snapshot")) ||
-        !expect(unsupportedCycleFailure.errors.join('\n').contains(QStringLiteral("G86")),
+        !expect(unsupportedCycleFailure.errors.join('\n').contains(QStringLiteral("G76")),
                 QStringLiteral("unsupported cycle error should name the rejected code"))) {
         return 1;
     }

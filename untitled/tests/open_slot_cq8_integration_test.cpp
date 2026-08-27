@@ -31,6 +31,7 @@ int main(int argc, char **argv)
     operation.contourFeature.width = 12.0; operation.contourFeature.depth = 4.0;
     operation.contourFeature.openSide = -1.0; operation.contourFeature.axis = QVector3D(0, 0, 1);
     operation.contourFeature.region = FaceRegion::Front;
+    operation.markToolpathValid();
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2402");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;

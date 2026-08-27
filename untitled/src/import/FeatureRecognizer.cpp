@@ -1372,6 +1372,7 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
                                     : QStringLiteral("counterbore_blind_hole");
         cb.radius = inner.radius;
         cb.secondaryRadius = outer.radius;
+        cb.secondaryDepth = outer.depth;
         cb.depth = double(entryProj - deepProj);
         cb.center = QVector3D(float(entryPnt.X()), float(entryPnt.Y()), float(entryPnt.Z()));
         cb.axis = outer.axis;
