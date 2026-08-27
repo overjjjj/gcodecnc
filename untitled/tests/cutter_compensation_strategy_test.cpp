@@ -129,6 +129,20 @@ int main(int argc, char **argv)
         expectPassesSafetyGate(QStringLiteral("open contour"), openResult.gcode)) {
         return 1;
     }
+    StrategyParams unsafeOpenParams = openStrategy.defaultParams();
+    unsafeOpenParams.set(QStringLiteral("safeHeight"), 2.0);
+    unsafeOpenParams.set(QStringLiteral("feedHeight"), 3.0);
+    if (expect(!openStrategy.generate(openContour, tool, unsafeOpenParams).ok,
+               QStringLiteral("open contour must reject safe height below its feed plane"))) {
+        return 1;
+    }
+    StrategyParams unsupportedStock = openStrategy.defaultParams();
+    unsupportedStock.set(QStringLiteral("stockToLeave"), 0.5);
+    unsupportedStock.set(QStringLiteral("compensation"), 1.0);
+    if (expect(!openStrategy.generate(openContour, tool, unsupportedStock).ok,
+               QStringLiteral("machine compensation must not silently ignore planar stock"))) {
+        return 1;
+    }
 
     ContourFeature closedContour = openContour;
     closedContour.subType = QStringLiteral("closed_contour");
@@ -143,6 +157,27 @@ int main(int argc, char **argv)
     if (expect(closedResult.ok, QStringLiteral("closed contour generation should succeed")) ||
         expectSafeCompensationTransitions(QStringLiteral("closed contour"), closedResult.gcode) ||
         expectPassesSafetyGate(QStringLiteral("closed contour"), closedResult.gcode)) {
+        return 1;
+    }
+    StrategyParams overlapParams = closedStrategy.defaultParams();
+    overlapParams.set(QStringLiteral("compensation"), 0.0);
+    overlapParams.set(QStringLiteral("overcut"), 2.0);
+    overlapParams.set(QStringLiteral("depthStockToLeave"), 0.25);
+    const ToolpathResult overlapResult =
+        closedStrategy.generate(closedContour, tool, overlapParams);
+    if (expect(overlapResult.ok,
+               QStringLiteral("verified closed overlap should generate")) ||
+        expect(overlapResult.gcode.contains(QStringLiteral("G1 X3.000 Y1.000")),
+               QStringLiteral("closed overcut must continue along the first offset edge")) ||
+        expect(overlapResult.gcode.contains(QStringLiteral("Z-0.750")),
+               QStringLiteral("depth stock must change the final contour depth"))) {
+        return 1;
+    }
+    ContourFeature duplicateEdge = closedContour;
+    duplicateEdge.points.insert(1, duplicateEdge.points.first());
+    if (expect(!closedStrategy.generate(
+                    duplicateEdge, tool, closedStrategy.defaultParams()).ok,
+               QStringLiteral("zero-length contour edges must block generation"))) {
         return 1;
     }
 

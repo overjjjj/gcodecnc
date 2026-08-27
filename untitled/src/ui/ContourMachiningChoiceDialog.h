@@ -36,8 +36,18 @@ private:
     QLabel *m_directionLabel = nullptr;
     QLabel *m_startLabel = nullptr;
     QLabel *m_compensationLabel = nullptr;
+    QLabel *m_geometrySourceLabel = nullptr;
+    QLabel *m_selectionModeLabel = nullptr;
+    QLabel *m_machiningSideLabel = nullptr;
+    QLabel *m_sortStrategyLabel = nullptr;
+    QLabel *m_branchLabel = nullptr;
     QComboBox *m_directionCombo = nullptr;
     QComboBox *m_startCombo = nullptr;
     QComboBox *m_compensationCombo = nullptr;
+    QComboBox *m_geometrySourceCombo = nullptr;
+    QComboBox *m_selectionModeCombo = nullptr;
+    QComboBox *m_machiningSideCombo = nullptr;
+    QComboBox *m_sortStrategyCombo = nullptr;
+    QComboBox *m_branchCombo = nullptr;
     QLabel *m_summaryLabel = nullptr;
 };

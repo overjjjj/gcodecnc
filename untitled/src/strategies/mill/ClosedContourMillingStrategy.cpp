@@ -1,4 +1,5 @@
 #include "ClosedContourMillingStrategy.h"
+#include "ContourMillingContract.h"
 
 #include <QObject>
 #include <algorithm>
@@ -91,17 +92,12 @@ static QVector<QVector3D> offsetPolygon2D(const QVector<QVector3D> &pts, double 
 
 StrategyParams ClosedContourMillingStrategy::defaultParams() const
 {
-    StrategyParams p;
-    p.set("safeHeight",    50.0);
-    p.set("feedHeight",     3.0);
-    p.set("stepDown",       1.0);
-    p.set("spindleSpeed", 3000.0);
-    p.set("feedRate",     1000.0);
-    p.set("plungeRate",    200.0);
-    p.set("stockToLeave",   0.0);
-    p.set("compensation",   1.0);  // 1=G41 left, -1=G42 right
-    p.set("leadLength",     5.0);
-    return p;
+    return contourMillingDefaultParams(true);
+}
+
+ProcessParameterSchema ClosedContourMillingStrategy::parameterSchema() const
+{
+    return contourMillingParameterSchema(true);
 }
 
 ToolpathResult ClosedContourMillingStrategy::generate(const HoleFeature &,
@@ -116,6 +112,13 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
                                                        const StrategyParams &params) const
 {
     ToolpathResult res;
+
+    const QString contractError =
+        validateContourMillingContract(feature, tool, params, true);
+    if (!contractError.isEmpty()) {
+        res.errorMsg = contractError;
+        return res;
+    }
 
     if (tool.diameter <= 0.0) {
         res.errorMsg = QObject::tr("刀具直径无效。");
@@ -139,8 +142,10 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
     const double F     = params.get("feedRate",     1000.0);
     const double Fp    = params.get("plungeRate",    200.0);
     const double stock = params.get("stockToLeave",   0.0);
+    const double effectiveDepth = contourMillingEffectiveDepth(feature, params);
     const double comp  = params.get("compensation",   1.0);
     const double lead  = std::max(params.get("leadLength", 5.0), tool.diameter);
+    const double overcut = params.get("overcut", 0.0);
 
     if (F <= 0.0 || Fp <= 0.0) {
         res.errorMsg = QObject::tr("进给速度和下刀速度必须大于零。");
@@ -173,7 +178,7 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
         pts = offsetPolygon2D(pts, tool.diameter / 2.0 + stock);
     }
 
-    const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
+    const int zLayers = static_cast<int>(std::ceil(effectiveDepth / axial));
 
     // Lead-in point: approach from outside along the direction first→second edge.
     const QVector3D first  = pts.first();
@@ -190,7 +195,7 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
     double totalLen = 0.0;
 
     for (int layer = 1; layer <= zLayers; ++layer) {
-        const double zLayer = ztop - std::min(layer * axial, feature.depth);
+        const double zLayer = ztop - std::min(layer * axial, effectiveDepth);
 
         // Rapid to lead-in XY at safe height, then drop to feed height, plunge to layer Z.
         gc += rapidXY(leadX, leadY);
@@ -226,6 +231,12 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
         gc += feedXY(first.x(), first.y(), F);
         totalLen += dist2D(prev.x(), prev.y(), first.x(), first.y());
 
+        if (overcut > 0.0) {
+            const QVector3D overlapEnd = first + inDir * float(overcut);
+            gc += feedXY(overlapEnd.x(), overlapEnd.y(), F);
+            totalLen += overcut;
+        }
+
         // Lead-out along same approach direction, then cancel compensation.
         if (camOffset) {
             gc += feedXY(leadX, leadY, F);
@@ -243,6 +254,6 @@ ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feat
 
     res.gcode = gc;
     res.ok    = true;
-    res.estimatedTimeS = (totalLen / F * 60.0) + (feature.depth / Fp * 60.0);
+    res.estimatedTimeS = (totalLen / F * 60.0) + (effectiveDepth / Fp * 60.0);
     return res;
 }

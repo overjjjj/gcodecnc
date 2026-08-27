@@ -14,9 +14,19 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
     , m_directionLabel(new QLabel(this))
     , m_startLabel(new QLabel(this))
     , m_compensationLabel(new QLabel(this))
+    , m_geometrySourceLabel(new QLabel(this))
+    , m_selectionModeLabel(new QLabel(this))
+    , m_machiningSideLabel(new QLabel(this))
+    , m_sortStrategyLabel(new QLabel(this))
+    , m_branchLabel(new QLabel(this))
     , m_directionCombo(new QComboBox(this))
     , m_startCombo(new QComboBox(this))
     , m_compensationCombo(new QComboBox(this))
+    , m_geometrySourceCombo(new QComboBox(this))
+    , m_selectionModeCombo(new QComboBox(this))
+    , m_machiningSideCombo(new QComboBox(this))
+    , m_sortStrategyCombo(new QComboBox(this))
+    , m_branchCombo(new QComboBox(this))
     , m_summaryLabel(new QLabel(this))
 {
     setModal(true);
@@ -31,6 +41,17 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
     form->addRow(m_directionLabel, m_directionCombo);
     form->addRow(m_startLabel, m_startCombo);
     form->addRow(m_compensationLabel, m_compensationCombo);
+    form->addRow(m_geometrySourceLabel, m_geometrySourceCombo);
+    form->addRow(m_selectionModeLabel, m_selectionModeCombo);
+    form->addRow(m_machiningSideLabel, m_machiningSideCombo);
+    form->addRow(m_sortStrategyLabel, m_sortStrategyCombo);
+    form->addRow(m_branchLabel, m_branchCombo);
+
+    m_geometrySourceCombo->setObjectName(QStringLiteral("chainGeometrySourceCombo"));
+    m_selectionModeCombo->setObjectName(QStringLiteral("chainSelectionModeCombo"));
+    m_machiningSideCombo->setObjectName(QStringLiteral("chainMachiningSideCombo"));
+    m_sortStrategyCombo->setObjectName(QStringLiteral("chainSortStrategyCombo"));
+    m_branchCombo->setObjectName(QStringLiteral("chainBranchCombo"));
 
     m_summaryLabel->setObjectName(QStringLiteral("contourChoiceSummary"));
     m_summaryLabel->setWordWrap(true);
@@ -60,6 +81,12 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
             });
     connect(m_compensationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() { updateSummary(); });
+    for (QComboBox *combo : {m_geometrySourceCombo, m_selectionModeCombo,
+                             m_machiningSideCombo, m_sortStrategyCombo,
+                             m_branchCombo}) {
+        connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this]() { updateSummary(); });
+    }
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(18, 18, 18, 18);
@@ -81,11 +108,60 @@ void ContourMachiningChoiceDialog::setContext(const QString &strategyId,
                                                const ContourFeature &feature,
                                                const StrategyParams &params)
 {
-    m_closed = strategyId == QStringLiteral("mill_closed_contour");
+    m_closed = strategyId != QStringLiteral("mill_open_contour");
     m_canReverse = canReverseContourDirection(feature);
     m_featurePoints = feature.points;
     updateText();
     updateStartOptions();
+
+    m_geometrySourceCombo->setCurrentIndex(
+        m_geometrySourceCombo->findData(int(ChainGeometrySource::Wire)));
+    m_selectionModeCombo->setCurrentIndex(
+        m_selectionModeCombo->findData(int(ChainSelectionMode::Chain)));
+    m_sortStrategyCombo->setCurrentIndex(
+        m_sortStrategyCombo->findData(int(ChainSortStrategy::SelectionOrder)));
+    if (strategyId == QStringLiteral("mill_outer_chamfer")) {
+        m_machiningSideCombo->setCurrentIndex(
+            m_machiningSideCombo->findData(int(ChainMachiningSide::Outside)));
+        m_machiningSideCombo->setEnabled(false);
+        m_machiningSideCombo->setToolTip(
+            m_chinese ? QStringLiteral("外形倒角安全子集固定使用外侧闭合边界。")
+                      : QStringLiteral("The verified outer-chamfer subset is fixed to the outside closed boundary."));
+    } else {
+        m_machiningSideCombo->setEnabled(true);
+    }
+    m_geometrySourceCombo->setEnabled(false);
+    m_selectionModeCombo->setEnabled(false);
+    m_sortStrategyCombo->setEnabled(false);
+    const QString fixedChainReason = m_chinese
+        ? QStringLiteral("当前入口使用已识别的闭合线框，并保持连通边顺序；其他排序需可靠几何邻接算法后开放。")
+        : QStringLiteral("This entry uses the recognized closed wire in connected-edge order; other sorting requires a verified adjacency algorithm.");
+    m_geometrySourceCombo->setToolTip(fixedChainReason);
+    m_selectionModeCombo->setToolTip(fixedChainReason);
+    m_sortStrategyCombo->setToolTip(fixedChainReason);
+
+    m_branchCombo->clear();
+    m_branchCombo->addItem(m_chinese ? QStringLiteral("外边界")
+                                     : QStringLiteral("Outer boundary"),
+                           QStringLiteral("outer"));
+    for (int index = 0; index < feature.islands.size(); ++index) {
+        m_branchCombo->addItem(
+            m_chinese ? QStringLiteral("孤岛边界 %1").arg(index + 1)
+                      : QStringLiteral("Island boundary %1").arg(index + 1),
+            QStringLiteral("island:%1").arg(index));
+    }
+    const bool islandOperation = strategyId == QStringLiteral("mill_annular") ||
+                                 strategyId == QStringLiteral("mill_island");
+    const int islandIndex = m_branchCombo->findData(QStringLiteral("island:0"));
+    if (islandOperation && islandIndex >= 0) {
+        m_branchCombo->setCurrentIndex(islandIndex);
+    }
+    m_branchCombo->setEnabled(false);
+    m_branchCombo->setToolTip(
+        islandOperation
+            ? (m_chinese ? QStringLiteral("该安全子集固定绑定唯一孤岛边界。")
+                         : QStringLiteral("This safe subset is bound to its single island boundary."))
+            : fixedChainReason);
 
     const double compensation = params.get(QStringLiteral("compensation"), 1.0);
     const int compensationValue = compensation > 0.5
@@ -96,6 +172,19 @@ void ContourMachiningChoiceDialog::setContext(const QString &strategyId,
     if (index >= 0) {
         m_compensationCombo->setCurrentIndex(index);
     }
+    if (strategyId == QStringLiteral("mill_outer_chamfer")) {
+        const int centerlineIndex = m_compensationCombo->findData(
+            int(ContourCompensationChoice::CamOffsetG40));
+        if (centerlineIndex >= 0) {
+            m_compensationCombo->setCurrentIndex(centerlineIndex);
+        }
+        m_compensationCombo->setEnabled(false);
+        m_compensationCombo->setToolTip(
+            m_chinese ? QStringLiteral("二维外形倒角按已验证边界中心线生成，不使用机床半径刀补。")
+                      : QStringLiteral("Verified 2D outer chamfer follows the boundary centerline without machine radius compensation."));
+    } else {
+        m_compensationCombo->setEnabled(true);
+    }
     updateSummary();
 }
 
@@ -104,6 +193,11 @@ ContourMachiningChoice ContourMachiningChoiceDialog::choice() const
     ContourMachiningChoice result;
     result.direction = ContourTraversalDirection(m_directionCombo->currentData().toInt());
     result.compensation = ContourCompensationChoice(m_compensationCombo->currentData().toInt());
+    result.geometrySource = ChainGeometrySource(m_geometrySourceCombo->currentData().toInt());
+    result.selectionMode = ChainSelectionMode(m_selectionModeCombo->currentData().toInt());
+    result.machiningSide = ChainMachiningSide(m_machiningSideCombo->currentData().toInt());
+    result.sortStrategy = ChainSortStrategy(m_sortStrategyCombo->currentData().toInt());
+    result.selectedBranchGeometryId = m_branchCombo->currentData().toString();
     result.closedContour = m_closed;
     result.startPointIndex = m_startCombo->currentData().toInt();
     return result;
@@ -132,6 +226,70 @@ void ContourMachiningChoiceDialog::updateText()
                                     : QStringLiteral("Start point"));
     m_compensationLabel->setText(m_chinese ? QStringLiteral("刀具侧 / 刀补")
                                            : QStringLiteral("Cutter side / compensation"));
+    m_geometrySourceLabel->setText(m_chinese ? QStringLiteral("几何来源")
+                                             : QStringLiteral("Geometry source"));
+    m_selectionModeLabel->setText(m_chinese ? QStringLiteral("串联模式")
+                                            : QStringLiteral("Chain mode"));
+    m_machiningSideLabel->setText(m_chinese ? QStringLiteral("加工侧")
+                                            : QStringLiteral("Machining side"));
+    m_sortStrategyLabel->setText(m_chinese ? QStringLiteral("排序方式")
+                                           : QStringLiteral("Sort strategy"));
+    m_branchLabel->setText(m_chinese ? QStringLiteral("边界分支")
+                                     : QStringLiteral("Boundary branch"));
+
+    const int oldSource = m_geometrySourceCombo->currentData().toInt();
+    m_geometrySourceCombo->clear();
+    m_geometrySourceCombo->addItem(m_chinese ? QStringLiteral("实体") : QStringLiteral("Entity"),
+                                   int(ChainGeometrySource::Entity));
+    m_geometrySourceCombo->addItem(m_chinese ? QStringLiteral("线框") : QStringLiteral("Wire"),
+                                   int(ChainGeometrySource::Wire));
+    m_geometrySourceCombo->addItem(m_chinese ? QStringLiteral("毛坯") : QStringLiteral("Stock"),
+                                   int(ChainGeometrySource::Stock));
+    int comboIndex = m_geometrySourceCombo->findData(oldSource);
+    m_geometrySourceCombo->setCurrentIndex(comboIndex >= 0 ? comboIndex : 1);
+
+    const int oldMode = m_selectionModeCombo->currentData().toInt();
+    m_selectionModeCombo->clear();
+    m_selectionModeCombo->addItem(m_chinese ? QStringLiteral("边") : QStringLiteral("Edge"),
+                                  int(ChainSelectionMode::Edge));
+    m_selectionModeCombo->addItem(m_chinese ? QStringLiteral("整串") : QStringLiteral("Chain"),
+                                  int(ChainSelectionMode::Chain));
+    m_selectionModeCombo->addItem(m_chinese ? QStringLiteral("面") : QStringLiteral("Face"),
+                                  int(ChainSelectionMode::Face));
+    m_selectionModeCombo->addItem(m_chinese ? QStringLiteral("部分串联") : QStringLiteral("Partial chain"),
+                                  int(ChainSelectionMode::PartialChain));
+    comboIndex = m_selectionModeCombo->findData(oldMode);
+    m_selectionModeCombo->setCurrentIndex(comboIndex >= 0 ? comboIndex : 1);
+
+    const int oldSide = m_machiningSideCombo->currentData().toInt();
+    m_machiningSideCombo->clear();
+    m_machiningSideCombo->addItem(m_chinese ? QStringLiteral("内侧") : QStringLiteral("Inside"),
+                                  int(ChainMachiningSide::Inside));
+    m_machiningSideCombo->addItem(m_chinese ? QStringLiteral("外侧") : QStringLiteral("Outside"),
+                                  int(ChainMachiningSide::Outside));
+    m_machiningSideCombo->addItem(m_chinese ? QStringLiteral("混合") : QStringLiteral("Mixed"),
+                                  int(ChainMachiningSide::Mixed));
+    comboIndex = m_machiningSideCombo->findData(oldSide);
+    m_machiningSideCombo->setCurrentIndex(comboIndex >= 0 ? comboIndex : 2);
+
+    const int oldSort = m_sortStrategyCombo->currentData().toInt();
+    m_sortStrategyCombo->clear();
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("选择顺序") : QStringLiteral("Selection order"),
+                                 int(ChainSortStrategy::SelectionOrder));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("X 双向") : QStringLiteral("Bidirectional X"),
+                                 int(ChainSortStrategy::BidirectionalX));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("Y 双向") : QStringLiteral("Bidirectional Y"),
+                                 int(ChainSortStrategy::BidirectionalY));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("X 单向") : QStringLiteral("Unidirectional X"),
+                                 int(ChainSortStrategy::UnidirectionalX));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("Y 单向") : QStringLiteral("Unidirectional Y"),
+                                 int(ChainSortStrategy::UnidirectionalY));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("对角") : QStringLiteral("Diagonal"),
+                                 int(ChainSortStrategy::Diagonal));
+    m_sortStrategyCombo->addItem(m_chinese ? QStringLiteral("点到点") : QStringLiteral("Point to point"),
+                                 int(ChainSortStrategy::PointToPoint));
+    comboIndex = m_sortStrategyCombo->findData(oldSort);
+    m_sortStrategyCombo->setCurrentIndex(comboIndex >= 0 ? comboIndex : 0);
 
     const int oldDirection = m_directionCombo->currentData().toInt();
     m_directionCombo->clear();

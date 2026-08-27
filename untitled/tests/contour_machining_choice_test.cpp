@@ -25,6 +25,11 @@ ContourFeature pointContour()
         QVector3D(10.0f, 5.0f, 0.0f),
         QVector3D(0.0f, 5.0f, 0.0f)
     };
+    feature.islands = {{
+        QVector3D(4.0f, 2.0f, 0.0f),
+        QVector3D(6.0f, 2.0f, 0.0f),
+        QVector3D(6.0f, 3.0f, 0.0f),
+        QVector3D(4.0f, 3.0f, 0.0f)}};
     return feature;
 }
 
@@ -38,6 +43,10 @@ int main(int argc, char **argv)
             "closed contour should require manual machining choice");
     require(isManualContourChoiceStrategy(QStringLiteral("mill_open_contour")),
             "open contour should require manual machining choice");
+    require(isManualContourChoiceStrategy(QStringLiteral("mill_outer_chamfer")),
+            "outer chamfer should require manual outside-chain confirmation");
+    require(isManualContourChoiceStrategy(QStringLiteral("mill_slope_plane_2d")),
+            "2D slope should require manual projected-boundary confirmation");
     require(!isManualContourChoiceStrategy(QStringLiteral("mill_blind_slot")),
             "slot strategies should not use the contour-side dialog");
 
@@ -58,6 +67,27 @@ int main(int argc, char **argv)
             "reverse choice should continue through the previous contour point");
     require(params.get(QStringLiteral("compensation"), 0.0) == -1.0,
             "right compensation should map to G42");
+
+    choice.geometrySource = ChainGeometrySource::Wire;
+    choice.selectionMode = ChainSelectionMode::PartialChain;
+    choice.machiningSide = ChainMachiningSide::Inside;
+    choice.sortStrategy = ChainSortStrategy::SelectionOrder;
+    choice.selectedBranchGeometryId = QStringLiteral("island:0");
+    const SelectionChain chain =
+        selectionChainForContourChoice(contour, choice, QStringLiteral("G55"));
+    require(!chain.id.isEmpty() && chain.orderedGeometryIds.size() == contour.points.size(),
+            "confirmed UI choice should create a concrete selection chain");
+    require(chain.geometrySource == ChainGeometrySource::Wire &&
+                chain.selectionMode == ChainSelectionMode::PartialChain &&
+                chain.machiningSide == ChainMachiningSide::Inside,
+            "source, mode, and machining side should enter the operation contract");
+    require(chain.closed && chain.reversed && chain.hasStartPoint &&
+                chain.startPoint == contour.points.first(),
+            "closed, reverse, and start state should enter the operation contract");
+    require(chain.sortStrategy == ChainSortStrategy::SelectionOrder &&
+                chain.selectedBranchGeometryId == QStringLiteral("island:0") &&
+                chain.coordinateSystemId == QStringLiteral("G55"),
+            "sort, branch, and WCS should enter the operation contract");
 
     choice.direction = ContourTraversalDirection::Forward;
     choice.startPointIndex = 0;

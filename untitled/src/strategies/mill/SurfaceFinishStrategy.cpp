@@ -5,23 +5,89 @@
 
 namespace {
 
-static double planarSpan(double explicitValue, double fallbackRadius, double fallbackToolDiameter)
+constexpr double kTolerance = 0.02;
+
+ProcessParameterDefinition numberDefinition(const QString &id,
+                                            ProcessParameterUnit unit,
+                                            double defaultValue)
 {
-    if (explicitValue > 0.0) {
-        return explicitValue;
-    }
-    if (fallbackRadius > 0.0) {
-        return fallbackRadius * 2.0;
-    }
-    return fallbackToolDiameter * 6.0;
+    ProcessParameterDefinition definition;
+    definition.id = id;
+    definition.type = ProcessParameterType::Number;
+    definition.unit = unit;
+    definition.defaultValue = defaultValue;
+    definition.visible = true;
+    return definition;
 }
 
+bool nearValue(double first, double second)
+{
+    return std::abs(first - second) <= kTolerance;
+}
+
+bool verifiedRectangle(const ContourFeature &feature,
+                       double *minimumX,
+                       double *maximumX,
+                       double *minimumY,
+                       double *maximumY)
+{
+    if (feature.points.size() != 4 || !feature.islands.isEmpty() ||
+        std::abs(feature.axis.normalized().z()) < 0.999) {
+        return false;
+    }
+    *minimumX = *maximumX = feature.points.first().x();
+    *minimumY = *maximumY = feature.points.first().y();
+    for (const QVector3D &point : feature.points) {
+        if (!nearValue(point.z(), feature.center.z())) {
+            return false;
+        }
+        *minimumX = std::min(*minimumX, double(point.x()));
+        *maximumX = std::max(*maximumX, double(point.x()));
+        *minimumY = std::min(*minimumY, double(point.y()));
+        *maximumY = std::max(*maximumY, double(point.y()));
+    }
+    bool corners[2][2] = {{false, false}, {false, false}};
+    for (const QVector3D &point : feature.points) {
+        const int xIndex = nearValue(point.x(), *minimumX) ? 0
+            : (nearValue(point.x(), *maximumX) ? 1 : -1);
+        const int yIndex = nearValue(point.y(), *minimumY) ? 0
+            : (nearValue(point.y(), *maximumY) ? 1 : -1);
+        if (xIndex < 0 || yIndex < 0 || corners[xIndex][yIndex]) {
+            return false;
+        }
+        corners[xIndex][yIndex] = true;
+    }
+    const double length = *maximumX - *minimumX;
+    const double width = *maximumY - *minimumY;
+    return corners[0][0] && corners[0][1] && corners[1][0] && corners[1][1] &&
+           length > kTolerance && width > kTolerance &&
+           (feature.length <= 0.0 || nearValue(feature.length, length)) &&
+           (feature.width <= 0.0 || nearValue(feature.width, width));
+}
+
+}
+
+ProcessParameterSchema SurfaceFinishStrategy::parameterSchema() const
+{
+    ProcessParameterSchema schema = ProcessParameterSchema::CommonOperation();
+    schema.addDefinition(numberDefinition(
+        QStringLiteral("feedHeight"), ProcessParameterUnit::Millimeter, 3.0));
+    schema.addDefinition(numberDefinition(
+        QStringLiteral("stepover"), ProcessParameterUnit::Millimeter, 0.5));
+    schema.addDefinition(numberDefinition(
+        QStringLiteral("stockToLeave"), ProcessParameterUnit::Millimeter, 0.0));
+    return schema;
 }
 
 StrategyParams SurfaceFinishStrategy::defaultParams() const
 {
-    StrategyParams p;
+    StrategyParams p = parameterSchema().defaultParams();
     p.set("safeHeight",    50.0);
+    p.set("plungeHeight",   3.0);
+    p.set("referenceHeight", 0.0);
+    p.set("depth",           0.2);
+    p.set("stepOver",        0.5);
+    p.set("stepDown",        0.2);
     p.set("feedHeight",     3.0);
     p.set("stepover",       0.5);  // very fine lateral step for surface quality
     p.set("spindleSpeed", 4000.0);
@@ -46,7 +112,13 @@ ToolpathResult SurfaceFinishStrategy::generate(const ContourFeature &feature,
                                                 const StrategyParams &params) const
 {
     ToolpathResult res;
-    if (tool.diameter <= 0.0) {
+    const QStringList parameterErrors = parameterSchema().validate(params);
+    if (!parameterErrors.isEmpty()) {
+        res.errorMsg = parameterErrors.join(QLatin1Char('\n'));
+        return res;
+    }
+    if (tool.id <= 0 || tool.diameter <= 0.0 ||
+        tool.type != QStringLiteral("end_mill")) {
         res.errorMsg = QObject::tr("刀具直径无效。");
         return res;
     }
@@ -55,8 +127,15 @@ ToolpathResult SurfaceFinishStrategy::generate(const ContourFeature &feature,
         return res;
     }
 
-    const double cx = feature.center.x();
-    const double cy = feature.center.y();
+    double minimumX = 0.0;
+    double maximumX = 0.0;
+    double minimumY = 0.0;
+    double maximumY = 0.0;
+    if (!verifiedRectangle(feature, &minimumX, &maximumX, &minimumY, &maximumY)) {
+        res.errorMsg = QObject::tr(
+            "精面策略仅支持前视 Setup 下可验证的平面矩形边界，不能替代三维曲面刀路。");
+        return res;
+    }
     const double ztop = feature.center.z();
     const double zcut = ztop - feature.depth;
     const double safe = params.get("safeHeight", 50.0);
@@ -67,17 +146,19 @@ ToolpathResult SurfaceFinishStrategy::generate(const ContourFeature &feature,
     const double Fp = params.get("plungeRate", 150.0);
     const double stock = params.get("stockToLeave", 0.0);
 
-    const double spanX = planarSpan(feature.length, feature.radius, tool.diameter);
-    const double spanY = planarSpan(feature.width, feature.radius, tool.diameter);
-    const double halfX = spanX * 0.5;
-    const double halfY = spanY * 0.5;
     const double toolRadius = tool.diameter * 0.5;
     const double lead = toolRadius;
-    const double startX = cx - halfX - lead;
-    const double endX = cx + halfX + lead;
-    const double startY = cy - halfY - lead;
-    const double endY = cy + halfY + lead;
+    const double startX = minimumX - lead;
+    const double endX = maximumX + lead;
+    const double startY = minimumY - lead;
+    const double endY = maximumY + lead;
     const double effectiveStep = step > 0.0 ? step : tool.diameter * 0.1;
+    if (safe <= ztop + feedH || feedH < 0.0 || effectiveStep <= 0.0 ||
+        F <= 0.0 || Fp <= 0.0 || S <= 0.0 || stock < 0.0 ||
+        stock >= feature.depth) {
+        res.errorMsg = QObject::tr("精面高度、步距、余量或切削参数不安全。");
+        return res;
+    }
     const int passes = std::max(2, static_cast<int>(std::ceil((endY - startY) / effectiveStep)) + 1);
 
     QString gc;
