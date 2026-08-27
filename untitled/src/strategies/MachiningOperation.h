@@ -1,5 +1,8 @@
 #pragma once
+#include "../core/ProcessParameterSchema.h"
+#include "../core/SelectionChainController.h"
 #include "StrategyBase.h"
+#include <QMap>
 #include <QVariant>
 
 enum class OperationType {
@@ -18,6 +21,21 @@ enum class OperationStage {
     Cleanup
 };
 
+enum class ToolpathState {
+    Empty,
+    Calculating,
+    Valid,
+    Stale,
+    Error
+};
+
+struct OperationParameterTemplate {
+    QString id;
+    QString version;
+    StrategyParams values;
+    QMap<QString, ProcessParameterSource> sources;
+};
+
 struct MachiningOperation {
     QString        id;
     OperationType  opType     = OperationType::Hole;
@@ -26,8 +44,36 @@ struct MachiningOperation {
     QString        strategyId;
     int            toolId     = -1;
     StrategyParams params;
+    QMap<QString, ProcessParameterSource> parameterSources;
+    OperationParameterTemplate parameterTemplate;
+    bool           enabled = true;
+    QStringList    geometryRefs;
+    QStringList    dependencyOperationIds;
+    SelectionChain selectionChain;
+    ToolpathState  toolpathState = ToolpathState::Empty;
+    QStringList    warnings;
 
     // Exactly one of these is valid, depending on opType
     HoleFeature    holeFeature;
     ContourFeature contourFeature;
+
+    void markToolpathValid()
+    {
+        toolpathState = ToolpathState::Valid;
+        warnings.clear();
+    }
+
+    void markToolpathStale(const QString &reason)
+    {
+        toolpathState = ToolpathState::Stale;
+        if (!reason.trimmed().isEmpty() && !warnings.contains(reason)) {
+            warnings.append(reason);
+        }
+    }
+
+    void markToolpathError(const QString &reason)
+    {
+        toolpathState = ToolpathState::Error;
+        warnings = reason.trimmed().isEmpty() ? QStringList() : QStringList{reason};
+    }
 };

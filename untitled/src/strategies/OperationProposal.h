@@ -19,6 +19,7 @@ struct OperationProposal {
     StrategyParams params;
     HoleFeature holeFeature;
     ContourFeature contourFeature;
+    SelectionChain selectionChain;
 
     FaceRegion featureRegion() const;
 };

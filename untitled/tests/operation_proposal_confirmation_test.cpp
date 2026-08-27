@@ -1,4 +1,5 @@
 #include "../src/strategies/OperationProposal.h"
+#include "../src/core/FeatureIdentity.h"
 
 #include <QCoreApplication>
 #include <type_traits>
@@ -61,7 +62,9 @@ int main(int argc, char **argv)
                    confirmed.operation.holeFeature.radius == hole.radius,
                "hole geometry should be copied into the confirmed operation") ||
         expect(confirmed.operation.params.get(QStringLiteral("feedRate")) == 320.0,
-               "proposal parameters should be copied into the confirmed operation")) {
+               "proposal parameters should be copied into the confirmed operation") ||
+        expect(confirmed.operation.geometryRefs == QStringList{stableFeatureId(hole)},
+               "confirmed holes should retain a stable geometry reference")) {
         return 1;
     }
 
@@ -85,7 +88,10 @@ int main(int argc, char **argv)
         expect(contourConfirmed.operation.opType == OperationType::Finish,
                "a contour finish proposal should become a finish operation") ||
         expect(contourConfirmed.operation.stage == OperationStage::FinishCut,
-               "a contour finish proposal should use the finish stage")) {
+               "a contour finish proposal should use the finish stage") ||
+        expect(contourConfirmed.operation.geometryRefs ==
+                   QStringList{stableContourId(contourProposal.contourFeature)},
+               "confirmed contours should retain a stable geometry reference")) {
         return 1;
     }
 

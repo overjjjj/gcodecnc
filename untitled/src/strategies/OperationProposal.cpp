@@ -1,5 +1,7 @@
 #include "OperationProposal.h"
 
+#include "../core/FeatureIdentity.h"
+
 #include <QUuid>
 #include <cmath>
 
@@ -10,7 +12,9 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
     if (proposal.kind == OperationProposalKind::Hole) {
         return OperationType::Hole;
     }
-    if (proposal.strategyId == QStringLiteral("mill_pocket_rough")) {
+    if (proposal.strategyId == QStringLiteral("mill_pocket_rough") ||
+        proposal.strategyId == QStringLiteral("mill_annular") ||
+        proposal.strategyId == QStringLiteral("mill_island")) {
         return OperationType::Roughing;
     }
     if (proposal.strategyId == QStringLiteral("mill_contour_finish") ||
@@ -18,7 +22,8 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
         proposal.strategyId == QStringLiteral("mill_pocket_floor_finish") ||
         proposal.strategyId == QStringLiteral("mill_surface_finish") ||
         proposal.strategyId == QStringLiteral("mill_closed_contour") ||
-        proposal.strategyId == QStringLiteral("mill_open_contour")) {
+        proposal.strategyId == QStringLiteral("mill_open_contour") ||
+        proposal.strategyId == QStringLiteral("mill_outer_chamfer")) {
         return OperationType::Finish;
     }
     return OperationType::Contour;
@@ -31,12 +36,15 @@ OperationStage operationStageForProposal(const OperationProposal &proposal,
         return OperationStage::Setup;
     }
     if (proposal.strategyId == QStringLiteral("mill_pocket_rough") ||
+        proposal.strategyId == QStringLiteral("mill_annular") ||
+        proposal.strategyId == QStringLiteral("mill_island") ||
         proposal.strategyId == QStringLiteral("mill_slot") ||
         proposal.strategyId == QStringLiteral("mill_blind_slot") ||
         proposal.strategyId == QStringLiteral("mill_tapered_slot")) {
         return OperationStage::RoughCut;
     }
     if (proposal.strategyId == QStringLiteral("hole_deephole") ||
+        proposal.strategyId == QStringLiteral("hole_peck_g73") ||
         proposal.strategyId == QStringLiteral("hole_peck")) {
         return OperationStage::DeepHole;
     }
@@ -45,6 +53,8 @@ OperationStage operationStageForProposal(const OperationProposal &proposal,
     }
     if (operationType == OperationType::Finish ||
         proposal.strategyId == QStringLiteral("hole_reaming") ||
+        proposal.strategyId == QStringLiteral("hole_bore_g86") ||
+        proposal.strategyId == QStringLiteral("hole_thread_mill") ||
         proposal.strategyId == QStringLiteral("hole_circular_mill")) {
         return OperationStage::FinishCut;
     }
@@ -94,6 +104,37 @@ OperationConfirmationResult confirmOperationProposal(
         result.error = QStringLiteral("Contour geometry is invalid.");
         return result;
     }
+    if ((proposal.strategyId == QStringLiteral("mill_annular") ||
+         proposal.strategyId == QStringLiteral("mill_island")) &&
+        (!proposal.selectionChain.closed ||
+         proposal.selectionChain.orderedGeometryIds.isEmpty() ||
+         proposal.selectionChain.selectedBranchGeometryId != QStringLiteral("island:0") ||
+         proposal.contourFeature.points.size() < 6 ||
+         proposal.contourFeature.islands.size() != 1 ||
+         proposal.contourFeature.islands.first().size() < 6)) {
+        result.error = QStringLiteral(
+            "Annular and island milling require confirmed closed outer and island boundaries.");
+        return result;
+    }
+    if (proposal.strategyId == QStringLiteral("mill_outer_chamfer") &&
+        (!proposal.selectionChain.closed ||
+         proposal.selectionChain.orderedGeometryIds.isEmpty() ||
+         proposal.selectionChain.machiningSide != ChainMachiningSide::Outside ||
+         proposal.contourFeature.points.size() < 3 ||
+         !proposal.contourFeature.islands.isEmpty())) {
+        result.error = QStringLiteral(
+            "Outer chamfer requires a confirmed outside closed boundary without islands.");
+        return result;
+    }
+    if (proposal.strategyId == QStringLiteral("mill_slope_plane_2d") &&
+        (!proposal.selectionChain.closed ||
+         proposal.selectionChain.orderedGeometryIds.size() != 4 ||
+         proposal.contourFeature.points.size() != 4 ||
+         !proposal.contourFeature.islands.isEmpty())) {
+        result.error = QStringLiteral(
+            "2D slope milling requires one confirmed closed rectangular projected boundary.");
+        return result;
+    }
     if (proposal.strategyId == QStringLiteral("mill_pocket_rough")) {
         if (!proposal.params.values.contains(QStringLiteral("entryMode"))) {
             result.error = QStringLiteral("Pocket entry method requires explicit operator selection.");
@@ -116,8 +157,13 @@ OperationConfirmationResult confirmOperationProposal(
     operation.params = proposal.params;
     if (proposal.kind == OperationProposalKind::Hole) {
         operation.holeFeature = proposal.holeFeature;
+        operation.geometryRefs = QStringList{stableFeatureId(proposal.holeFeature)};
     } else {
         operation.contourFeature = proposal.contourFeature;
+        operation.selectionChain = proposal.selectionChain;
+        operation.geometryRefs = proposal.selectionChain.orderedGeometryIds.isEmpty()
+            ? QStringList{stableContourId(proposal.contourFeature)}
+            : proposal.selectionChain.orderedGeometryIds;
     }
 
     result.ok = true;
