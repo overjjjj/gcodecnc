@@ -41,6 +41,7 @@ int main(int argc, char **argv)
     reamOperation.id = QStringLiteral("ream-d10"); reamOperation.stage = OperationStage::FinishCut;
     reamOperation.strategyId = ream->id(); reamOperation.toolId = 10;
     reamOperation.params = ream->defaultParams();
+    peckOperation.markToolpathValid(); reamOperation.markToolpathValid();
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2502");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;

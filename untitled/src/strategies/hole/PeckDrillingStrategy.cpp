@@ -60,7 +60,19 @@ ToolpathResult PeckDrillingStrategy::generate(const QVector<HoleFeature> &featur
             gc += note;
             emittedNotes.append(note);
         }
-        const double total = effectiveDrillDepth(feature, params.get("depth", 20.0));
+        const double requestedDepth = params.get("depth", 20.0);
+        double total = effectiveDrillDepth(feature, requestedDepth);
+        if (params.get("enforceConfirmedDepth", 0.0) > 0.5) {
+            double confirmedDepth = feature.depth;
+            if (feature.subType == QStringLiteral("through_hole") ||
+                feature.subType == QStringLiteral("countersunk_through_hole")) {
+                const double throughAllowance = params.get("throughAllowance", 0.0);
+                if (std::isfinite(throughAllowance) && throughAllowance >= 0.0) {
+                    confirmedDepth += throughAllowance;
+                }
+            }
+            total = std::min(requestedDepth, confirmedDepth);
+        }
         const double adaptedPeck = effectivePeckDepth(feature, peck);
         const HoleZRange zRange = holeZRange(feature, total, feed);
         const double x = feature.center.x();

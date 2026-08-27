@@ -40,6 +40,7 @@ int main(int argc, char **argv)
     MachiningOperation tapOperation = peckOperation;
     tapOperation.id = QStringLiteral("tap-m6"); tapOperation.stage = OperationStage::FinishCut;
     tapOperation.strategyId = tap->id(); tapOperation.toolId = 6; tapOperation.params = tap->defaultParams();
+    peckOperation.markToolpathValid(); tapOperation.markToolpathValid();
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2504");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;

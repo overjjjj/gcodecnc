@@ -75,12 +75,13 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
             .arg(fd(call.z), fd(rPlane), QString::number(dwellMs), fd(call.f));
     }
 
-    if (call.code == QStringLiteral("G83")) {
+    if (call.code == QStringLiteral("G73") ||
+        call.code == QStringLiteral("G83")) {
         // G83 Z_ R_ Q_ F_  (peck drilling, Q = peck depth per pass in mm)
         // Fanuc Q is always positive and in same unit as other lengths
         const double q = call.q > 0.0 ? call.q : 1.0;
-        return QStringLiteral("G83 Z%1 R%2 Q%3 F%4")
-            .arg(fd(call.z), fd(rPlane), fd(q), fd(call.f));
+        return QStringLiteral("%1 Z%2 R%3 Q%4 F%5")
+            .arg(call.code, fd(call.z), fd(rPlane), fd(q), fd(call.f));
     }
 
     if (call.code == QStringLiteral("G84")) {
@@ -98,6 +99,14 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
         // G85 Z_ R_ F_  (reaming / boring)
         return QStringLiteral("G85 Z%1 R%2 F%3")
             .arg(fd(call.z), fd(rPlane), fd(call.f));
+    }
+
+    if (call.code == QStringLiteral("G86")) {
+        const QString dwell = call.p > 0.0
+            ? QStringLiteral(" P%1").arg(static_cast<int>(call.p))
+            : QString();
+        return QStringLiteral("G86 Z%1 R%2%3 F%4")
+            .arg(fd(call.z), fd(rPlane), dwell, fd(call.f));
     }
 
     return QString();

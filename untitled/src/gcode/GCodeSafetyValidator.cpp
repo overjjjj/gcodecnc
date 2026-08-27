@@ -65,7 +65,9 @@ static void addError(GCodeSafetyReport &report, const QString &message)
 
 static bool startsFixedCycle(const QString &line)
 {
-    return containsWord(line, QStringLiteral("G81")) ||
+    return containsWord(line, QStringLiteral("G73")) ||
+           containsWord(line, QStringLiteral("G76")) ||
+           containsWord(line, QStringLiteral("G81")) ||
            containsWord(line, QStringLiteral("G82")) ||
            containsWord(line, QStringLiteral("G83")) ||
            containsWord(line, QStringLiteral("G84")) ||
@@ -78,7 +80,7 @@ static bool startsFixedCycle(const QString &line)
 
 static QString unsupportedFixedCycleCode(const QString &line)
 {
-    for (const QString &code : {QStringLiteral("G86"), QStringLiteral("G87"),
+    for (const QString &code : {QStringLiteral("G76"), QStringLiteral("G87"),
                                 QStringLiteral("G88"), QStringLiteral("G89")}) {
         if (containsWord(line, code)) {
             return code;
@@ -178,11 +180,13 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
                          .arg(unsupportedCycle));
         }
         const bool supportedFixedCycleStart =
+            containsWord(line, QStringLiteral("G73")) ||
             containsWord(line, QStringLiteral("G81")) ||
             containsWord(line, QStringLiteral("G82")) ||
             containsWord(line, QStringLiteral("G83")) ||
             containsWord(line, QStringLiteral("G84")) ||
-            containsWord(line, QStringLiteral("G85"));
+            containsWord(line, QStringLiteral("G85")) ||
+            containsWord(line, QStringLiteral("G86"));
         if (supportedFixedCycleStart) {
             double holeBottom = 0.0;
             double returnPlane = 0.0;
@@ -194,7 +198,8 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
                              .arg(i + 1));
             }
         }
-        if (containsWord(line, QStringLiteral("G83"))) {
+        if (containsWord(line, QStringLiteral("G73")) ||
+            containsWord(line, QStringLiteral("G83"))) {
             double peckDepth = 0.0;
             if (!readAxisValue(line, QLatin1Char('Q'), peckDepth) || peckDepth <= 0.0) {
                 addError(report,

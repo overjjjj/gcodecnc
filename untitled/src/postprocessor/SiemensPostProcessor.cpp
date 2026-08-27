@@ -82,7 +82,8 @@ static QString siemensCycleCommand(const HoleCycleCall &call)
                  formatDouble(dwellSeconds));
     }
 
-    if (call.code == QStringLiteral("G83")) {
+    if (call.code == QStringLiteral("G73") ||
+        call.code == QStringLiteral("G83")) {
         // CYCLE83(RTP, RFP, SDIS, DP, DPR, DTB, DTS, FRF, VARI, _AXPOS, MDEP, VRT)
         // p = dwell in seconds (DTB, pos 6), vari = chip-break mode (VARI, pos 9), q = peck depth (MDEP, pos 11)
         return QStringLiteral("MCALL CYCLE83(%1,%2,%3,%4,,%5,,1,%6,,%7,)")
@@ -91,7 +92,9 @@ static QString siemensCycleCommand(const HoleCycleCall &call)
                  formatDouble(call.sdis),
                  formatDouble(call.z),
                  formatDouble(call.p),
-                 QString::number(call.vari),
+                 call.code == QStringLiteral("G73")
+                     ? QStringLiteral("0")
+                     : QString::number(call.vari),
                  formatDouble(call.q));
     }
 
@@ -116,6 +119,16 @@ static QString siemensCycleCommand(const HoleCycleCall &call)
                  formatDouble(call.z),
                  formatDouble(dwellSeconds),
                  formatDouble(call.f));
+    }
+
+    if (call.code == QStringLiteral("G86")) {
+        const double dwellSeconds = call.p > 0.0 ? call.p / 1000.0 : 0.0;
+        return QStringLiteral("MCALL CYCLE86(%1,%2,%3,%4,,%5,3,0,0,0,0)")
+            .arg(formatDouble(call.rtp),
+                 formatDouble(call.rfp),
+                 formatDouble(call.sdis),
+                 formatDouble(call.z),
+                 formatDouble(dwellSeconds));
     }
 
     return QString();

@@ -41,6 +41,7 @@ int main(int argc, char **argv)
     chamferOperation.id = QStringLiteral("chamfer-d10"); chamferOperation.stage = OperationStage::Cleanup;
     chamferOperation.strategyId = chamfer->id(); chamferOperation.toolId = 16;
     chamferOperation.params = chamfer->defaultParams();
+    peckOperation.markToolpathValid(); chamferOperation.markToolpathValid();
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2503");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;

@@ -43,6 +43,7 @@ int main(int argc, char **argv)
     peckOperation.id = QStringLiteral("peck-d10"); peckOperation.stage = OperationStage::DeepHole;
     peckOperation.strategyId = peck->id(); peckOperation.toolId = 10;
     peckOperation.params = peck->defaultParams(); peckOperation.holeFeature = hole;
+    spotOperation.markToolpathValid(); peckOperation.markToolpathValid();
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2501");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;
