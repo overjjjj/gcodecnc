@@ -9,6 +9,7 @@
 #include <QTranslator>
 #include "../import/StepImporter.h"
 #include "../strategies/OperationProposal.h"
+#include "../services/AutoHolePlanningService.h"
 
 class ViewportWidget;
 class FeatureListPanel;
@@ -61,6 +62,8 @@ private slots:
     void onSetOriginFromSelectedHole();
     void onEditStockDefinition();
     void onEditMachineProfile();
+    void onReviewAutoHoleCandidates();
+    void onEditProcessTemplates();
 
 private:
     void createMenus();
@@ -197,4 +200,5 @@ private:
     bool      m_updatingProgramList = false;
     QComboBox *m_ppCombo = nullptr;
     QComboBox *m_wcsCombo = nullptr;
+    QList<AutoHoleCandidate> m_autoHoleCandidates;
 };

@@ -8,6 +8,7 @@
 #include <QQuaternion>
 #include <QStringList>
 #include "MachineProfile.h"
+#include "ProcessTemplateLibrary.h"
 #include "SetupOrigin.h"
 #include "StockDefinition.h"
 #include "../import/StepImporter.h"
@@ -69,6 +70,7 @@ public:
                               const QString &sourceFilePath,
                               const QString &sourceFileFingerprint);
     void setMachineProfile(const MachineProfile &profile);
+    void setProcessTemplateLibrary(const ProcessTemplateLibrary &library);
     QString upsertProgram(ProgramEntry program);
 
     const MeshData                   &mesh()       const { return m_mesh; }
@@ -85,6 +87,10 @@ public:
     const StockDefinition            &stockDefinition() const { return m_stockDefinition; }
     QString setupFingerprint() const;
     const MachineProfile             &machineProfile() const { return m_machineProfile; }
+    const ProcessTemplateLibrary     &processTemplateLibrary() const
+    {
+        return m_processTemplateLibrary;
+    }
     ProgramEntry programById(const QString &id) const;
 
     bool saveToFile(const QString &path);
@@ -110,5 +116,8 @@ private:
     SetupOrigin               m_setupOrigin;
     StockDefinition           m_stockDefinition;
     MachineProfile            m_machineProfile;
+    ProcessTemplateLibrary    m_processTemplateLibrary;
     bool                      m_modified = false;
+
+    void invalidateOperations(const QString &reason);
 };

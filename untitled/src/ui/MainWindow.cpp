@@ -1,14 +1,17 @@
 #include "MainWindow.h"
 
 #include "BottomBar.h"
+#include "AutoHoleCandidateDialog.h"
 #include "CncSendDialog.h"
 #include "ContourFeatureGrouping.h"
 #include "ContourMachiningChoiceDialog.h"
 #include "FeatureListPanel.h"
 #include "GCodeEditor.h"
 #include "HoleFeatureGrouping.h"
+#include "HoleSelectionDialog.h"
 #include "MachineProfileDialog.h"
 #include "OperationListPanel.h"
+#include "ProcessTemplateLibraryDialog.h"
 #include "SetupOriginDialog.h"
 #include "StockDefinitionDialog.h"
 #include "StrategyPanel.h"
@@ -16,6 +19,7 @@
 #include "ToolLibraryPanel.h"
 #include "ViewportWidget.h"
 #include "../core/AppController.h"
+#include "../core/FeatureIdentity.h"
 #include "../core/SetupOrientation.h"
 #include "../core/Settings.h"
 #include "../gcode/GCodeSafetyValidator.h"
@@ -25,6 +29,8 @@
 #include "../postprocessor/PostProcessorBase.h"
 #include "../postprocessor/PostProcessorRegistry.h"
 #include "../simulation/SimulationController.h"
+#include "../services/OperationFactory.h"
+#include "../services/AutoHolePlanningService.h"
 #include "../services/ProgramGenerationService.h"
 #include "../strategies/StrategyFactory.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
@@ -33,6 +39,7 @@
 
 #include <QApplication>
 #include <QFrame>
+#include <QHash>
 #include <QGroupBox>
 #include <QCoreApplication>
 #include <QDir>
@@ -43,6 +50,7 @@
 #include <QLibraryInfo>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -59,6 +67,7 @@
 #include <QVBoxLayout>
 #include <cmath>
 #include <limits>
+#include <memory>
 
 namespace {
 
@@ -2076,6 +2085,10 @@ MainWindow::MainWindow(QWidget *parent)
         "QListWidget#programList::item:selected { background: #e6efff; color: #172033; }"
         "QWidget#programValidationStrip { background: #ffffff; border: 1px solid #dbe3ef; border-radius: 8px; }"
         "QWidget#designWorkflowStrip { background: #ffffff; border: 1px solid #dbe3ef; border-radius: 8px; }"
+        "QWidget#designCommandStrip { background: #ffffff; border: 1px solid #dbe3ef; border-radius: 8px; }"
+        "QToolButton[designCommandButton=\"true\"] { min-height: 34px; padding: 0 10px; text-align: left; background: #f8faff; color: #27364d; border: 1px solid #dbe3ef; border-radius: 6px; font-weight: 600; }"
+        "QToolButton[designCommandButton=\"true\"]:hover { background: #edf3ff; border-color: #9ab8f2; }"
+        "QToolButton[designCommandButton=\"true\"]::menu-indicator { subcontrol-position: right center; right: 7px; }"
         "QToolButton[workflowStage=\"true\"] { min-height: 36px; padding: 0 12px; text-align: left; background: #f6f8fc; color: #41516a; border: 1px solid #dbe3ef; border-radius: 6px; font-weight: 600; }"
         "QToolButton[workflowStage=\"true\"]:hover { background: #edf3ff; border-color: #9ab8f2; }"
         "QToolButton[workflowState=\"ready\"] { background: #edf8f1; color: #17663a; border-color: #a7d7b7; }"
@@ -2904,6 +2917,7 @@ void MainWindow::createToolBar()
         ProjectManager *project = AppController::instance().projectManager();
         if (!project) return;
         project->setWorkOffset(currentWorkOffset());
+        m_strategyPanel->setWorkOffset(currentWorkOffset());
         updateProgramActionAvailability();
         updateDesignWorkflowSummary();
     });
@@ -2997,6 +3011,113 @@ void MainWindow::createPages()
         workflowLayout->addWidget(stage, 1);
     }
     designLayout->addWidget(m_designWorkflowStrip);
+
+    auto *designCommandStrip = new QWidget(m_designPage);
+    designCommandStrip->setObjectName(QStringLiteral("designCommandStrip"));
+    auto *commandLayout = new QHBoxLayout(designCommandStrip);
+    commandLayout->setContentsMargins(10, 8, 10, 8);
+    commandLayout->setSpacing(7);
+    const auto addDesignMenu = [this, commandLayout, designCommandStrip](
+                                   const QString &category,
+                                   const QString &menuName) {
+        auto *button = new QToolButton(designCommandStrip);
+        button->setObjectName(QStringLiteral("design%1Button").arg(category));
+        button->setProperty("designCommandButton", true);
+        button->setProperty("designCategory", category);
+        button->setPopupMode(QToolButton::InstantPopup);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        auto *menu = new QMenu(button);
+        menu->setObjectName(menuName);
+        button->setMenu(menu);
+        commandLayout->addWidget(button, 1);
+        return menu;
+    };
+    const auto addDesignCommand = [](QMenu *menu, const QString &command,
+                                     bool available = true) {
+        auto *action = menu->addAction(QString());
+        action->setProperty("designCommand", command);
+        action->setEnabled(available);
+        return action;
+    };
+
+    QMenu *holesMenu = addDesignMenu(QStringLiteral("Holes"), QStringLiteral("designHolesMenu"));
+    addDesignCommand(holesMenu, QStringLiteral("reviewHoles"));
+    addDesignCommand(holesMenu, QStringLiteral("spotDrill"));
+    addDesignCommand(holesMenu, QStringLiteral("peckDrill"));
+    addDesignCommand(holesMenu, QStringLiteral("holeChamfer"));
+    addDesignCommand(holesMenu, QStringLiteral("boring"), false);
+
+    QMenu *threadsMenu = addDesignMenu(QStringLiteral("Threads"), QStringLiteral("designThreadsMenu"));
+    addDesignCommand(threadsMenu, QStringLiteral("reviewThreads"));
+    addDesignCommand(threadsMenu, QStringLiteral("tap"));
+    addDesignCommand(threadsMenu, QStringLiteral("threadMill"), false);
+
+    QMenu *surfacesMenu = addDesignMenu(QStringLiteral("Surfaces"), QStringLiteral("designSurfacesMenu"));
+    addDesignCommand(surfacesMenu, QStringLiteral("reviewSurfaces"));
+    addDesignCommand(surfacesMenu, QStringLiteral("faceMill"));
+    addDesignCommand(surfacesMenu, QStringLiteral("slopeMill"));
+    addDesignCommand(surfacesMenu, QStringLiteral("slopeMill3D"), false);
+    addDesignCommand(surfacesMenu, QStringLiteral("filletMill"), false);
+    addDesignCommand(surfacesMenu, QStringLiteral("chamferSlopePlane"), false);
+
+    QMenu *slotsMenu = addDesignMenu(QStringLiteral("Slots"), QStringLiteral("designSlotsMenu"));
+    addDesignCommand(slotsMenu, QStringLiteral("reviewSlots"));
+    addDesignCommand(slotsMenu, QStringLiteral("openSlot"));
+    addDesignCommand(slotsMenu, QStringLiteral("pocket"));
+    addDesignCommand(slotsMenu, QStringLiteral("adaptiveMill"), false);
+    addDesignCommand(slotsMenu, QStringLiteral("islandMill"));
+
+    QMenu *contoursMenu = addDesignMenu(QStringLiteral("Contours"), QStringLiteral("designContoursMenu"));
+    addDesignCommand(contoursMenu, QStringLiteral("reviewContours"));
+    addDesignCommand(contoursMenu, QStringLiteral("contourMill"));
+    addDesignCommand(contoursMenu, QStringLiteral("outerChamfer"));
+    addDesignCommand(contoursMenu, QStringLiteral("chamfer3D"), false);
+    addDesignCommand(contoursMenu, QStringLiteral("clearInnerCorner"), false);
+    addDesignCommand(contoursMenu, QStringLiteral("engrave"), false);
+    addDesignCommand(contoursMenu, QStringLiteral("spatialCurve"), false);
+
+    QMenu *automationMenu = addDesignMenu(QStringLiteral("Automation"), QStringLiteral("designAutomationMenu"));
+    addDesignCommand(automationMenu, QStringLiteral("featureRecognition"));
+    QAction *autoHoleAction = addDesignCommand(automationMenu, QStringLiteral("autoHole"));
+    addDesignCommand(automationMenu, QStringLiteral("smartChamfer"), false);
+    addDesignCommand(automationMenu, QStringLiteral("autoSlotFrame"), false);
+    QAction *processTemplatesAction = addDesignCommand(automationMenu, QStringLiteral("processTemplates"));
+
+    QMenu *assistMenu = addDesignMenu(QStringLiteral("Assist"), QStringLiteral("designAssistMenu"));
+    assistMenu->addAction(m_actSetFrontFace);
+    assistMenu->addAction(m_actSetupOrigin);
+    assistMenu->addAction(m_actOriginFromHole);
+    assistMenu->addAction(m_actStockDefinition);
+    QAction *reviewTools = addDesignCommand(assistMenu, QStringLiteral("reviewTools"));
+    QAction *reviewSimulation = addDesignCommand(assistMenu, QStringLiteral("reviewSimulation"));
+    addDesignCommand(assistMenu, QStringLiteral("measurement"), false);
+    addDesignCommand(assistMenu, QStringLiteral("cadEdit"), false);
+    designLayout->addWidget(designCommandStrip);
+
+    const auto focusFeaturePanel = [this]() {
+        if (m_featurePanel) m_featurePanel->setFocus();
+    };
+    const QList<QMenu*> featureMenus = {
+        holesMenu, threadsMenu, surfacesMenu, slotsMenu, contoursMenu, automationMenu
+    };
+    for (QMenu *menu : featureMenus) {
+        for (QAction *action : menu->actions()) {
+            if (action->isEnabled()) {
+                connect(action, &QAction::triggered, this, focusFeaturePanel);
+            }
+        }
+    }
+    connect(reviewTools, &QAction::triggered, this, [this]() {
+        if (m_toolPanel) m_toolPanel->setFocus();
+    });
+    connect(reviewSimulation, &QAction::triggered, this, [this]() {
+        if (m_pageNav) m_pageNav->setCurrentRow(1);
+    });
+    connect(autoHoleAction, &QAction::triggered,
+            this, &MainWindow::onReviewAutoHoleCandidates);
+    connect(processTemplatesAction, &QAction::triggered,
+            this, &MainWindow::onEditProcessTemplates);
 
     auto *designLeftSplitter = new QSplitter(Qt::Vertical, m_designPage);
     designLeftSplitter->setHandleWidth(6);
@@ -3745,6 +3866,32 @@ void MainWindow::connectSignals()
         }
         if (selectedHoles.size() > 1)
             selectedHoles = sortHolesByActiveRegionThenNearest(selectedHoles, m_activeRegion);
+        if (selectedHoles.size() > 1) {
+            QList<HoleSelectionRecord> records;
+            QHash<QString, HoleFeature> holesById;
+            for (const HoleFeature &hole : selectedHoles) {
+                const QString geometryId = stableFeatureId(hole);
+                records.append({geometryId, hole.radius * 2.0, hole.center, records.size()});
+                holesById.insert(geometryId, hole);
+            }
+
+            HoleSelectionDialog selectionDialog(this);
+            selectionDialog.setChineseUi(isChineseUi());
+            selectionDialog.setRecords(records);
+            if (selectionDialog.exec() != QDialog::Accepted) {
+                m_bottomBar->setStatus(
+                    isChineseUi() ? QStringLiteral("已取消孔位排序。")
+                                  : QStringLiteral("Hole ordering canceled."));
+                return;
+            }
+
+            selectedHoles.clear();
+            for (const HoleSelectionRecord &record : selectionDialog.records()) {
+                if (holesById.contains(record.geometryId)) {
+                    selectedHoles.append(holesById.value(record.geometryId));
+                }
+            }
+        }
         if (!selectedHoles.isEmpty()) {
             selectedFeature = selectedHoles.first();
             m_strategyPanel->setFeature(selectedFeature);
@@ -3833,14 +3980,17 @@ void MainWindow::connectSignals()
 
         QList<MachiningOperation> confirmedOperations;
         for (const OperationProposal &oneProposal : confirmedProposals) {
-            const OperationConfirmationResult confirmation =
-                confirmOperationProposal(
-                    oneProposal, OperationConfirmationIntent::ExplicitUser);
-            if (!confirmation.ok) {
-                onErrorOccurred(confirmation.error);
+            OperationParameterLayers layers;
+            layers.templateId = oneProposal.strategyId;
+            layers.templateVersion = QStringLiteral("built-in");
+            layers.systemDefaults = s->defaultParams();
+            const OperationFactoryResult created =
+                OperationFactory::CreateConfirmed(oneProposal, layers);
+            if (!created.ok) {
+                onErrorOccurred(created.errors.join(QLatin1Char('\n')));
                 return;
             }
-            confirmedOperations.append(confirmation.operation);
+            confirmedOperations.append(created.operation);
         }
 
         const ToolpathResult result = batchHoles
@@ -3851,6 +4001,9 @@ void MainWindow::connectSignals()
             return;
         }
 
+        for (MachiningOperation &operation : confirmedOperations) {
+            operation.markToolpathValid();
+        }
         const QStringList addedIds =
             m_operationPanel->addConfirmedOperations(confirmedOperations);
         if (!addedIds.isEmpty()) {
@@ -3886,6 +4039,13 @@ void MainWindow::connectSignals()
         }
         ProjectManager *project = AppController::instance().projectManager();
         ContourFeature requestedFeature = applyContourOverrides(feature, params);
+        if (resolvedStrategyId == QStringLiteral("mill_slope_plane_2d")) {
+            const double slopeLength = params.get(QStringLiteral("slopeLength"), 0.0);
+            const double slopeAngle = params.get(QStringLiteral("slopeAngle"), 0.0);
+            requestedFeature.subType = QStringLiteral("planar_slope_2d");
+            requestedFeature.depth = slopeLength *
+                std::tan(slopeAngle * std::acos(-1.0) / 180.0);
+        }
         if (isSlotMillingStrategy(resolvedStrategyId)) {
             logSlotContourFeature("requested-after-ui-override", requestedFeature, params);
         }
@@ -3993,6 +4153,8 @@ void MainWindow::connectSignals()
         if (contourBatch.isEmpty()) {
             contourBatch.append(requestedFeature);
         }
+        ContourMachiningChoice confirmedContourChoice;
+        bool hasConfirmedContourChoice = false;
         if (isManualContourChoiceStrategy(resolvedStrategyId)) {
             ContourMachiningChoiceDialog choiceDialog(this);
             choiceDialog.setChineseUi(zh);
@@ -4020,10 +4182,12 @@ void MainWindow::connectSignals()
                        : QStringLiteral("Contour machining confirmation canceled."));
                 return;
             }
+            confirmedContourChoice = choiceDialog.choice();
+            hasConfirmedContourChoice = true;
             for (ContourFeature &oneFeature : contourBatch) {
                 applyContourMachiningChoice(oneFeature,
                                             generationParams,
-                                            choiceDialog.choice());
+                                            confirmedContourChoice);
             }
         }
         if (isSlotMillingStrategy(resolvedStrategyId)) {
@@ -4040,6 +4204,12 @@ void MainWindow::connectSignals()
             oneProposal.strategyId = resolvedStrategyId;
             oneProposal.params = generationParams;
             oneProposal.contourFeature = oneFeature;
+            if (hasConfirmedContourChoice) {
+                const QString workOffset = project
+                    ? project->workOffset() : QStringLiteral("G54");
+                oneProposal.selectionChain = selectionChainForContourChoice(
+                    oneFeature, confirmedContourChoice, workOffset);
+            }
             confirmedProposals.append(oneProposal);
         }
         for (const ContourFeature &oneFeature : contourBatch) {
@@ -4062,14 +4232,17 @@ void MainWindow::connectSignals()
 
         QList<MachiningOperation> confirmedOperations;
         for (const OperationProposal &oneProposal : confirmedProposals) {
-            const OperationConfirmationResult confirmation =
-                confirmOperationProposal(
-                    oneProposal, OperationConfirmationIntent::ExplicitUser);
-            if (!confirmation.ok) {
-                onErrorOccurred(confirmation.error);
+            OperationParameterLayers layers;
+            layers.templateId = oneProposal.strategyId;
+            layers.templateVersion = QStringLiteral("built-in");
+            layers.systemDefaults = s->defaultParams();
+            const OperationFactoryResult created =
+                OperationFactory::CreateConfirmed(oneProposal, layers);
+            if (!created.ok) {
+                onErrorOccurred(created.errors.join(QLatin1Char('\n')));
                 return;
             }
-            confirmedOperations.append(confirmation.operation);
+            confirmedOperations.append(created.operation);
         }
 
         for (const ContourFeature &oneFeature : contourBatch) {
@@ -4080,6 +4253,9 @@ void MainWindow::connectSignals()
             }
         }
 
+        for (MachiningOperation &operation : confirmedOperations) {
+            operation.markToolpathValid();
+        }
         const QStringList addedIds =
             m_operationPanel->addConfirmedOperations(confirmedOperations);
         if (!addedIds.isEmpty()) {
@@ -4192,6 +4368,53 @@ void MainWindow::connectSignals()
                      .arg(operations.size()));
     });
 
+    connect(m_operationPanel, &OperationListPanel::recalculateRequested,
+            this, [this](const QList<MachiningOperation> &operations) {
+        const bool zh = isChineseUi();
+        int succeeded = 0;
+        int failed = 0;
+        for (const MachiningOperation &operation : operations) {
+            std::shared_ptr<StrategyBase> strategy =
+                StrategyFactory::instance().strategy(operation.strategyId);
+            const ToolEntry tool = ToolLibrary::instance().tool(operation.toolId);
+            if (!strategy || tool.id <= 0 || tool.diameter <= 0.0) {
+                m_operationPanel->setToolpathResult(
+                    operation.id, false,
+                    zh ? QStringLiteral("策略或刀具不可用")
+                       : QStringLiteral("Strategy or tool is unavailable"));
+                ++failed;
+                continue;
+            }
+
+            const StrategyParams params = isSlotMillingStrategy(operation.strategyId)
+                ? slotMachiningParamsWithoutGeometry(operation.params)
+                : operation.params;
+            const ToolpathResult result = operation.opType == OperationType::Hole
+                ? strategy->generate(operation.holeFeature, tool, params)
+                : strategy->generate(operation.contourFeature, tool, params);
+            if (!result.ok || result.gcode.isEmpty()) {
+                m_operationPanel->setToolpathResult(
+                    operation.id, false,
+                    result.errorMsg.isEmpty()
+                        ? (zh ? QStringLiteral("刀路重新生成失败")
+                              : QStringLiteral("Toolpath recalculation failed"))
+                        : result.errorMsg);
+                ++failed;
+                continue;
+            }
+
+            m_operationPanel->setToolpathResult(operation.id, true);
+            ++succeeded;
+        }
+        m_bottomBar->setStatus(
+            zh ? QStringLiteral("刀路重新生成完成：成功 %1，道失败 %2。")
+                     .arg(succeeded)
+                     .arg(failed)
+               : QStringLiteral("Toolpath recalculation finished: %1 succeeded, %2 failed.")
+                     .arg(succeeded)
+                     .arg(failed));
+    });
+
     connect(m_operationPanel, &OperationListPanel::applyCurrentToolRequested,
             this, [this]() {
         const ToolEntry tool = m_strategyPanel->currentTool();
@@ -4281,6 +4504,7 @@ void MainWindow::onOpenProject()
                 const int wcsIndex = m_wcsCombo->findData(project->workOffset());
                 m_wcsCombo->setCurrentIndex(wcsIndex >= 0 ? wcsIndex : 0);
             }
+            m_strategyPanel->setWorkOffset(project->workOffset());
             syncProgramList();
             const QString programId = !project->currentProgramId().trimmed().isEmpty()
                     ? project->currentProgramId()
@@ -4454,6 +4678,7 @@ void MainWindow::onEditSetupOrigin()
         const int index = m_wcsCombo->findData(workOffset);
         m_wcsCombo->setCurrentIndex(index >= 0 ? index : 0);
     }
+    m_strategyPanel->setWorkOffset(workOffset);
 
     const QVector3D point = project->setupOrigin().resolvedPoint(
         project->mesh().bbMin, project->mesh().bbMax);
@@ -4610,6 +4835,134 @@ void MainWindow::onEditMachineProfile()
     m_bottomBar->setStatus(tr("Machine Profile updated."));
 }
 
+void MainWindow::onEditProcessTemplates()
+{
+    ProjectManager *project = AppController::instance().projectManager();
+    if (!project) {
+        return;
+    }
+
+    ProcessTemplateLibraryDialog dialog(project->processTemplateLibrary(), this);
+    dialog.setChineseUi(isChineseUi());
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    project->setProcessTemplateLibrary(dialog.library());
+    m_bottomBar->setStatus(isChineseUi()
+        ? QStringLiteral("工艺资料已保存；既有已确认工序保持原快照。")
+        : QStringLiteral("Process data saved; confirmed operations retain their snapshots."));
+}
+
+void MainWindow::onReviewAutoHoleCandidates()
+{
+    ProjectManager *project = AppController::instance().projectManager();
+    if (!project || !m_featurePanel || !m_operationPanel) {
+        return;
+    }
+
+    QVector<int> selectedIndices = m_featurePanel->checkedFeatureIndices();
+    const int currentIndex = m_featurePanel->currentFeatureIndex();
+    if (currentIndex >= 0 && !selectedIndices.contains(currentIndex)) {
+        selectedIndices.append(currentIndex);
+    }
+    QVector<MachiningFeature> selectedFeatures;
+    for (int index : selectedIndices) {
+        if (index >= 0 && index < project->features().size() &&
+            project->features().at(index).kind == FeatureKind::Hole) {
+            selectedFeatures.append(project->features().at(index));
+        }
+    }
+    if (selectedFeatures.isEmpty()) {
+        onErrorOccurred(isChineseUi()
+            ? QStringLiteral("自动孔需要先勾选至少一个已识别孔特征。")
+            : QStringLiteral("Select at least one recognized hole feature first."));
+        return;
+    }
+
+    QStringList planErrors;
+    const QList<AutoHolePlan> plans = AutoHolePlanningService::BuildPlans(
+        project->processTemplateLibrary(), &planErrors);
+    m_autoHoleCandidates = AutoHolePlanningService::Recognize(
+        selectedFeatures, plans, m_autoHoleCandidates);
+    for (AutoHoleCandidate &candidate : m_autoHoleCandidates) {
+        const QString setupError = holeSetupRestrictionMessage(
+            candidate.holeFeature, isChineseUi());
+        if (!setupError.isEmpty()) {
+            candidate.state = AutoCandidateState::Rejected;
+            candidate.reasons.append(setupError);
+        }
+        if (candidate.state == AutoCandidateState::Rejected) {
+            candidate.reasons.append(planErrors);
+        }
+    }
+
+    AutoHoleCandidateDialog dialog(this);
+    dialog.setChineseUi(isChineseUi());
+    dialog.setCandidates(m_autoHoleCandidates);
+    const int result = dialog.exec();
+    m_autoHoleCandidates = dialog.candidates();
+    if (result != QDialog::Accepted) {
+        return;
+    }
+
+    const AutoHoleCandidate candidate = dialog.selectedCandidate();
+    const AutoHolePlan *selectedPlan = nullptr;
+    for (const AutoHolePlan &plan : candidate.plans) {
+        if (plan.id == candidate.selectedPlanId) {
+            selectedPlan = &plan;
+            break;
+        }
+    }
+    if (!selectedPlan) {
+        onErrorOccurred(isChineseUi()
+            ? QStringLiteral("所选自动孔方案已不可用。")
+            : QStringLiteral("The selected automatic-hole plan is unavailable."));
+        return;
+    }
+
+    QMap<int, AutoHoleToolInfo> availableTools;
+    for (const ToolEntry &tool : ToolLibrary::instance().allTools()) {
+        AutoHoleToolInfo info;
+        info.id = tool.id;
+        info.type = tool.type;
+        info.diameter = tool.diameter;
+        info.fluteLength = tool.fluteLen;
+        info.totalLength = tool.totalLen;
+        availableTools.insert(info.id, info);
+    }
+    const ToolEntry selectedTool = ToolLibrary::instance().tool(selectedPlan->toolId);
+    ProcessContext context;
+    context.setup.workOffset = project->workOffset();
+    context.setup.origin = project->setupOrigin();
+    context.setup.rotation = project->setupRotation();
+    context.toolId = selectedPlan->toolId;
+    context.materialId = selectedTool.material;
+    context.toolTypeId = selectedTool.type;
+
+    const AutoHoleConfirmationResult confirmed = candidate.compoundHole.layers.isEmpty()
+        ? AutoHolePlanningService::Confirm(
+            candidate, availableTools, context, dialog.allowance())
+        : AutoHolePlanningService::ConfirmCompound(
+            candidate, availableTools, context, dialog.allowance());
+    if (!confirmed.ok) {
+        onErrorOccurred(confirmed.errors.join(QStringLiteral("\n")));
+        return;
+    }
+
+    QList<MachiningOperation> operations = project->operations();
+    const QList<MachiningOperation> confirmedOperations = confirmed.operations.isEmpty()
+        ? QList<MachiningOperation>{confirmed.operation} : confirmed.operations;
+    operations.append(confirmedOperations);
+    project->setOperations(operations);
+    m_operationPanel->setOperations(operations);
+    m_operationPanel->selectOperationById(confirmedOperations.last().id);
+    updateDesignWorkflowSummary();
+    m_bottomBar->setStatus(isChineseUi()
+        ? QStringLiteral("自动孔候选已人工确认并创建正式工序；刀路尚未生成。")
+        : QStringLiteral("Automatic-hole draft confirmed as a formal operation; toolpath not generated yet."));
+}
+
 void MainWindow::onLanguageChinese()
 {
     switchLanguage(QStringLiteral("zh_CN"));
@@ -4759,6 +5112,85 @@ void MainWindow::retranslateUi()
         label->setText(field == QStringLiteral("post")
             ? (zh ? QStringLiteral("后处理") : QStringLiteral("Post"))
             : (zh ? QStringLiteral("坐标系") : QStringLiteral("WCS")));
+    }
+
+    if (m_designPage) {
+        const QList<QToolButton*> designButtons =
+            m_designPage->findChildren<QToolButton*>();
+        for (QToolButton *button : designButtons) {
+            if (!button->property("designCommandButton").toBool()) {
+                continue;
+            }
+            const QString category = button->property("designCategory").toString();
+            if (category == QStringLiteral("Holes"))
+                button->setText(zh ? QStringLiteral("孔类") : QStringLiteral("Holes"));
+            else if (category == QStringLiteral("Threads"))
+                button->setText(zh ? QStringLiteral("牙类") : QStringLiteral("Threads"));
+            else if (category == QStringLiteral("Surfaces"))
+                button->setText(zh ? QStringLiteral("平面/曲面") : QStringLiteral("Surfaces"));
+            else if (category == QStringLiteral("Slots"))
+                button->setText(zh ? QStringLiteral("槽/型腔") : QStringLiteral("Slots / Pockets"));
+            else if (category == QStringLiteral("Contours"))
+                button->setText(zh ? QStringLiteral("外形") : QStringLiteral("Contours"));
+            else if (category == QStringLiteral("Automation"))
+                button->setText(zh ? QStringLiteral("自动化") : QStringLiteral("Automation"));
+            else if (category == QStringLiteral("Assist"))
+                button->setText(zh ? QStringLiteral("辅助/便捷") : QStringLiteral("Assist / Utilities"));
+            button->setToolTip(zh ? QStringLiteral("第七章设计功能入口；灰色项目尚未纳入当前 CAM 验收范围。")
+                                  : QStringLiteral("Chapter 7 design commands; grey items are outside the current CAM acceptance scope."));
+        }
+        const QList<QAction*> designActions = m_designPage->findChildren<QAction*>();
+        for (QAction *action : designActions) {
+            const QString command = action->property("designCommand").toString();
+            if (command.isEmpty()) {
+                continue;
+            }
+            QString label;
+            if (command == QStringLiteral("reviewHoles")) label = zh ? QStringLiteral("查看孔特征") : QStringLiteral("Review hole features");
+            else if (command == QStringLiteral("spotDrill")) label = zh ? QStringLiteral("打点 / G81-G85") : QStringLiteral("Spot / G81-G85");
+            else if (command == QStringLiteral("peckDrill")) label = zh ? QStringLiteral("啄钻 / 深孔") : QStringLiteral("Peck / deep drilling");
+            else if (command == QStringLiteral("holeChamfer")) label = zh ? QStringLiteral("孔倒角") : QStringLiteral("Hole chamfer");
+            else if (command == QStringLiteral("boring")) label = zh ? QStringLiteral("镗 G76 / G86") : QStringLiteral("Boring G76 / G86");
+            else if (command == QStringLiteral("reviewThreads")) label = zh ? QStringLiteral("查看螺纹孔") : QStringLiteral("Review threaded holes");
+            else if (command == QStringLiteral("tap")) label = zh ? QStringLiteral("攻牙") : QStringLiteral("Tapping");
+            else if (command == QStringLiteral("threadMill")) label = zh ? QStringLiteral("铣牙") : QStringLiteral("Thread milling");
+            else if (command == QStringLiteral("reviewSurfaces")) label = zh ? QStringLiteral("查看平面特征") : QStringLiteral("Review planar features");
+            else if (command == QStringLiteral("faceMill")) label = zh ? QStringLiteral("铣平面") : QStringLiteral("Face milling");
+            else if (command == QStringLiteral("slopeMill")) label = zh ? QStringLiteral("二维斜面铣") : QStringLiteral("2D slope milling");
+            else if (command == QStringLiteral("slopeMill3D")) label = zh ? QStringLiteral("3D 铣斜面") : QStringLiteral("3D slope milling");
+            else if (command == QStringLiteral("filletMill")) label = zh ? QStringLiteral("铣圆角") : QStringLiteral("Fillet milling");
+            else if (command == QStringLiteral("chamferSlopePlane")) label = zh ? QStringLiteral("斜面倒角") : QStringLiteral("Slope chamfering");
+            else if (command == QStringLiteral("reviewSlots")) label = zh ? QStringLiteral("查看槽与型腔") : QStringLiteral("Review slots and pockets");
+            else if (command == QStringLiteral("openSlot")) label = zh ? QStringLiteral("开口槽 / 盲槽") : QStringLiteral("Open / blind slot");
+            else if (command == QStringLiteral("pocket")) label = zh ? QStringLiteral("型腔开粗") : QStringLiteral("Pocket roughing");
+            else if (command == QStringLiteral("adaptiveMill")) label = zh ? QStringLiteral("动态铣") : QStringLiteral("Adaptive milling");
+            else if (command == QStringLiteral("islandMill")) label = zh ? QStringLiteral("铣孤岛 / 环形铣") : QStringLiteral("Island / annular milling");
+            else if (command == QStringLiteral("reviewContours")) label = zh ? QStringLiteral("查看轮廓") : QStringLiteral("Review contours");
+            else if (command == QStringLiteral("contourMill")) label = zh ? QStringLiteral("铣形 / 轮廓精加工") : QStringLiteral("Contour finishing");
+            else if (command == QStringLiteral("outerChamfer")) label = zh ? QStringLiteral("二维外形倒角") : QStringLiteral("2D outer chamfer");
+            else if (command == QStringLiteral("chamfer3D")) label = zh ? QStringLiteral("3D 倒角") : QStringLiteral("3D chamfer");
+            else if (command == QStringLiteral("clearInnerCorner")) label = zh ? QStringLiteral("清内角") : QStringLiteral("Inner-corner cleanup");
+            else if (command == QStringLiteral("engrave")) label = zh ? QStringLiteral("刻字") : QStringLiteral("Engraving");
+            else if (command == QStringLiteral("spatialCurve")) label = zh ? QStringLiteral("空间曲线") : QStringLiteral("Spatial curves");
+            else if (command == QStringLiteral("featureRecognition")) label = zh ? QStringLiteral("特征识别") : QStringLiteral("Feature recognition");
+            else if (command == QStringLiteral("autoHole")) label = zh ? QStringLiteral("自动孔") : QStringLiteral("Automatic holes");
+            else if (command == QStringLiteral("smartChamfer")) label = zh ? QStringLiteral("智能倒角") : QStringLiteral("Smart chamfer");
+            else if (command == QStringLiteral("autoSlotFrame")) label = zh ? QStringLiteral("自动框") : QStringLiteral("Automatic slot/frame");
+            else if (command == QStringLiteral("processTemplates")) label = zh ? QStringLiteral("工艺模板") : QStringLiteral("Process templates");
+            else if (command == QStringLiteral("reviewTools")) label = zh ? QStringLiteral("刀具库") : QStringLiteral("Tool library");
+            else if (command == QStringLiteral("reviewSimulation")) label = zh ? QStringLiteral("最终代码仿真") : QStringLiteral("Final-code simulation");
+            else if (command == QStringLiteral("measurement")) label = zh ? QStringLiteral("测量 / 标注") : QStringLiteral("Measure / annotate");
+            else if (command == QStringLiteral("cadEdit")) label = zh ? QStringLiteral("绘制与 CAD 编辑") : QStringLiteral("Drawing and CAD editing");
+            if (!action->isEnabled()) {
+                label += zh ? QStringLiteral("（规划中）") : QStringLiteral(" (Planned)");
+            }
+            action->setText(label);
+            action->setToolTip(action->isEnabled()
+                ? (zh ? QStringLiteral("进入当前已实现的 CAM 工作流。")
+                      : QStringLiteral("Open the available CAM workflow."))
+                : (zh ? QStringLiteral("此功能已按参考手册保留入口，但尚未实现，不能生成刀路。")
+                      : QStringLiteral("This reference-manual command is reserved but cannot generate toolpaths yet.")));
+        }
     }
 
     if (m_actImportStep) m_actImportStep->setText(zh ? QStringLiteral("导入 STEP...")

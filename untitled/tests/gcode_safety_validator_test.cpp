@@ -460,16 +460,32 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString supportedG73Program = cancelledFixedCycleProgram;
+    supportedG73Program.replace(QStringLiteral("G81 X0.000 Y0.000 Z-1.000 R2.000 F100"),
+                                QStringLiteral("G73 X0.000 Y0.000 Z-5.000 R2.000 Q1.000 F100"));
+    if (expect(GCodeSafetyValidator::validate(supportedG73Program).ok,
+               "valid G73 should pass fixed-cycle safety validation")) {
+        return 1;
+    }
+
+    QString supportedG86Program = cancelledFixedCycleProgram;
+    supportedG86Program.replace(QStringLiteral("G81 X0.000"),
+                                QStringLiteral("G86 X0.000"));
+    if (expect(GCodeSafetyValidator::validate(supportedG86Program).ok,
+               "valid G86 should pass fixed-cycle safety validation")) {
+        return 1;
+    }
+
     QString unsupportedFixedCycleProgram = cancelledFixedCycleProgram;
     unsupportedFixedCycleProgram.replace(QStringLiteral("G81 X0.000"),
-                                         QStringLiteral("G86 X0.000"));
+                                         QStringLiteral("G76 X0.000"));
     const GCodeSafetyReport unsupportedFixedCycleReport =
         GCodeSafetyValidator::validate(unsupportedFixedCycleProgram);
     if (expect(!unsupportedFixedCycleReport.ok,
                "unsupported fixed cycle should fail in the first phase")) {
         return 1;
     }
-    if (expect(unsupportedFixedCycleReport.messages.join('\n').contains(QStringLiteral("G86")),
+    if (expect(unsupportedFixedCycleReport.messages.join('\n').contains(QStringLiteral("G76")),
                "unsupported fixed-cycle report should name the rejected code")) {
         return 1;
     }

@@ -32,8 +32,36 @@ static MachiningOperation sampleOperation()
     operation.toolId = 1;
     operation.params.set(QStringLiteral("safeHeight"), 50.0);
     operation.params.set(QStringLiteral("feedRate"), 120.0);
+    operation.parameterSources.insert(QStringLiteral("safeHeight"),
+                                      ProcessParameterSource::SystemDefault);
+    operation.parameterSources.insert(QStringLiteral("feedRate"),
+                                      ProcessParameterSource::ManualOverride);
+    operation.parameterTemplate.id = QStringLiteral("aluminum_drill");
+    operation.parameterTemplate.version = QStringLiteral("2");
+    operation.parameterTemplate.values.set(QStringLiteral("feedRate"), 95.0);
+    operation.parameterTemplate.sources.insert(
+        QStringLiteral("feedRate"), ProcessParameterSource::MaterialTemplate);
+    operation.enabled = false;
+    operation.geometryRefs = QStringList{QStringLiteral("feature:stable-hole")};
+    operation.dependencyOperationIds = QStringList{QStringLiteral("op-previous")};
+    operation.selectionChain.id = QStringLiteral("chain:stable-contour");
+    operation.selectionChain.geometrySource = ChainGeometrySource::Wire;
+    operation.selectionChain.selectionMode = ChainSelectionMode::PartialChain;
+    operation.selectionChain.machiningSide = ChainMachiningSide::Inside;
+    operation.selectionChain.coordinateSystemId = QStringLiteral("G55");
+    operation.selectionChain.orderedGeometryIds = QStringList{
+        QStringLiteral("edge:2"), QStringLiteral("edge:1")};
+    operation.selectionChain.startPoint = QVector3D(10.0f, 20.0f, 0.0f);
+    operation.selectionChain.hasStartPoint = true;
+    operation.selectionChain.reversed = true;
+    operation.selectionChain.closed = true;
+    operation.selectionChain.sortStrategy = ChainSortStrategy::UnidirectionalX;
+    operation.selectionChain.selectedBranchGeometryId = QStringLiteral("island:0");
+    operation.toolpathState = ToolpathState::Stale;
+    operation.warnings = QStringList{QStringLiteral("stock changed")};
     operation.holeFeature.radius = 5.0;
     operation.holeFeature.depth = 12.0;
+    operation.holeFeature.secondaryDepth = 2.0;
     operation.holeFeature.center = QVector3D(10.0f, 20.0f, 0.0f);
     return operation;
 }
@@ -161,6 +189,19 @@ int main(int argc, char **argv)
     stock.plusZ = 6.0;
     stock.confirmed = true;
     project.setStockDefinition(stock);
+    ProcessTemplateDefinition materialTemplate;
+    materialTemplate.id = QStringLiteral("aluminum-hole");
+    materialTemplate.version = QStringLiteral("1");
+    materialTemplate.name = QStringLiteral("Aluminum hole defaults");
+    materialTemplate.source = ProcessParameterSource::MaterialTemplate;
+    materialTemplate.values.set(QStringLiteral("feedRate"), 180.0);
+    ProcessTemplateLibrary processTemplates;
+    QString templateError;
+    if (expect(processTemplates.add(materialTemplate, &templateError),
+               "process template fixture should be valid")) {
+        return 1;
+    }
+    project.setProcessTemplateLibrary(processTemplates);
     program.setupFingerprint = project.setupFingerprint();
     MachineProfile profile;
     profile.id = QStringLiteral("siemens-840d-shop");
@@ -229,6 +270,11 @@ int main(int argc, char **argv)
                "controller-neutral routine metadata should be stored outside programPackage")) {
         return 1;
     }
+    if (expect(savedRoot[QStringLiteral("processTemplateLibrary")].toObject()
+                   [QStringLiteral("definitions")].toArray().size() == 1,
+               "versioned process data should be stored with the project")) {
+        return 1;
+    }
 
     ProjectManager loaded;
     if (expect(loaded.loadFromFile(projectPath), "project should load")) {
@@ -236,6 +282,11 @@ int main(int argc, char **argv)
     }
     const ProgramEntry loadedProgram = loaded.programById(program.id);
     if (expect(loaded.currentProgramId() == program.id, "current program id should round-trip")) {
+        return 1;
+    }
+    if (expect(loaded.processTemplateLibrary().find(
+                   QStringLiteral("aluminum-hole@1")) != nullptr,
+               "versioned process data should round-trip without implicit application")) {
         return 1;
     }
     if (expect(loadedProgram.sourceOperationFingerprint == program.sourceOperationFingerprint,
@@ -274,6 +325,33 @@ int main(int argc, char **argv)
     }
     if (expect(!loaded.operations().isEmpty() && loaded.operations().first().id == operation.id,
                "operation id should round-trip")) {
+        return 1;
+    }
+    const MachiningOperation loadedOperation = loaded.operations().first();
+    if (expect(!loadedOperation.enabled,
+               "operation enabled state should round-trip") ||
+        expect(loadedOperation.geometryRefs == operation.geometryRefs,
+               "stable geometry references should round-trip") ||
+        expect(loadedOperation.dependencyOperationIds == operation.dependencyOperationIds,
+               "operation dependencies should round-trip") ||
+        expect(loadedOperation.holeFeature.secondaryDepth ==
+                   operation.holeFeature.secondaryDepth,
+               "compound-hole outer-layer depth should round-trip") ||
+        expect(loadedOperation.selectionChain == operation.selectionChain,
+               "selection chain contract should round-trip") ||
+        expect(loadedOperation.parameterSources == operation.parameterSources,
+               "parameter source provenance should round-trip") ||
+        expect(loadedOperation.parameterTemplate.id == operation.parameterTemplate.id &&
+                   loadedOperation.parameterTemplate.version == operation.parameterTemplate.version &&
+                   loadedOperation.parameterTemplate.values.values ==
+                       operation.parameterTemplate.values.values &&
+                   loadedOperation.parameterTemplate.sources ==
+                       operation.parameterTemplate.sources,
+               "applied parameter template should round-trip") ||
+        expect(loadedOperation.toolpathState == ToolpathState::Stale,
+               "toolpath state should round-trip") ||
+        expect(loadedOperation.warnings == operation.warnings,
+               "operation warnings should round-trip")) {
         return 1;
     }
     if (expect(loaded.sourceFileFingerprint() == QStringLiteral("sha256:test-source"),
@@ -425,6 +503,14 @@ int main(int argc, char **argv)
         return 1;
     }
     const ProgramEntry legacyProgram = legacy.programById(QStringLiteral("program-legacy"));
+    if (expect(legacy.operations().first().enabled &&
+                   legacy.operations().first().toolpathState == ToolpathState::Empty &&
+                   legacy.operations().first().geometryRefs.isEmpty() &&
+                   legacy.operations().first().parameterSources.isEmpty() &&
+                   legacy.processTemplateLibrary().definitions().isEmpty(),
+               "legacy operations should receive safe workflow defaults")) {
+        return 1;
+    }
     if (expect(legacyProgram.id == QStringLiteral("program-legacy"), "legacy program should load")) {
         return 1;
     }

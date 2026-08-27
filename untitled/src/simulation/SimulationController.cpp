@@ -137,14 +137,14 @@ void SimulationController::onTick()
 // ---------------------------------------------------------------------------
 // G-code parser: extracts G0/G1/G2/G3 moves, tracks current X/Y/Z position.
 // G2/G3 arcs are approximated as short line segments for visual simulation.
-// Also expands Siemens CYCLE81/82/83/84/85 and Fanuc-style G81-G85 modal canned cycles.
+// Also expands supported Siemens and Fanuc-style modal canned cycles.
 // ---------------------------------------------------------------------------
 
 namespace {
 
 struct DrillCycle {
     bool   active = false;
-    int    kind   = 83;    // 81, 82, 83, 84, or 85
+    int    kind   = 83;
     double rtp    = 5.0;   // retract plane (safe Z)
     double rfp    = 0.0;   // reference plane (top of workpiece)
     double sdis   = 2.0;   // safety clearance distance
@@ -255,7 +255,7 @@ static void expandDrillHole(QVector<ToolMove> &moves, QVector3D &cur,
     // 2. Rapid down to clearance plane
     addRapid(moves, cur, {float(hx), float(hy), clearZ}, toolDiameter, toolModelPath, sourceLine);
 
-    if (c.kind == 83) {
+    if (c.kind == 73 || c.kind == 83) {
         // Peck drilling: feed down mdep at a time, retract to clearance, repeat
         double z = c.rfp + c.sdis;
         while (z > c.dp + 1e-6) {
@@ -268,7 +268,7 @@ static void expandDrillHole(QVector<ToolMove> &moves, QVector3D &cur,
             z = next;
         }
     } else {
-        // CYCLE81/82/84/85: single feed to bottom.
+        // Single-feed drilling, tapping, reaming and boring cycles.
         addFeed(moves, cur, {float(hx), float(hy), botZ}, toolDiameter, toolModelPath, sourceLine);
     }
     if (c.kind == 84 || c.kind == 85) {
@@ -289,12 +289,12 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
         QStringLiteral("([A-Za-z])\\s*([+-]?\\d*\\.?\\d+)"),
         QRegularExpression::CaseInsensitiveOption);
 
-    // Detect MCALL CYCLE81/82/83/84/85(...) lines
+    // Detect supported Siemens and Fanuc/CQ8 cycles.
     static const QRegularExpression cycleRe(
-        QStringLiteral("MCALL\\s+CYCLE(8[12345])\\s*\\("),
+        QStringLiteral("MCALL\\s+CYCLE(8[123456])\\s*\\("),
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression fanucCycleRe(
-        QStringLiteral("(?:^|\\s)G(8[12345])(?:\\s|$)"),
+        QStringLiteral("(?:^|\\s)G(73|8[123456])(?:\\s|$)"),
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression fanucCycleCancelRe(
         QStringLiteral("(?:^|\\s)G80(?:\\s|$)"),
@@ -389,7 +389,9 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
             cycle.sdis = 0.0;
             if (hasZ) cycle.dp = bottomZ;
             if (hasR) cycle.rfp = returnZ;
-            if (cycle.kind == 83 && peckDepth > 0.0) cycle.mdep = peckDepth;
+            if ((cycle.kind == 73 || cycle.kind == 83) && peckDepth > 0.0) {
+                cycle.mdep = peckDepth;
+            }
             if (hasX || hasY) {
                 expandDrillHole(moves, cur, hx, hy, cycle, currentToolDiameter, currentToolModelPath, lineIndex);
             }

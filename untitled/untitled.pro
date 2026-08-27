@@ -19,10 +19,18 @@ TRANSLATIONS += \
     translations/en_US.ts
 
 SOURCES += \
+    src/core/geometry2d/ToolpathGeometry2D.cpp \
     main.cpp \
     src/core/AppController.cpp \
     src/core/ProjectManager.cpp \
+    src/core/CompoundHoleFeature.cpp \
+    src/core/ProcessContext.cpp \
+    src/core/ProcessParameterSchema.cpp \
+    src/core/ProcessTemplateLibrary.cpp \
     src/core/SourceFileFingerprint.cpp \
+    src/core/FeatureIdentity.cpp \
+    src/core/HoleSelectionSession.cpp \
+    src/core/SelectionChainController.cpp \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
@@ -32,6 +40,8 @@ SOURCES += \
     src/ui/ViewportWidget.cpp \
     src/ui/StrategyPanel.cpp \
     src/ui/ParameterEditorDialog.cpp \
+    src/ui/AutoHoleCandidateDialog.cpp \
+    src/ui/ProcessTemplateLibraryDialog.cpp \
     src/ui/MachineProfileDialog.cpp \
     src/ui/CircleMillDialog.cpp \
     src/ui/MillingOperationDialog.cpp \
@@ -42,6 +52,7 @@ SOURCES += \
     src/ui/ToolOperationCompatibility.cpp \
     src/ui/ContourFeatureGrouping.cpp \
     src/ui/HoleFeatureGrouping.cpp \
+    src/ui/HoleSelectionDialog.cpp \
     src/ui/SetupOriginDialog.cpp \
     src/ui/StockDefinitionDialog.cpp \
     src/ui/FeatureListPanel.cpp \
@@ -51,22 +62,33 @@ SOURCES += \
     src/ui/CncSendDialog.cpp \
     src/ui/OperationListPanel.cpp \
     src/import/StepImporter.cpp \
+    src/import/CompoundHoleRecognizer.cpp \
+    src/import/SlotFrameRecognizer.cpp \
     src/import/TopoAnalyzer.cpp \
     src/import/FeatureRecognizer.cpp \
     src/import/FeatureClassifier.cpp \
     src/strategies/hole/SpotDrillingStrategy.cpp \
     src/strategies/hole/PeckDrillingStrategy.cpp \
     src/strategies/hole/DeepHoleDrillingStrategy.cpp \
+    src/strategies/hole/HighSpeedPeckDrillingStrategy.cpp \
+    src/strategies/hole/BoringG86Strategy.cpp \
     src/strategies/hole/TappingStrategy.cpp \
+    src/strategies/hole/ThreadMillingStrategy.cpp \
     src/strategies/hole/ReamingStrategy.cpp \
     src/strategies/hole/ChamferStrategy.cpp \
     src/strategies/hole/HoleCircularMillingStrategy.cpp \
     src/strategies/mill/CircleMillingStrategy.cpp \
+    src/strategies/mill/AnnularMillingStrategy.cpp \
+    src/strategies/mill/IslandMillingStrategy.cpp \
     src/strategies/mill/FaceMillingStrategy.cpp \
     src/strategies/mill/PocketRoughingStrategy.cpp \
     src/strategies/mill/PocketFinishStrategy.cpp \
     src/strategies/mill/PocketFloorFinishStrategy.cpp \
     src/strategies/mill/ContourFinishStrategy.cpp \
+    src/strategies/mill/ContourMillingContract.cpp \
+    src/strategies/mill/OuterContourChamferStrategy.cpp \
+    src/strategies/mill/PlanarSlopeMillingStrategy.cpp \
+    src/strategies/mill/InnerCornerCleanupStrategy.cpp \
     src/strategies/mill/SurfaceFinishStrategy.cpp \
     src/strategies/mill/ClosedContourMillingStrategy.cpp \
     src/strategies/mill/OpenContourMillingStrategy.cpp \
@@ -90,17 +112,32 @@ SOURCES += \
     src/gcode/ProgramSnapshotFingerprint.cpp \
     src/gcode/ProgramSnapshotStatus.cpp \
     src/services/ProgramGenerationService.cpp \
+    src/services/OperationFactory.cpp \
+    src/services/AutoHolePlanningService.cpp \
+    src/services/SlotFramePlanningService.cpp \
+    src/services/ProcessTemplateService.cpp \
+    src/services/RestrictedFormulaEvaluator.cpp \
     src/simulation/SimulationController.cpp \
     src/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
     src/tool/ToolEntry.cpp
 
 HEADERS += \
+    src/core/geometry2d/ToolpathGeometry2D.h \
     src/core/AppController.h \
     src/core/MachineProfile.h \
     src/core/MachineProfileValidator.h \
     src/core/ProjectManager.h \
+    src/core/CompoundHoleFeature.h \
+    src/core/ProcessContext.h \
+    src/core/ProcessParameterSchema.h \
+    src/core/ProcessParameters.h \
+    src/core/ProcessTemplateLibrary.h \
     src/core/SourceFileFingerprint.h \
+    src/core/FeatureIdentity.h \
+    src/core/HoleSelectionSession.h \
+    src/core/OperationWorkflow.h \
+    src/core/SelectionChainController.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
@@ -109,6 +146,8 @@ HEADERS += \
     src/ui/ViewportWidget.h \
     src/ui/StrategyPanel.h \
     src/ui/ParameterEditorDialog.h \
+    src/ui/AutoHoleCandidateDialog.h \
+    src/ui/ProcessTemplateLibraryDialog.h \
     src/ui/MachineProfileDialog.h \
     src/ui/CircleMillDialog.h \
     src/ui/MillingOperationDialog.h \
@@ -119,6 +158,7 @@ HEADERS += \
     src/ui/ToolOperationCompatibility.h \
     src/ui/ContourFeatureGrouping.h \
     src/ui/HoleFeatureGrouping.h \
+    src/ui/HoleSelectionDialog.h \
     src/ui/SetupOriginDialog.h \
     src/ui/StockDefinitionDialog.h \
     src/ui/FeatureListPanel.h \
@@ -128,22 +168,34 @@ HEADERS += \
     src/ui/CncSendDialog.h \
     src/ui/OperationListPanel.h \
     src/import/StepImporter.h \
+    src/import/CompoundHoleRecognizer.h \
+    src/import/SlotFrameFeature.h \
+    src/import/SlotFrameRecognizer.h \
     src/import/TopoAnalyzer.h \
     src/import/FeatureRecognizer.h \
     src/import/FeatureClassifier.h \
     src/strategies/hole/SpotDrillingStrategy.h \
     src/strategies/hole/PeckDrillingStrategy.h \
     src/strategies/hole/DeepHoleDrillingStrategy.h \
+    src/strategies/hole/HighSpeedPeckDrillingStrategy.h \
+    src/strategies/hole/BoringG86Strategy.h \
     src/strategies/hole/TappingStrategy.h \
+    src/strategies/hole/ThreadMillingStrategy.h \
     src/strategies/hole/ReamingStrategy.h \
     src/strategies/hole/ChamferStrategy.h \
     src/strategies/hole/HoleCircularMillingStrategy.h \
     src/strategies/mill/CircleMillingStrategy.h \
+    src/strategies/mill/AnnularMillingStrategy.h \
+    src/strategies/mill/IslandMillingStrategy.h \
     src/strategies/mill/FaceMillingStrategy.h \
     src/strategies/mill/PocketRoughingStrategy.h \
     src/strategies/mill/PocketFinishStrategy.h \
     src/strategies/mill/PocketFloorFinishStrategy.h \
     src/strategies/mill/ContourFinishStrategy.h \
+    src/strategies/mill/ContourMillingContract.h \
+    src/strategies/mill/OuterContourChamferStrategy.h \
+    src/strategies/mill/PlanarSlopeMillingStrategy.h \
+    src/strategies/mill/InnerCornerCleanupStrategy.h \
     src/strategies/mill/SurfaceFinishStrategy.h \
     src/strategies/mill/ClosedContourMillingStrategy.h \
     src/strategies/mill/OpenContourMillingStrategy.h \
@@ -169,6 +221,11 @@ HEADERS += \
     src/gcode/ProgramSnapshotFingerprint.h \
     src/gcode/ProgramSnapshotStatus.h \
     src/services/ProgramGenerationService.h \
+    src/services/OperationFactory.h \
+    src/services/AutoHolePlanningService.h \
+    src/services/SlotFramePlanningService.h \
+    src/services/ProcessTemplateService.h \
+    src/services/RestrictedFormulaEvaluator.h \
     src/simulation/SimulationController.h \
     src/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \

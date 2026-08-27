@@ -128,6 +128,11 @@ static QJsonObject serializeOperation(const MachiningOperation *operation,
     obj[QStringLiteral("featureRef")] = operation->featureRef;
     obj[QStringLiteral("strategyId")] = operation->strategyId;
     obj[QStringLiteral("toolId")] = operation->toolId;
+    QJsonArray dependencies;
+    for (const QString &dependency : operation->dependencyOperationIds) {
+        dependencies.append(dependency);
+    }
+    obj[QStringLiteral("dependencyOperationIds")] = dependencies;
 
     QJsonObject params;
     for (auto it = operation->params.values.cbegin(); it != operation->params.values.cend(); ++it) {

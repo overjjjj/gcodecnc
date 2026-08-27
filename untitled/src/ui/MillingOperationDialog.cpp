@@ -39,6 +39,7 @@ static bool isMillingStrategy(const QString &id)
         || id == QStringLiteral("mill_surface_finish")
         || id == QStringLiteral("mill_closed_contour")
         || id == QStringLiteral("mill_open_contour")
+        || id == QStringLiteral("mill_outer_chamfer")
         || id == QStringLiteral("mill_slot")
         || id == QStringLiteral("mill_blind_slot")
         || id == QStringLiteral("mill_tapered_slot");
@@ -61,6 +62,9 @@ static QString featureSubTypeForStrategy(const QString &strategyId)
         return QStringLiteral("open_contour");
     }
     if (strategyId == QStringLiteral("mill_closed_contour")) {
+        return QStringLiteral("closed_contour");
+    }
+    if (strategyId == QStringLiteral("mill_outer_chamfer")) {
         return QStringLiteral("closed_contour");
     }
     if (strategyId == QStringLiteral("mill_slot")) {
@@ -206,6 +210,7 @@ void MillingOperationDialog::populateStrategies()
         QStringLiteral("mill_surface_finish"),
         QStringLiteral("mill_closed_contour"),
         QStringLiteral("mill_open_contour"),
+        QStringLiteral("mill_outer_chamfer"),
         QStringLiteral("mill_slot"),
         QStringLiteral("mill_blind_slot"),
         QStringLiteral("mill_tapered_slot")
@@ -222,7 +227,9 @@ void MillingOperationDialog::populateTools()
 {
     m_toolCombo->clear();
 
-    QVector<ToolEntry> tools = ToolLibrary::instance().toolsByType(QStringLiteral("end_mill"));
+    const QString toolType = strategyId() == QStringLiteral("mill_outer_chamfer")
+        ? QStringLiteral("chamfer_mill") : QStringLiteral("end_mill");
+    QVector<ToolEntry> tools = ToolLibrary::instance().toolsByType(toolType);
     if (tools.isEmpty()) {
         tools = ToolLibrary::instance().allTools();
     }

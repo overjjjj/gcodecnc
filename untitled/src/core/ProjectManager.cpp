@@ -1,4 +1,5 @@
 #include "ProjectManager.h"
+#include "OperationWorkflow.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QJsonDocument>
@@ -147,7 +148,12 @@ void ProjectManager::setSourceFileFingerprint(const QString &fingerprint)
 
 void ProjectManager::setSetupRotation(const QQuaternion &rotation)
 {
-    m_setupRotation = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    const QQuaternion normalized = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    if (m_setupRotation == normalized) {
+        return;
+    }
+    m_setupRotation = normalized;
+    invalidateOperations(QStringLiteral("setup orientation changed"));
     m_modified = true;
 }
 
@@ -164,23 +170,45 @@ void ProjectManager::setWorkOffset(const QString &workOffset)
         QStringLiteral("G54"), QStringLiteral("G55"), QStringLiteral("G56"),
         QStringLiteral("G57"), QStringLiteral("G58"), QStringLiteral("G59")
     };
-    m_workOffset = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    const QString accepted = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    if (m_workOffset == accepted) {
+        return;
+    }
+    m_workOffset = accepted;
+    invalidateOperations(QStringLiteral("work offset changed"));
     m_modified = true;
 }
 
 void ProjectManager::setSetupOrigin(const SetupOrigin &origin)
 {
+    const QString previous = m_setupOrigin.fingerprint(m_workOffset);
     m_setupOrigin = origin;
+    if (m_setupOrigin.fingerprint(m_workOffset) != previous) {
+        invalidateOperations(QStringLiteral("setup origin changed"));
+    }
     m_modified = true;
     emit projectChanged();
 }
 
 void ProjectManager::setStockDefinition(const StockDefinition &stock)
 {
+    const QString previous = m_stockDefinition.fingerprint();
     m_stockDefinition = stock;
     m_stockDefinition.normalize();
+    if (m_stockDefinition.fingerprint() != previous) {
+        invalidateOperations(QStringLiteral("stock changed"));
+    }
     m_modified = true;
     emit projectChanged();
+}
+
+void ProjectManager::invalidateOperations(const QString &reason)
+{
+    if (m_operations.isEmpty()) {
+        return;
+    }
+    markOperationsStale(m_operations, reason);
+    emit operationsChanged();
 }
 
 QString ProjectManager::setupFingerprint() const
@@ -327,6 +355,7 @@ static QJsonObject serializeHoleFeature(const HoleFeature &f)
     o["width"]   = f.width;
     o["length"]  = f.length;
     o["secR"]    = f.secondaryRadius;
+    o["secD"]    = f.secondaryDepth;
     o["pitch"]   = f.pitch;
     o["cx"]      = f.center.x();
     o["cy"]      = f.center.y();
@@ -355,6 +384,7 @@ static HoleFeature deserializeHoleFeature(const QJsonObject &o)
     f.width           = o["width"].toDouble();
     f.length          = o["length"].toDouble();
     f.secondaryRadius = o["secR"].toDouble();
+    f.secondaryDepth  = o["secD"].toDouble();
     f.pitch           = o["pitch"].toDouble();
     f.center          = QVector3D(o["cx"].toDouble(), o["cy"].toDouble(), o["cz"].toDouble());
     f.axis            = QVector3D(float(o["ax"].toDouble(0.0)),
@@ -461,6 +491,27 @@ static OperationStage operationStageFromName(const QString &s)
     return OperationStage::RoughCut;
 }
 
+static QString toolpathStateName(ToolpathState state)
+{
+    switch (state) {
+    case ToolpathState::Empty:       return QStringLiteral("empty");
+    case ToolpathState::Calculating: return QStringLiteral("calculating");
+    case ToolpathState::Valid:       return QStringLiteral("valid");
+    case ToolpathState::Stale:       return QStringLiteral("stale");
+    case ToolpathState::Error:       return QStringLiteral("error");
+    }
+    return QStringLiteral("empty");
+}
+
+static ToolpathState toolpathStateFromName(const QString &name)
+{
+    if (name == QStringLiteral("calculating")) return ToolpathState::Calculating;
+    if (name == QStringLiteral("valid"))       return ToolpathState::Valid;
+    if (name == QStringLiteral("stale"))       return ToolpathState::Stale;
+    if (name == QStringLiteral("error"))       return ToolpathState::Error;
+    return ToolpathState::Empty;
+}
+
 static QJsonArray serializeStringList(const QStringList &values)
 {
     QJsonArray array;
@@ -477,6 +528,68 @@ static QStringList deserializeStringList(const QJsonArray &array)
         values.append(value.toString());
     }
     return values;
+}
+
+void ProjectManager::setProcessTemplateLibrary(
+    const ProcessTemplateLibrary &library)
+{
+    m_processTemplateLibrary = library;
+    m_modified = true;
+    emit projectChanged();
+}
+
+static QJsonObject serializeSelectionChain(const SelectionChain &chain)
+{
+    QJsonObject object;
+    object[QStringLiteral("id")] = chain.id;
+    object[QStringLiteral("geometrySource")] = int(chain.geometrySource);
+    object[QStringLiteral("selectionMode")] = int(chain.selectionMode);
+    object[QStringLiteral("machiningSide")] = int(chain.machiningSide);
+    object[QStringLiteral("coordinateSystemId")] = chain.coordinateSystemId;
+    object[QStringLiteral("orderedGeometryIds")] =
+        serializeStringList(chain.orderedGeometryIds);
+    object[QStringLiteral("startX")] = chain.startPoint.x();
+    object[QStringLiteral("startY")] = chain.startPoint.y();
+    object[QStringLiteral("startZ")] = chain.startPoint.z();
+    object[QStringLiteral("hasStartPoint")] = chain.hasStartPoint;
+    object[QStringLiteral("reversed")] = chain.reversed;
+    object[QStringLiteral("closed")] = chain.closed;
+    object[QStringLiteral("sortStrategy")] = int(chain.sortStrategy);
+    object[QStringLiteral("selectedBranchGeometryId")] =
+        chain.selectedBranchGeometryId;
+    return object;
+}
+
+static SelectionChain deserializeSelectionChain(const QJsonObject &object)
+{
+    SelectionChain chain;
+    if (object.isEmpty()) {
+        return chain;
+    }
+    chain.id = object[QStringLiteral("id")].toString();
+    chain.geometrySource = ChainGeometrySource(
+        object[QStringLiteral("geometrySource")].toInt(int(ChainGeometrySource::Entity)));
+    chain.selectionMode = ChainSelectionMode(
+        object[QStringLiteral("selectionMode")].toInt(int(ChainSelectionMode::Chain)));
+    chain.machiningSide = ChainMachiningSide(
+        object[QStringLiteral("machiningSide")].toInt(int(ChainMachiningSide::Mixed)));
+    chain.coordinateSystemId = object[QStringLiteral("coordinateSystemId")].toString(
+        QStringLiteral("G54"));
+    chain.orderedGeometryIds = deserializeStringList(
+        object[QStringLiteral("orderedGeometryIds")].toArray());
+    chain.startPoint = QVector3D(
+        float(object[QStringLiteral("startX")].toDouble()),
+        float(object[QStringLiteral("startY")].toDouble()),
+        float(object[QStringLiteral("startZ")].toDouble()));
+    chain.hasStartPoint = object[QStringLiteral("hasStartPoint")].toBool(false);
+    chain.reversed = object[QStringLiteral("reversed")].toBool(false);
+    chain.closed = object[QStringLiteral("closed")].toBool(false);
+    chain.sortStrategy = ChainSortStrategy(
+        object[QStringLiteral("sortStrategy")].toInt(
+            int(ChainSortStrategy::SelectionOrder)));
+    chain.selectedBranchGeometryId =
+        object[QStringLiteral("selectedBranchGeometryId")].toString();
+    return chain;
 }
 
 static QJsonObject serializeParametricProgram(
@@ -670,6 +783,7 @@ bool ProjectManager::saveToFile(const QString &path)
     }
     machineProfile["safeStartBlocks"] = profileSafeStartBlocks;
     root["machineProfile"] = machineProfile;
+    root["processTemplateLibrary"] = m_processTemplateLibrary.toJson();
     QJsonArray featureArr;
     for (const auto &f : m_features) {
         QJsonObject fo;
@@ -680,6 +794,7 @@ bool ProjectManager::saveToFile(const QString &path)
         fo["width"]  = f.width;
         fo["length"] = f.length;
         fo["secondaryRadius"] = f.secondaryRadius;
+        fo["secondaryDepth"] = f.secondaryDepth;
         fo["pitch"] = f.pitch;
         fo["cx"]     = f.center.x();
         fo["cy"]     = f.center.y();
@@ -710,12 +825,42 @@ bool ProjectManager::saveToFile(const QString &path)
         oo["featureRef"] = op.featureRef;
         oo["strategyId"] = op.strategyId;
         oo["toolId"]     = op.toolId;
+        oo["enabled"] = op.enabled;
+        oo["geometryRefs"] = serializeStringList(op.geometryRefs);
+        oo["dependencyOperationIds"] = serializeStringList(op.dependencyOperationIds);
+        oo["selectionChain"] = serializeSelectionChain(op.selectionChain);
+        oo["toolpathState"] = toolpathStateName(op.toolpathState);
+        oo["warnings"] = serializeStringList(op.warnings);
 
         QJsonObject paramsObj;
         for (auto it = op.params.values.cbegin(); it != op.params.values.cend(); ++it) {
             paramsObj[it.key()] = it.value().toDouble();
         }
         oo["params"] = paramsObj;
+
+        QJsonObject parameter_sources;
+        for (auto it = op.parameterSources.cbegin();
+             it != op.parameterSources.cend(); ++it) {
+            parameter_sources[it.key()] = ProcessParameterSourceName(it.value());
+        }
+        oo["parameterSources"] = parameter_sources;
+
+        QJsonObject parameter_template;
+        parameter_template["id"] = op.parameterTemplate.id;
+        parameter_template["version"] = op.parameterTemplate.version;
+        QJsonObject template_values;
+        for (auto it = op.parameterTemplate.values.values.cbegin();
+             it != op.parameterTemplate.values.values.cend(); ++it) {
+            template_values[it.key()] = it.value().toDouble();
+        }
+        parameter_template["values"] = template_values;
+        QJsonObject template_sources;
+        for (auto it = op.parameterTemplate.sources.cbegin();
+             it != op.parameterTemplate.sources.cend(); ++it) {
+            template_sources[it.key()] = ProcessParameterSourceName(it.value());
+        }
+        parameter_template["sources"] = template_sources;
+        oo["parameterTemplate"] = parameter_template;
 
         if (op.opType == OperationType::Hole) {
             oo["holeFeature"] = serializeHoleFeature(op.holeFeature);
@@ -748,9 +893,16 @@ bool ProjectManager::loadFromFile(const QString &path)
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return false;
     QJsonObject root = doc.object();
     if (!hasValidProjectStructure(root)) return false;
+    QStringList templateErrors;
+    const ProcessTemplateLibrary loadedProcessTemplates =
+        ProcessTemplateLibrary::FromJson(
+            root[QStringLiteral("processTemplateLibrary")].toObject(),
+            &templateErrors);
+    if (!templateErrors.isEmpty()) return false;
     m_sourceFilePath = root["sourceFilePath"].toString();
     m_sourceFileFingerprint = root["sourceFileFingerprint"].toString();
     m_currentProgramId = root["currentProgramId"].toString();
+    m_processTemplateLibrary = loadedProcessTemplates;
     const QJsonObject setup = root["setup"].toObject();
     if (setup.isEmpty()) {
         m_setupRotation = QQuaternion();
@@ -820,6 +972,7 @@ bool ProjectManager::loadFromFile(const QString &path)
         f.width  = fo["width"].toDouble();
         f.length = fo["length"].toDouble();
         f.secondaryRadius = fo["secondaryRadius"].toDouble();
+        f.secondaryDepth = fo["secondaryDepth"].toDouble();
         f.pitch = fo["pitch"].toDouble();
         f.center = QVector3D(fo["cx"].toDouble(), fo["cy"].toDouble(), fo["cz"].toDouble());
         f.axis   = QVector3D(float(fo["ax"].toDouble(0.0)),
@@ -847,10 +1000,38 @@ bool ProjectManager::loadFromFile(const QString &path)
         op.featureRef = oo["featureRef"].toString();
         op.strategyId = oo["strategyId"].toString();
         op.toolId     = oo["toolId"].toInt(-1);
+        op.enabled = oo["enabled"].toBool(true);
+        op.geometryRefs = deserializeStringList(oo["geometryRefs"].toArray());
+        op.dependencyOperationIds = deserializeStringList(
+            oo["dependencyOperationIds"].toArray());
+        op.selectionChain = deserializeSelectionChain(oo["selectionChain"].toObject());
+        op.toolpathState = toolpathStateFromName(
+            oo["toolpathState"].toString(QStringLiteral("empty")));
+        op.warnings = deserializeStringList(oo["warnings"].toArray());
 
         const QJsonObject paramsObj = oo["params"].toObject();
         for (auto it = paramsObj.begin(); it != paramsObj.end(); ++it) {
             op.params.set(it.key(), it.value().toDouble());
+        }
+
+        const QJsonObject parameter_sources = oo["parameterSources"].toObject();
+        for (auto it = parameter_sources.begin();
+             it != parameter_sources.end(); ++it) {
+            op.parameterSources.insert(
+                it.key(), ProcessParameterSourceFromName(it.value().toString()));
+        }
+
+        const QJsonObject parameter_template = oo["parameterTemplate"].toObject();
+        op.parameterTemplate.id = parameter_template["id"].toString();
+        op.parameterTemplate.version = parameter_template["version"].toString();
+        const QJsonObject template_values = parameter_template["values"].toObject();
+        for (auto it = template_values.begin(); it != template_values.end(); ++it) {
+            op.parameterTemplate.values.set(it.key(), it.value().toDouble());
+        }
+        const QJsonObject template_sources = parameter_template["sources"].toObject();
+        for (auto it = template_sources.begin(); it != template_sources.end(); ++it) {
+            op.parameterTemplate.sources.insert(
+                it.key(), ProcessParameterSourceFromName(it.value().toString()));
         }
 
         if (op.opType == OperationType::Hole) {

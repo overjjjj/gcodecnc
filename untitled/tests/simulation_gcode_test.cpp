@@ -66,5 +66,15 @@ int main(int argc, char **argv)
                "CQ8 modal G83 second hole must expand to a feed move at its final depth")) {
         return 1;
     }
+
+    simulation.loadGCode(
+        QStringLiteral("G0 Z8\nG98 G73 Z-12 R2 Q2 F120 X10 Y20\nG80\n"
+                       "G98 G86 Z-15 R3 F80 X30 Y40\nG80\n"));
+    if (expect(hasFeedMoveTo(path, rapidSegments, QVector3D(10.0f, 20.0f, -12.0f)),
+               "G73 preview must reach the programmed hole bottom") ||
+        expect(hasFeedMoveTo(path, rapidSegments, QVector3D(30.0f, 40.0f, -15.0f)),
+               "G86 preview must reach the programmed boring bottom")) {
+        return 1;
+    }
     return 0;
 }
