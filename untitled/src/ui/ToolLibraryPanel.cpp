@@ -28,17 +28,20 @@ static QString toolTypeLabel(const QString &type)
     if (type == QStringLiteral("drill"))        return zh ? QStringLiteral("钻头")   : QStringLiteral("Drill");
     if (type == QStringLiteral("tap"))          return zh ? QStringLiteral("丝锥")   : QStringLiteral("Tap");
     if (type == QStringLiteral("reamer"))       return zh ? QStringLiteral("铰刀")   : QStringLiteral("Reamer");
+    if (type == QStringLiteral("boring_bar"))   return zh ? QStringLiteral("镗刀杆") : QStringLiteral("Boring Bar");
+    if (type == QStringLiteral("thread_mill"))  return zh ? QStringLiteral("螺纹铣刀") : QStringLiteral("Thread Mill");
     if (type == QStringLiteral("spot_drill"))   return zh ? QStringLiteral("中心钻") : QStringLiteral("Spot Drill");
     if (type == QStringLiteral("end_mill"))     return zh ? QStringLiteral("立铣刀") : QStringLiteral("End Mill");
+    if (type == QStringLiteral("ball_end_mill")) return zh ? QStringLiteral("球头铣刀") : QStringLiteral("Ball End Mill");
     if (type == QStringLiteral("chamfer_mill")) return zh ? QStringLiteral("倒角刀") : QStringLiteral("Chamfer Mill");
     return type;
 }
 
 // All known tool type keys in order
 static const char * const kTypeKeys[] = {
-    "drill", "tap", "reamer", "spot_drill", "end_mill", "chamfer_mill"
+    "drill", "tap", "reamer", "boring_bar", "thread_mill", "spot_drill", "end_mill", "ball_end_mill", "chamfer_mill"
 };
-static const int kTypeCount = 6;
+static const int kTypeCount = 9;
 
 // Show a dialog to create or edit a ToolEntry.
 // Pass a default-constructed entry for "add", or an existing entry for "edit".

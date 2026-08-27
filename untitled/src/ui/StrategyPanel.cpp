@@ -117,36 +117,50 @@ static QString strategyDisplayName(const QString &strategyId, bool zh)
     if (zh) {
         if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("定点钻");
         if (strategyId == QStringLiteral("hole_peck")) return QStringLiteral("排屑钻");
+        if (strategyId == QStringLiteral("hole_peck_g73")) return QStringLiteral("高速排屑钻 G73");
         if (strategyId == QStringLiteral("hole_deephole")) return QStringLiteral("深孔钻");
+        if (strategyId == QStringLiteral("hole_bore_g86")) return QStringLiteral("镗孔 G86");
         if (strategyId == QStringLiteral("hole_circular_mill")) return QStringLiteral("圆插补扩孔");
         if (strategyId == QStringLiteral("hole_reaming")) return QStringLiteral("铰孔");
         if (strategyId == QStringLiteral("hole_chamfer")) return QStringLiteral("孔口倒角");
         if (strategyId == QStringLiteral("hole_tapping")) return QStringLiteral("攻丝");
+        if (strategyId == QStringLiteral("hole_thread_mill")) return QStringLiteral("铣牙（内牙/单齿）");
         if (strategyId == QStringLiteral("mill_face")) return QStringLiteral("铣平面");
         if (strategyId == QStringLiteral("mill_surface_finish")) return QStringLiteral("精面铣");
         if (strategyId == QStringLiteral("mill_pocket_rough")) return QStringLiteral("型腔开粗");
         if (strategyId == QStringLiteral("mill_pocket_finish")) return QStringLiteral("型腔侧壁精加工");
         if (strategyId == QStringLiteral("mill_pocket_floor_finish")) return QStringLiteral("型腔底面精加工");
+        if (strategyId == QStringLiteral("mill_annular")) return QStringLiteral("环形铣");
+        if (strategyId == QStringLiteral("mill_island")) return QStringLiteral("铣孤岛");
         if (strategyId == QStringLiteral("mill_closed_contour")) return QStringLiteral("封闭轮廓铣");
         if (strategyId == QStringLiteral("mill_open_contour")) return QStringLiteral("开放轮廓铣");
+        if (strategyId == QStringLiteral("mill_outer_chamfer")) return QStringLiteral("二维外形倒角");
+        if (strategyId == QStringLiteral("mill_slope_plane_2d")) return QStringLiteral("二维斜面铣");
         if (strategyId == QStringLiteral("mill_slot")) return QStringLiteral("开口槽铣");
         if (strategyId == QStringLiteral("mill_blind_slot")) return QStringLiteral("盲槽铣");
         if (strategyId == QStringLiteral("mill_tapered_slot")) return QStringLiteral("斜底槽铣");
     } else {
         if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("Spot Drilling");
         if (strategyId == QStringLiteral("hole_peck")) return QStringLiteral("Peck Drilling");
+        if (strategyId == QStringLiteral("hole_peck_g73")) return QStringLiteral("High-Speed Peck Drilling G73");
         if (strategyId == QStringLiteral("hole_deephole")) return QStringLiteral("Deep-Hole Drilling");
+        if (strategyId == QStringLiteral("hole_bore_g86")) return QStringLiteral("Boring G86");
         if (strategyId == QStringLiteral("hole_circular_mill")) return QStringLiteral("Circular Hole Milling");
         if (strategyId == QStringLiteral("hole_reaming")) return QStringLiteral("Reaming");
         if (strategyId == QStringLiteral("hole_chamfer")) return QStringLiteral("Hole Chamfering");
         if (strategyId == QStringLiteral("hole_tapping")) return QStringLiteral("Tapping");
+        if (strategyId == QStringLiteral("hole_thread_mill")) return QStringLiteral("Thread Milling (Internal/Single Tooth)");
         if (strategyId == QStringLiteral("mill_face")) return QStringLiteral("Face Milling");
         if (strategyId == QStringLiteral("mill_surface_finish")) return QStringLiteral("Surface Finish");
         if (strategyId == QStringLiteral("mill_pocket_rough")) return QStringLiteral("Pocket Roughing");
         if (strategyId == QStringLiteral("mill_pocket_finish")) return QStringLiteral("Pocket Wall Finish");
         if (strategyId == QStringLiteral("mill_pocket_floor_finish")) return QStringLiteral("Pocket Floor Finish");
+        if (strategyId == QStringLiteral("mill_annular")) return QStringLiteral("Annular Milling");
+        if (strategyId == QStringLiteral("mill_island")) return QStringLiteral("Island Milling");
         if (strategyId == QStringLiteral("mill_closed_contour")) return QStringLiteral("Closed Contour Milling");
         if (strategyId == QStringLiteral("mill_open_contour")) return QStringLiteral("Open Contour Milling");
+        if (strategyId == QStringLiteral("mill_outer_chamfer")) return QStringLiteral("2D Outer Chamfer");
+        if (strategyId == QStringLiteral("mill_slope_plane_2d")) return QStringLiteral("2D Planar Slope Milling");
         if (strategyId == QStringLiteral("mill_slot")) return QStringLiteral("Open Slot Milling");
         if (strategyId == QStringLiteral("mill_blind_slot")) return QStringLiteral("Blind Slot Milling");
         if (strategyId == QStringLiteral("mill_tapered_slot")) return QStringLiteral("Tapered Slot Milling");
@@ -170,8 +184,11 @@ static QSet<QString> basicParameterKeys()
     return {
         QStringLiteral("depth"),
         QStringLiteral("safeHeight"),
+        QStringLiteral("plungeHeight"),
+        QStringLiteral("referenceHeight"),
         QStringLiteral("feedHeight"),
         QStringLiteral("stepDown"),
+        QStringLiteral("stepOver"),
         QStringLiteral("spindleSpeed"),
         QStringLiteral("feedRate"),
         QStringLiteral("slotLength"),
@@ -191,6 +208,15 @@ static QSet<QString> nonNegativeParameterKeys()
         QStringLiteral("helixRadius"),
         QStringLiteral("compensation"),
         QStringLiteral("dwellTime"),
+        QStringLiteral("taperAngle"),
+        QStringLiteral("roughPasses"),
+        QStringLiteral("finishAllowance"),
+        QStringLiteral("finishFeedRate"),
+        QStringLiteral("finishSpindleSpeed"),
+        QStringLiteral("slopeLength"),
+        QStringLiteral("xyWidth"),
+        QStringLiteral("edgeMargin"),
+        QStringLiteral("layerAllowance"),
         QStringLiteral("angle")
     };
 }
@@ -202,6 +228,49 @@ static QSet<QString> unconstrainedParameterKeys()
         QStringLiteral("compensation"),
         QStringLiteral("slopeDirection")
     };
+}
+
+static void applyManualProcessParameters(const QString &strategyId, StrategyParams &params)
+{
+    // These values are retained with the operation as process-setting metadata.
+    // They make the Chapter 7 review fields visible before all controller outputs
+    // consume them; existing toolpath-specific parameters remain authoritative.
+    if (!params.values.contains(QStringLiteral("workOffset"))) {
+        params.set(QStringLiteral("workOffset"), 54.0);
+    }
+    if (!params.values.contains(QStringLiteral("coolantMode"))) {
+        params.set(QStringLiteral("coolantMode"), 1.0);
+    }
+    if (!params.values.contains(QStringLiteral("depthMode"))) {
+        params.set(QStringLiteral("depthMode"), 0.0);
+    }
+
+    if (strategyId == QStringLiteral("hole_tapping")) {
+        params.set(QStringLiteral("threadHandedness"), 1.0);
+        params.set(QStringLiteral("tapRetract"), 0.0);
+        params.set(QStringLiteral("chipBreakRetract"), 0.0);
+    } else if (strategyId == QStringLiteral("hole_chamfer")) {
+        params.set(QStringLiteral("toolTipRadius"), 0.0);
+    } else if (strategyId == QStringLiteral("hole_peck") ||
+               strategyId == QStringLiteral("hole_peck_g73") ||
+               strategyId == QStringLiteral("hole_deephole")) {
+        params.set(QStringLiteral("retractDelta"), 0.0);
+        params.set(QStringLiteral("fullRetractEvery"), 1.0);
+    } else if (strategyId == QStringLiteral("mill_face") ||
+               strategyId == QStringLiteral("mill_surface_finish")) {
+        params.set(QStringLiteral("cutDirection"), 0.0);
+        params.set(QStringLiteral("linkMode"), 0.0);
+        params.set(QStringLiteral("boundingRectangle"), 0.0);
+    } else if (strategyId == QStringLiteral("mill_pocket_rough") ||
+               strategyId == QStringLiteral("mill_pocket_finish") ||
+               strategyId == QStringLiteral("mill_pocket_floor_finish")) {
+        params.set(QStringLiteral("pathPattern"), 0.0);
+        params.set(QStringLiteral("keepIslands"), 1.0);
+    } else if (strategyId == QStringLiteral("mill_closed_contour") ||
+               strategyId == QStringLiteral("mill_open_contour")) {
+        params.set(QStringLiteral("overcut"), 0.0);
+        params.set(QStringLiteral("startAtMidpoint"), 0.0);
+    }
 }
 
 } // namespace
@@ -340,7 +409,8 @@ QStringList StrategyPanel::strategyIdsForCurrentContext() const
         if (isFlatSurfaceFeature(m_contourFeature)) {
             return {
                 QStringLiteral("mill_face"),
-                QStringLiteral("mill_surface_finish")
+                QStringLiteral("mill_surface_finish"),
+                QStringLiteral("mill_slope_plane_2d")
             };
         }
 
@@ -356,28 +426,39 @@ QStringList StrategyPanel::strategyIdsForCurrentContext() const
             if (!isSupportedPocketFeature(m_contourFeature)) {
                 return {};
             }
-            return {
+            QStringList strategies{
                 QStringLiteral("mill_pocket_rough"),
                 QStringLiteral("mill_pocket_finish"),
                 QStringLiteral("mill_pocket_floor_finish"),
                 QStringLiteral("mill_closed_contour")
             };
+            if (m_contourFeature.radius > 0.0 &&
+                m_contourFeature.islandBoundaries.size() == 1) {
+                strategies.prepend(QStringLiteral("mill_island"));
+                strategies.prepend(QStringLiteral("mill_annular"));
+            }
+            return strategies;
         }
 
         return {
             QStringLiteral("mill_closed_contour"),
-            QStringLiteral("mill_open_contour")
+            QStringLiteral("mill_open_contour"),
+            QStringLiteral("mill_outer_chamfer"),
+            QStringLiteral("mill_slope_plane_2d")
         };
     }
 
     return {
         QStringLiteral("hole_spot"),
         QStringLiteral("hole_peck"),
+        QStringLiteral("hole_peck_g73"),
         QStringLiteral("hole_deephole"),
+        QStringLiteral("hole_bore_g86"),
         QStringLiteral("hole_circular_mill"),
         QStringLiteral("hole_reaming"),
         QStringLiteral("hole_chamfer"),
-        QStringLiteral("hole_tapping")
+        QStringLiteral("hole_tapping"),
+        QStringLiteral("hole_thread_mill")
     };
 }
 
@@ -497,6 +578,9 @@ StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool 
         ? m_userParams.value(strategyId)
         : strategy->defaultParams();
 
+    applyManualProcessParameters(strategyId, params);
+    params.set(QStringLiteral("workOffset"), m_workOffset);
+
     if ((!preferUserParams || !m_userParams.contains(strategyId)) &&
         m_hasFeature &&
         strategyId != QStringLiteral("hole_spot") &&
@@ -518,10 +602,36 @@ StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool 
             params.set(QStringLiteral("slotWidth"),
                        slotWidth > 0.0 ? slotWidth : m_contourFeature.radius);
             params.set(QStringLiteral("angle"), m_contourFeature.angle);
+        } else if (strategyId == QStringLiteral("mill_slope_plane_2d")) {
+            const double edgeMargin = params.get(QStringLiteral("edgeMargin"), 4.0);
+            if (m_contourFeature.length > edgeMargin * 2.0) {
+                params.set(QStringLiteral("slopeLength"),
+                           m_contourFeature.length - edgeMargin * 2.0);
+            }
+            if (m_contourFeature.width > edgeMargin * 2.0) {
+                params.set(QStringLiteral("xyWidth"),
+                           m_contourFeature.width - edgeMargin * 2.0);
+            }
         }
     }
 
     return params;
+}
+
+void StrategyPanel::setWorkOffset(const QString &workOffset)
+{
+    QString normalized = workOffset.trimmed().toUpper();
+    if (normalized.startsWith(QLatin1Char('G'))) {
+        normalized.remove(0, 1);
+    }
+    bool ok = false;
+    const int parsed = normalized.toInt(&ok);
+    if (!ok || parsed < 54 || parsed > 59 || m_workOffset == parsed) {
+        return;
+    }
+    cacheCurrentParams();
+    m_workOffset = parsed;
+    refreshParamTable();
 }
 
 void StrategyPanel::refreshParamTable()
@@ -960,8 +1070,24 @@ void StrategyPanel::onEditHoleParams()
         return;
     }
 
+    const auto strategy = StrategyFactory::instance().strategy(strategyId);
+    const ProcessParameterSchema schema = strategy
+        ? strategy->parameterSchema() : ProcessParameterSchema::CommonOperation();
     QMap<QString, QString> labels;
-    StrategyParams current = currentParams();
+    const StrategyParams legacy_current = currentParams();
+    StrategyParams current = schema.defaultParams();
+    for (auto it = legacy_current.values.cbegin();
+         it != legacy_current.values.cend(); ++it) {
+        current.values.insert(it.key(), it.value());
+    }
+    if (legacy_current.values.contains(QStringLiteral("feedHeight"))) {
+        current.set(QStringLiteral("plungeHeight"),
+                    legacy_current.get(QStringLiteral("feedHeight")));
+    }
+    if (legacy_current.values.contains(QStringLiteral("stepover"))) {
+        current.set(QStringLiteral("stepOver"),
+                    legacy_current.get(QStringLiteral("stepover")));
+    }
     const int selectedEntryMode = m_entryModeCombo->currentData().toInt();
     current.values.remove(QStringLiteral("entryMode"));
     for (auto it = current.values.cbegin(); it != current.values.cend(); ++it) {
@@ -977,11 +1103,36 @@ void StrategyPanel::onEditHoleParams()
     paramDialog.setBasicKeys(basicParameterKeys());
     paramDialog.setNonNegativeKeys(nonNegativeParameterKeys());
     paramDialog.setAllowAnyValueKeys(unconstrainedParameterKeys());
-    paramDialog.setDefaultParams(paramsForStrategy(strategyId, false));
+    paramDialog.setParameterSchema(schema);
+    StrategyParams template_params = schema.defaultParams();
+    const StrategyParams strategy_defaults = paramsForStrategy(strategyId, false);
+    for (auto it = strategy_defaults.values.cbegin();
+         it != strategy_defaults.values.cend(); ++it) {
+        template_params.values.insert(it.key(), it.value());
+    }
+    if (strategy_defaults.values.contains(QStringLiteral("feedHeight"))) {
+        template_params.set(QStringLiteral("plungeHeight"),
+                            strategy_defaults.get(QStringLiteral("feedHeight")));
+    }
+    if (strategy_defaults.values.contains(QStringLiteral("stepover"))) {
+        template_params.set(QStringLiteral("stepOver"),
+                            strategy_defaults.get(QStringLiteral("stepover")));
+    }
+    paramDialog.setTemplateParams(template_params,
+                                  strategyId,
+                                  QStringLiteral("built-in"));
     paramDialog.setParams(current);
 
     if (paramDialog.exec() == QDialog::Accepted) {
         StrategyParams updated = paramDialog.params();
+        if (legacy_current.values.contains(QStringLiteral("feedHeight"))) {
+            updated.set(QStringLiteral("feedHeight"),
+                        updated.get(QStringLiteral("plungeHeight")));
+        }
+        if (legacy_current.values.contains(QStringLiteral("stepover"))) {
+            updated.set(QStringLiteral("stepover"),
+                        updated.get(QStringLiteral("stepOver")));
+        }
         if (strategyId == QStringLiteral("mill_pocket_rough") &&
             (selectedEntryMode == 0 || selectedEntryMode == 1)) {
             updated.set(QStringLiteral("entryMode"), selectedEntryMode);
@@ -1151,10 +1302,13 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
         return key;
     }
     if (key == QStringLiteral("safeHeight")) return QStringLiteral("安全高度");
+    if (key == QStringLiteral("plungeHeight")) return QStringLiteral("下刀起始高度");
+    if (key == QStringLiteral("referenceHeight")) return QStringLiteral("加工基准高度");
     if (key == QStringLiteral("feedHeight")) return QStringLiteral("进给起始高度");
     if (key == QStringLiteral("depth")) return QStringLiteral("加工深度");
     if (key == QStringLiteral("peckDepth")) return QStringLiteral("每刀钻深");
     if (key == QStringLiteral("stepDown")) return QStringLiteral("每层切深");
+    if (key == QStringLiteral("stepOver")) return QStringLiteral("横向步距");
     if (key == QStringLiteral("stepover")) return QStringLiteral("步距");
     if (key == QStringLiteral("retractHeight")) return QStringLiteral("退刀高度");
     if (key == QStringLiteral("retractDelta")) return QStringLiteral("回退量");
@@ -1164,11 +1318,24 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
     if (key == QStringLiteral("plungeRate")) return QStringLiteral("下刀速度");
     if (key == QStringLiteral("dwellTime")) return QStringLiteral("底部停留");
     if (key == QStringLiteral("pitch")) return QStringLiteral("螺距");
+    if (key == QStringLiteral("threadPitch")) return QStringLiteral("螺纹牙距");
+    if (key == QStringLiteral("threadSide")) return QStringLiteral("内外牙（0内/1外）");
+    if (key == QStringLiteral("threadHand")) return QStringLiteral("旋向（0右/1左）");
+    if (key == QStringLiteral("cutDirection")) return QStringLiteral("加工方向（0上到下/1下到上）");
+    if (key == QStringLiteral("toothCount")) return QStringLiteral("刀具齿数（当前仅1）");
+    if (key == QStringLiteral("diameterCorrection")) return QStringLiteral("图形直径修正");
+    if (key == QStringLiteral("taperAngle")) return QStringLiteral("锥度角");
+    if (key == QStringLiteral("roughPasses")) return QStringLiteral("XY 粗加工层数");
+    if (key == QStringLiteral("finishAllowance")) return QStringLiteral("精加工余量");
+    if (key == QStringLiteral("finishFeedRate")) return QStringLiteral("精铣进给");
+    if (key == QStringLiteral("finishSpindleSpeed")) return QStringLiteral("精铣转速");
     if (key == QStringLiteral("chamferWidth")) return QStringLiteral("倒角宽度");
     if (key == QStringLiteral("chamferAngle")) return QStringLiteral("倒角角度");
     if (key == QStringLiteral("compensation")) return QStringLiteral("刀补方向");
     if (key == QStringLiteral("sideStockToLeave")) return QStringLiteral("侧壁余量");
     if (key == QStringLiteral("floorStockToLeave")) return QStringLiteral("底面余量");
+    if (key == QStringLiteral("outerStockToLeave")) return QStringLiteral("外边界余量");
+    if (key == QStringLiteral("islandStockToLeave")) return QStringLiteral("孤岛保留余量");
     if (key == QStringLiteral("stockToLeave")) return QStringLiteral("余量");
     if (key == QStringLiteral("leadLength")) return QStringLiteral("引入引出长度");
     if (key == QStringLiteral("slotLength")) return QStringLiteral("槽长");
@@ -1179,6 +1346,26 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
     if (key == QStringLiteral("entryMode")) return QStringLiteral("下刀方式");
     if (key == QStringLiteral("finishStock")) return QStringLiteral("斜面精修余量");
     if (key == QStringLiteral("slopeDirection")) return QStringLiteral("斜面方向");
+    if (key == QStringLiteral("slopeAngle")) return QStringLiteral("斜面坡度角");
+    if (key == QStringLiteral("slopeLength")) return QStringLiteral("沿坡可加工长度");
+    if (key == QStringLiteral("xyWidth")) return QStringLiteral("横向可加工宽度");
+    if (key == QStringLiteral("edgeMargin")) return QStringLiteral("保边宽度");
+    if (key == QStringLiteral("keepEdges")) return QStringLiteral("强制保边（仅支持1）");
+    if (key == QStringLiteral("layerAllowance")) return QStringLiteral("起始分层余量");
+    if (key == QStringLiteral("workOffset")) return QStringLiteral("工件坐标系（54=G54…59=G59）");
+    if (key == QStringLiteral("coolantMode")) return QStringLiteral("冷却方式（0无/1外冷/2内冷/3吹气/4混合）");
+    if (key == QStringLiteral("depthMode")) return QStringLiteral("深度模式（仅支持 0绝对）");
+    if (key == QStringLiteral("threadHandedness")) return QStringLiteral("螺纹旋向（1右旋/-1左旋）");
+    if (key == QStringLiteral("tapRetract")) return QStringLiteral("攻丝回退量");
+    if (key == QStringLiteral("chipBreakRetract")) return QStringLiteral("断屑回退量");
+    if (key == QStringLiteral("toolTipRadius")) return QStringLiteral("倒角刀尖半径");
+    if (key == QStringLiteral("cutDirection")) return QStringLiteral("平面走刀方向（0内向外/1外向内/2混合）");
+    if (key == QStringLiteral("linkMode")) return QStringLiteral("连接方式（0直线/1圆弧）");
+    if (key == QStringLiteral("boundingRectangle")) return QStringLiteral("外接矩形范围（0关/1开）");
+    if (key == QStringLiteral("pathPattern")) return QStringLiteral("型腔路径方式（0双向/1单向/2环切/3螺旋）");
+    if (key == QStringLiteral("keepIslands")) return QStringLiteral("保留岛屿（0否/1是）");
+    if (key == QStringLiteral("overcut")) return QStringLiteral("轮廓过切量");
+    if (key == QStringLiteral("startAtMidpoint")) return QStringLiteral("长直线中点起刀（0否/1是）");
     return key;
 }
 
@@ -1197,11 +1384,23 @@ QString StrategyPanel::preferredToolType(const QString &strategyId) const
     if (strategyId == QStringLiteral("hole_tapping")) {
         return QStringLiteral("tap");
     }
+    if (strategyId == QStringLiteral("hole_thread_mill")) {
+        return QStringLiteral("thread_mill");
+    }
     if (strategyId == QStringLiteral("hole_reaming")) {
         return QStringLiteral("reamer");
     }
+    if (strategyId == QStringLiteral("hole_bore_g86")) {
+        return QStringLiteral("boring_bar");
+    }
     if (strategyId == QStringLiteral("hole_chamfer")) {
         return QStringLiteral("chamfer_mill");
+    }
+    if (strategyId == QStringLiteral("mill_outer_chamfer")) {
+        return QStringLiteral("chamfer_mill");
+    }
+    if (strategyId == QStringLiteral("mill_slope_plane_2d")) {
+        return QStringLiteral("ball_end_mill");
     }
     if (strategyId == QStringLiteral("mill_face") ||
         strategyId == QStringLiteral("mill_surface_finish")) {
@@ -1222,8 +1421,12 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
             return QStringLiteral("Spot drill for positioning only. Keep the depth shallow.");
         if (strategyId == QStringLiteral("hole_peck"))
             return QStringLiteral("Peck drilling for pilot or rough holes with chip evacuation.");
+        if (strategyId == QStringLiteral("hole_peck_g73"))
+            return QStringLiteral("G73 uses short chip-breaking retracts; verify peck depth and retract delta.");
         if (strategyId == QStringLiteral("hole_deephole"))
             return QStringLiteral("Deep-hole drilling for large depth/diameter ratios.");
+        if (strategyId == QStringLiteral("hole_bore_g86"))
+            return QStringLiteral("G86 feeds to depth, stops the spindle, and retracts rapidly; use a boring bar smaller than the hole.");
         if (strategyId == QStringLiteral("hole_circular_mill"))
             return QStringLiteral("Mill a drilled pilot hole to final diameter with an end mill.");
         if (strategyId == QStringLiteral("hole_reaming"))
@@ -1232,6 +1435,8 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
             return QStringLiteral("Chamfer or deburr the hole after drilling and finishing.");
         if (strategyId == QStringLiteral("hole_tapping"))
             return QStringLiteral("Tapping uses pitch-based feed. Match it to the thread hole.");
+        if (strategyId == QStringLiteral("hole_thread_mill"))
+            return QStringLiteral("Internal single-tooth thread milling supports handedness and axial direction; external and multi-tooth paths remain blocked.");
         if (strategyId == QStringLiteral("mill_slot"))
             return QStringLiteral("Open-slot milling uses the selected slot geometry and shared roughing parameters.");
         if (strategyId == QStringLiteral("mill_blind_slot"))
@@ -1248,10 +1453,18 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
             return QStringLiteral("Pocket wall finish plunges at the cleared pocket center, then uses CAM-side offset on rectangular or circular walls; review side stock, floor stock, and center clearance.");
         if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
             return QStringLiteral("Pocket floor finish plunges at the cleared pocket center, then uses CAM-side raster passes inside rectangular or circular boundaries; review side stock, floor stock, and stepover.");
+        if (strategyId == QStringLiteral("mill_annular"))
+            return QStringLiteral("Annular milling is limited to verified concentric circular boundaries and retracts through the safe plane after every layer.");
+        if (strategyId == QStringLiteral("mill_island"))
+            return QStringLiteral("Island milling currently supports one verified concentric circular island; polygon and multiple-island partitioning remain blocked.");
         if (strategyId == QStringLiteral("mill_closed_contour"))
             return QStringLiteral("Closed contour milling follows the selected contour for profile cutting.");
         if (strategyId == QStringLiteral("mill_open_contour"))
             return QStringLiteral("Open contour milling is suited for open edges and partial profiles.");
+        if (strategyId == QStringLiteral("mill_outer_chamfer"))
+            return QStringLiteral("2D outer chamfer is limited to a verified planar convex closed boundary and a chamfer tool with angle and tip-radius metadata.");
+        if (strategyId == QStringLiteral("mill_slope_plane_2d"))
+            return QStringLiteral("2D slope milling is limited to one verified rectangular projection, a ball end mill, linear slope depth, and mandatory edge protection.");
         return QStringLiteral("Verify tool, depth, feed, and process stage before generating G-code.");
     }
 
@@ -1259,8 +1472,12 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         return QStringLiteral("定点钻仅用于定位，深度应保持较浅。");
     if (strategyId == QStringLiteral("hole_peck"))
         return QStringLiteral("排屑钻适合底孔或粗孔，可分段排屑。");
+    if (strategyId == QStringLiteral("hole_peck_g73"))
+        return QStringLiteral("G73 采用短距离断屑退刀，请核对单次深度和退刀量。");
     if (strategyId == QStringLiteral("hole_deephole"))
         return QStringLiteral("深孔钻适合深径比较大的孔。");
+    if (strategyId == QStringLiteral("hole_bore_g86"))
+        return QStringLiteral("G86 进给至孔底后停主轴并快速退刀，必须使用小于孔径的镗刀杆。");
     if (strategyId == QStringLiteral("hole_circular_mill"))
         return QStringLiteral("圆插补扩孔用于把底孔铣到最终孔径。");
     if (strategyId == QStringLiteral("hole_reaming"))
@@ -1269,6 +1486,8 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         return QStringLiteral("孔口倒角应放在钻孔和精加工之后。");
     if (strategyId == QStringLiteral("hole_tapping"))
         return QStringLiteral("攻丝按主轴转速和螺距自动匹配进给。");
+    if (strategyId == QStringLiteral("hole_thread_mill"))
+        return QStringLiteral("当前铣牙支持内牙单齿刀，并支持旋向和上下加工方向；外牙及多齿换层会明确阻止生成。");
     if (strategyId == QStringLiteral("mill_slot"))
         return QStringLiteral("开口槽铣会直接使用当前槽长、槽宽、槽深和方向角。");
     if (strategyId == QStringLiteral("mill_blind_slot"))
@@ -1285,10 +1504,18 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
         return QStringLiteral("型腔侧壁精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，以 CAM 侧偏置完成侧壁精修，请核对侧壁余量、底面余量和中心清空状态。");
     if (strategyId == QStringLiteral("mill_pocket_floor_finish"))
         return QStringLiteral("型腔底面精加工仅支持矩形和圆形型腔：在已开粗的型腔中心下刀后，使用 CAM 刀心平行走刀，请核对侧壁余量、底面余量、中心清空状态和步距。");
+    if (strategyId == QStringLiteral("mill_annular"))
+        return QStringLiteral("环形铣仅支持已验证的同心圆内外边界，每层均经安全高度退刀；偏心或不可达边界会阻止生成。");
+    if (strategyId == QStringLiteral("mill_island"))
+        return QStringLiteral("铣孤岛当前仅支持单一同心圆孤岛；多孤岛及异形偏置尚未验证，会明确阻止生成。");
     if (strategyId == QStringLiteral("mill_closed_contour"))
         return QStringLiteral("封闭轮廓铣用于外形或闭合边界精修。");
     if (strategyId == QStringLiteral("mill_open_contour"))
         return QStringLiteral("开放轮廓铣用于开放边界或局部轮廓。");
+    if (strategyId == QStringLiteral("mill_outer_chamfer"))
+        return QStringLiteral("二维外形倒角仅支持已验证的平面凸闭合外边界，并要求倒角刀夹角和刀尖半径元数据完整。");
+    if (strategyId == QStringLiteral("mill_slope_plane_2d"))
+        return QStringLiteral("二维斜面铣仅支持已验证矩形投影、球头刀、线性单坡度和强制保边；三维斜面不会进入此策略。");
     return QStringLiteral("生成前请确认刀具、深度和进给参数。");
 }
 
@@ -1401,6 +1628,7 @@ void StrategyPanel::selectPreferredToolForFeature()
                 score = tool.diameter;
             }
             if ((strategyId == QStringLiteral("hole_peck") ||
+                 strategyId == QStringLiteral("hole_peck_g73") ||
                  strategyId == QStringLiteral("hole_deephole")) &&
                 tool.diameter > targetDiameter) {
                 score += 1.0e6;

@@ -78,6 +78,23 @@ int main(int argc, char **argv)
     require(!inefficientTool.hasBlockingIssues() && inefficientTool.hasWarnings(),
             "very small slot tool should require efficiency acknowledgement");
 
+    ContourFeature contour;
+    contour.subType = QStringLiteral("closed_contour");
+    contour.points = {
+        QVector3D(0, 0, 0), QVector3D(20, 0, 0),
+        QVector3D(20, 10, 0), QVector3D(0, 10, 0)};
+    ToolCompatibilityReport wrongChamferTool = reviewToolCompatibility(
+        QStringLiteral("mill_outer_chamfer"),
+        tool(QStringLiteral("end_mill"), 10.0, 20.0), contour, false);
+    require(wrongChamferTool.hasBlockingIssues(),
+            "outer contour chamfer must require a chamfer mill");
+
+    ToolCompatibilityReport wrongSlopeTool = reviewToolCompatibility(
+        QStringLiteral("mill_slope_plane_2d"),
+        tool(QStringLiteral("end_mill"), 6.0, 20.0), contour, false);
+    require(wrongSlopeTool.hasBlockingIssues(),
+            "verified 2D slope milling must require a ball end mill");
+
     HoleFeature thread = hole;
     thread.kind = FeatureKind::Thread;
     thread.pitch = 1.5;

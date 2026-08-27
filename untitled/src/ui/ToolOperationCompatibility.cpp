@@ -9,8 +9,12 @@ QString expectedToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
     if (strategyId == QStringLiteral("hole_tapping")) return QStringLiteral("tap");
+    if (strategyId == QStringLiteral("hole_thread_mill")) return QStringLiteral("thread_mill");
     if (strategyId == QStringLiteral("hole_reaming")) return QStringLiteral("reamer");
+    if (strategyId == QStringLiteral("hole_bore_g86")) return QStringLiteral("boring_bar");
     if (strategyId == QStringLiteral("hole_chamfer")) return QStringLiteral("chamfer_mill");
+    if (strategyId == QStringLiteral("mill_outer_chamfer")) return QStringLiteral("chamfer_mill");
+    if (strategyId == QStringLiteral("mill_slope_plane_2d")) return QStringLiteral("ball_end_mill");
     if (strategyId.startsWith(QStringLiteral("mill_"))
         || strategyId == QStringLiteral("hole_circular_mill")) {
         return QStringLiteral("end_mill");
@@ -108,6 +112,7 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
     const double targetDiameter = feature.radius * 2.0;
     const double tolerance = std::max(0.05, targetDiameter * 0.01);
     if (strategyId == QStringLiteral("hole_peck")
+        || strategyId == QStringLiteral("hole_peck_g73")
         || strategyId == QStringLiteral("hole_deephole")) {
         if (tool.diameter > targetDiameter + tolerance) {
             addIssue(report, QStringLiteral("oversize_drill"), ToolCompatibilitySeverity::Blocking,
@@ -120,6 +125,11 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
                      QStringLiteral("The drill is smaller than the target; this creates only a pilot/rough hole. Confirm a later boring, reaming, or milling operation."),
                      chinese);
         }
+    } else if (strategyId == QStringLiteral("hole_bore_g86")
+               && tool.diameter >= targetDiameter) {
+        addIssue(report, QStringLiteral("boring_bar_diameter"), ToolCompatibilitySeverity::Blocking,
+                 QStringLiteral("镗刀杆直径必须小于目标孔径。"),
+                 QStringLiteral("The boring bar diameter must be smaller than the target hole."), chinese);
     } else if (strategyId == QStringLiteral("hole_circular_mill")
                && tool.diameter >= targetDiameter - tolerance) {
         addIssue(report, QStringLiteral("circular_mill_diameter"), ToolCompatibilitySeverity::Blocking,
@@ -139,6 +149,21 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
                      QStringLiteral("丝锥螺距 %1 与目标螺距 %2 不匹配。").arg(tool.pitch, 0, 'f', 3).arg(feature.pitch, 0, 'f', 3),
                      QStringLiteral("Tap pitch %1 does not match target pitch %2.").arg(tool.pitch, 0, 'f', 3).arg(feature.pitch, 0, 'f', 3),
                      chinese);
+        }
+    }
+    if (strategyId == QStringLiteral("hole_thread_mill")) {
+        if (tool.diameter >= targetDiameter) {
+            addIssue(report, QStringLiteral("thread_mill_diameter"), ToolCompatibilitySeverity::Blocking,
+                     QStringLiteral("螺纹铣刀直径必须小于目标内螺纹直径。"),
+                     QStringLiteral("The thread mill diameter must be smaller than the target internal thread."), chinese);
+        }
+        if (feature.pitch > 0.0) {
+            const double pitchTolerance = std::max(0.01, feature.pitch * 0.02);
+            if (tool.pitch <= 0.0 || std::abs(tool.pitch - feature.pitch) > pitchTolerance) {
+                addIssue(report, QStringLiteral("thread_mill_pitch"), ToolCompatibilitySeverity::Blocking,
+                         QStringLiteral("螺纹铣刀牙距与目标螺纹牙距不匹配。"),
+                         QStringLiteral("Thread mill pitch does not match the target thread."), chinese);
+            }
         }
     }
     return report;

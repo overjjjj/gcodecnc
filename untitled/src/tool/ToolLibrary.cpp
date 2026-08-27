@@ -84,6 +84,7 @@ bool ToolLibrary::saveToFile(const QString &path)
         o["pitch"] = t.pitch;
         o["material"] = t.material;
         o["modelPath"] = t.modelPath;
+        o["extra"] = QJsonObject::fromVariantMap(t.extra);
         arr.append(o);
     }
     QJsonObject root;
@@ -121,6 +122,7 @@ bool ToolLibrary::loadFromFile(const QString &path)
         t.pitch = o["pitch"].toDouble();
         t.material = o["material"].toString();
         t.modelPath = o["modelPath"].toString();
+        t.extra = o["extra"].toObject().toVariantMap();
         if (t.id >= m_nextId) {
             m_nextId = t.id + 1;
         }
@@ -224,6 +226,27 @@ void ToolLibrary::loadDefaults()
         addTool(t);
     }
 
+    ToolEntry boringBar;
+    boringBar.name = QStringLiteral("镗刀杆 D8");
+    boringBar.type = QStringLiteral("boring_bar");
+    boringBar.diameter = 8.0;
+    boringBar.fluteLen = 40.0;
+    boringBar.totalLen = 80.0;
+    boringBar.flutes = 1;
+    boringBar.material = QStringLiteral("硬质合金");
+    addTool(boringBar);
+
+    ToolEntry threadMill;
+    threadMill.name = QStringLiteral("单齿螺纹铣刀 D4 P1.5");
+    threadMill.type = QStringLiteral("thread_mill");
+    threadMill.diameter = 4.0;
+    threadMill.pitch = 1.5;
+    threadMill.fluteLen = 15.0;
+    threadMill.totalLen = 50.0;
+    threadMill.flutes = 1;
+    threadMill.material = QStringLiteral("硬质合金");
+    addTool(threadMill);
+
     struct DefaultEndMill { const char *name; double dia; int flutes; };
     static const DefaultEndMill endMills[] = {
         {"立铣刀 D3", 3.0, 2},
@@ -246,6 +269,23 @@ void ToolLibrary::loadDefaults()
         addTool(t);
     }
 
+    struct DefaultBallEndMill { const char *name; double dia; int flutes; };
+    static const DefaultBallEndMill ballEndMills[] = {
+        {"球头铣刀 D6", 6.0, 2},
+        {"球头铣刀 D10", 10.0, 2},
+    };
+    for (const auto &d : ballEndMills) {
+        ToolEntry t;
+        t.name = QString::fromUtf8(d.name);
+        t.type = QStringLiteral("ball_end_mill");
+        t.diameter = d.dia;
+        t.fluteLen = d.dia * 3.0;
+        t.totalLen = d.dia * 8.0;
+        t.flutes = d.flutes;
+        t.material = QStringLiteral("硬质合金");
+        addTool(t);
+    }
+
     struct DefaultChamferMill { const char *name; double dia; double angle; };
     static const DefaultChamferMill chamferMills[] = {
         {"倒角刀 D6 90°", 6.0, 90.0},
@@ -262,6 +302,8 @@ void ToolLibrary::loadDefaults()
         t.flutes = 2;
         t.material = QStringLiteral("硬质合金");
         t.extra.insert(QStringLiteral("angle"), d.angle);
+        t.extra.insert(QStringLiteral("includedAngle"), d.angle);
+        t.extra.insert(QStringLiteral("tipRadius"), 0.0);
         assignDefaultToolModel(t);
         addTool(t);
     }

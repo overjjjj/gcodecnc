@@ -16,10 +16,16 @@ namespace {
 static QStringList preferredParamOrder()
 {
     return {
+        QStringLiteral("workOffset"),
+        QStringLiteral("coolantMode"),
+        QStringLiteral("depthMode"),
         QStringLiteral("safeHeight"),
+        QStringLiteral("plungeHeight"),
+        QStringLiteral("referenceHeight"),
         QStringLiteral("feedHeight"),
         QStringLiteral("depth"),
         QStringLiteral("stepDown"),
+        QStringLiteral("stepOver"),
         QStringLiteral("stepover"),
         QStringLiteral("spindleSpeed"),
         QStringLiteral("feedRate"),
@@ -31,15 +37,41 @@ static QStringList preferredParamOrder()
         QStringLiteral("slotWidth"),
         QStringLiteral("angle"),
         QStringLiteral("pitch"),
+        QStringLiteral("threadHandedness"),
+        QStringLiteral("tapRetract"),
+        QStringLiteral("chipBreakRetract"),
         QStringLiteral("chamferWidth"),
         QStringLiteral("chamferAngle"),
+        QStringLiteral("toolTipRadius"),
         QStringLiteral("leadLength"),
         QStringLiteral("compensation"),
         QStringLiteral("helixRadius"),
         QStringLiteral("helixPitch"),
         QStringLiteral("finishStock"),
-        QStringLiteral("slopeDirection")
+        QStringLiteral("slopeDirection"),
+        QStringLiteral("cutDirection"),
+        QStringLiteral("linkMode"),
+        QStringLiteral("boundingRectangle"),
+        QStringLiteral("pathPattern"),
+        QStringLiteral("keepIslands"),
+        QStringLiteral("overcut"),
+        QStringLiteral("startAtMidpoint")
     };
+}
+
+QString UnitText(ProcessParameterUnit unit)
+{
+    switch (unit) {
+    case ProcessParameterUnit::Millimeter:
+        return QStringLiteral("mm");
+    case ProcessParameterUnit::MillimeterPerMinute:
+        return QStringLiteral("mm/min");
+    case ProcessParameterUnit::RevolutionPerMinute:
+        return QStringLiteral("r/min");
+    case ProcessParameterUnit::None:
+        return QString();
+    }
+    return QString();
 }
 
 } // namespace
@@ -53,10 +85,11 @@ ParameterEditorDialog::ParameterEditorDialog(QWidget *parent)
 {
     setModal(true);
     resize(500, 560);
+    m_table->setObjectName(QStringLiteral("parameterTable"));
 
     m_hintLabel->setWordWrap(true);
 
-    m_table->setColumnCount(2);
+    m_table->setColumnCount(4);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->verticalHeader()->setVisible(false);
 
@@ -95,10 +128,14 @@ void ParameterEditorDialog::setChineseUi(bool enabled)
     m_showAdvancedCheck->setText(
         m_chineseUi ? QStringLiteral("显示高级参数") : QStringLiteral("Show advanced parameters"));
     m_restoreDefaultsButton->setText(
-        m_chineseUi ? QStringLiteral("恢复默认值") : QStringLiteral("Restore defaults"));
+        m_templateId.isEmpty()
+            ? (m_chineseUi ? QStringLiteral("恢复默认值") : QStringLiteral("Restore defaults"))
+            : (m_chineseUi ? QStringLiteral("恢复模板值") : QStringLiteral("Restore template")));
     m_table->setHorizontalHeaderLabels({
         m_chineseUi ? QStringLiteral("参数") : QStringLiteral("Parameter"),
-        m_chineseUi ? QStringLiteral("数值") : QStringLiteral("Value")
+        m_chineseUi ? QStringLiteral("数值") : QStringLiteral("Value"),
+        m_chineseUi ? QStringLiteral("单位") : QStringLiteral("Unit"),
+        m_chineseUi ? QStringLiteral("来源") : QStringLiteral("Source")
     });
 }
 
@@ -123,6 +160,36 @@ void ParameterEditorDialog::setAllowAnyValueKeys(const QSet<QString> &keys)
     m_allowAnyValueKeys = keys;
 }
 
+void ParameterEditorDialog::setParameterSchema(const ProcessParameterSchema &schema)
+{
+    m_schema = schema;
+    if (!m_params.values.isEmpty()) {
+        rebuildTable(m_params);
+    }
+}
+
+void ParameterEditorDialog::setParameterSources(
+    const QMap<QString, ProcessParameterSource> &sources)
+{
+    m_parameterSources = sources;
+    if (!m_params.values.isEmpty()) {
+        rebuildTable(m_params);
+    }
+}
+
+void ParameterEditorDialog::setTemplateParams(
+    const StrategyParams &params,
+    const QString &template_id,
+    const QString &template_version,
+    const QMap<QString, ProcessParameterSource> &sources)
+{
+    m_defaultParams = params;
+    m_templateId = template_id;
+    m_templateVersion = template_version;
+    m_templateSources = sources;
+    setChineseUi(m_chineseUi);
+}
+
 void ParameterEditorDialog::setDefaultParams(const StrategyParams &params)
 {
     m_defaultParams = params;
@@ -137,6 +204,16 @@ void ParameterEditorDialog::setParams(const StrategyParams &params)
 StrategyParams ParameterEditorDialog::params() const
 {
     return m_params;
+}
+
+QString ParameterEditorDialog::templateDescription() const
+{
+    if (m_templateId.isEmpty()) {
+        return QString();
+    }
+    return m_templateVersion.isEmpty()
+        ? m_templateId
+        : QStringLiteral("%1 (%2)").arg(m_templateId, m_templateVersion);
 }
 
 void ParameterEditorDialog::onAccept()
@@ -164,7 +241,19 @@ void ParameterEditorDialog::onAccept()
 
 void ParameterEditorDialog::onRestoreDefaults()
 {
-    rebuildTable(m_defaultParams.values.isEmpty() ? m_params : m_defaultParams);
+    if (m_defaultParams.values.isEmpty()) {
+        rebuildTable(m_params);
+        return;
+    }
+    StrategyParams restored = m_params;
+    for (auto it = m_defaultParams.values.cbegin();
+         it != m_defaultParams.values.cend(); ++it) {
+        restored.values.insert(it.key(), it.value());
+        m_parameterSources.insert(
+            it.key(), m_templateSources.value(
+                          it.key(), ProcessParameterSource::SystemDefault));
+    }
+    rebuildTable(restored);
 }
 
 void ParameterEditorDialog::onShowAdvancedToggled(bool)
@@ -185,6 +274,12 @@ void ParameterEditorDialog::rebuildTable(const StrategyParams &params)
         nameItem->setFlags(Qt::ItemIsEnabled);
         m_table->setItem(row, 0, nameItem);
         m_table->setItem(row, 1, new QTableWidgetItem(params.values.value(key).toString()));
+        auto *unit_item = new QTableWidgetItem(unitForKey(key));
+        unit_item->setFlags(Qt::ItemIsEnabled);
+        m_table->setItem(row, 2, unit_item);
+        auto *source_item = new QTableWidgetItem(sourceForKey(key));
+        source_item->setFlags(Qt::ItemIsEnabled);
+        m_table->setItem(row, 3, source_item);
         ++row;
     }
 
@@ -212,8 +307,37 @@ QString ParameterEditorDialog::labelForKey(const QString &key) const
     return m_labels.value(key, key);
 }
 
+QString ParameterEditorDialog::unitForKey(const QString &key) const
+{
+    const ProcessParameterDefinition *definition = m_schema.definition(key);
+    return definition ? UnitText(definition->unit) : QString();
+}
+
+QString ParameterEditorDialog::sourceForKey(const QString &key) const
+{
+    const ProcessParameterSource source = m_parameterSources.value(
+        key, ProcessParameterSource::SystemDefault);
+    if (!m_chineseUi) {
+        return ProcessParameterSourceName(source);
+    }
+    switch (source) {
+    case ProcessParameterSource::SystemDefault:
+        return QStringLiteral("系统默认");
+    case ProcessParameterSource::MaterialTemplate:
+        return QStringLiteral("材料模板");
+    case ProcessParameterSource::ToolTypeTemplate:
+        return QStringLiteral("刀具模板");
+    case ProcessParameterSource::ModuleRule:
+        return QStringLiteral("模块规则");
+    case ProcessParameterSource::ManualOverride:
+        return QStringLiteral("人工覆盖");
+    }
+    return QString();
+}
+
 QString ParameterEditorDialog::validationError() const
 {
+    StrategyParams candidate;
     for (int row = 0; row < m_table->rowCount(); ++row) {
         const QTableWidgetItem *nameItem = m_table->item(row, 0);
         const QTableWidgetItem *valueItem = m_table->item(row, 1);
@@ -230,8 +354,24 @@ QString ParameterEditorDialog::validationError() const
                 ? QStringLiteral("%1 必须是数字。").arg(label)
                 : QStringLiteral("%1 must be numeric.").arg(label);
         }
+        candidate.set(key, value);
+
+        if (key == QStringLiteral("workOffset") &&
+            (value < 54.0 || value > 59.0 || value != static_cast<int>(value))) {
+            return m_chineseUi
+                ? QStringLiteral("%1 必须是 G54-G59 的整数。").arg(label)
+                : QStringLiteral("%1 must be an integer from G54-G59.").arg(label);
+        }
+        if (key == QStringLiteral("depthMode") && value != 0.0) {
+            return m_chineseUi
+                ? QStringLiteral("当前仅支持绝对深度模式（0）。").arg(label)
+                : QStringLiteral("Only absolute depth mode (0) is currently supported.").arg(label);
+        }
 
         if (m_allowAnyValueKeys.contains(key)) {
+            continue;
+        }
+        if (m_schema.definition(key)) {
             continue;
         }
         if (m_nonNegativeKeys.contains(key)) {
@@ -247,6 +387,10 @@ QString ParameterEditorDialog::validationError() const
                 ? QStringLiteral("%1 必须大于 0。").arg(label)
                 : QStringLiteral("%1 must be greater than 0.").arg(label);
         }
+    }
+    const QStringList schema_errors = m_schema.validate(candidate);
+    if (!m_schema.definitions().isEmpty() && !schema_errors.isEmpty()) {
+        return schema_errors.first();
     }
     return QString();
 }

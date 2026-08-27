@@ -5,7 +5,7 @@
 struct ToolEntry {
     int     id       = 0;
     QString name;
-    QString type;    // drill, tap, reamer, spot_drill, end_mill, chamfer_mill, ...
+    QString type;    // drill, tap, reamer, boring_bar, thread_mill, end_mill, ...
     double  diameter = 0.0;
     double  fluteLen = 0.0;
     double  totalLen = 0.0;
