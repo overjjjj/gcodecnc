@@ -273,5 +273,25 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QJsonObject duplicate_thread =
+        QJsonDocument::fromJson(ValidJson()).object();
+    QJsonArray specifications = duplicate_thread.value(
+        QStringLiteral("threadSpecifications")).toArray();
+    QJsonObject second_specification = specifications.first().toObject();
+    second_specification.insert(QStringLiteral("id"),
+                                QStringLiteral("metric-m10-duplicate"));
+    specifications.append(second_specification);
+    duplicate_thread.insert(QStringLiteral("threadSpecifications"),
+                            specifications);
+    const AutomationTemplateParseResult duplicate_specification =
+        AutomationTemplateDocument::FromJson(
+            QJsonDocument(duplicate_thread).toJson(QJsonDocument::Compact));
+    if (!Expect(!duplicate_specification.ok &&
+                    HasError(duplicate_specification,
+                             QStringLiteral("duplicate thread specification")),
+                "thread system, standard and designation should form a unique key")) {
+        return 1;
+    }
+
     return 0;
 }
