@@ -92,6 +92,27 @@ bool RequireInteger(const QJsonObject &object,
     return true;
 }
 
+bool RequireSignedInteger(const QJsonObject &object,
+                          const QString &key,
+                          const QString &path,
+                          QStringList *errors,
+                          int *value)
+{
+    double number = 0.0;
+    if (!RequireNumber(object, key, path, errors, &number)) {
+        return false;
+    }
+    if (number != std::floor(number)
+        || number < static_cast<double>(std::numeric_limits<int>::min())
+        || number > static_cast<double>(std::numeric_limits<int>::max())) {
+        AddError(errors, path + QLatin1Char('.') + key,
+                 QStringLiteral("must be an integer"));
+        return false;
+    }
+    *value = static_cast<int>(number);
+    return true;
+}
+
 bool RequireBool(const QJsonObject &object,
                  const QString &key,
                  const QString &path,
@@ -121,6 +142,35 @@ bool RequireArray(const QJsonObject &object,
         return false;
     }
     *value = json_value.toArray();
+    return true;
+}
+
+bool RequireStringArray(const QJsonObject &object,
+                        const QString &key,
+                        const QString &path,
+                        QStringList *errors,
+                        QStringList *values)
+{
+    QJsonArray array;
+    if (!RequireArray(object, key, path, errors, &array)) {
+        return false;
+    }
+    if (array.isEmpty()) {
+        AddError(errors, path + QLatin1Char('.') + key,
+                 QStringLiteral("must not be empty"));
+        return false;
+    }
+    for (int index = 0; index < array.size(); ++index) {
+        const QJsonValue value = array.at(index);
+        const QString item_path =
+            path + QStringLiteral(".%1[%2]").arg(key).arg(index);
+        if (!value.isString() || value.toString().trimmed().isEmpty()) {
+            AddError(errors, item_path,
+                     QStringLiteral("must be a non-empty string"));
+            continue;
+        }
+        values->append(value.toString());
+    }
     return true;
 }
 
@@ -355,6 +405,133 @@ ToolCuttingParameterSet ParseToolCuttingParameterSet(
     return set;
 }
 
+HoleRuleDefinition ParseHoleRuleDefinition(const QJsonObject &object,
+                                           const QString &path,
+                                           QStringList *errors)
+{
+    RejectUnknownFields(
+        object,
+        {QStringLiteral("ruleVersion"), QStringLiteral("effectiveFrom"),
+         QStringLiteral("effectiveTo"), QStringLiteral("priority"),
+         QStringLiteral("enabled"), QStringLiteral("materials"),
+         QStringLiteral("machineProfiles"),
+         QStringLiteral("layerConditions"), QStringLiteral("planId"),
+         QStringLiteral("planVersion"), QStringLiteral("planStepIds"),
+         QStringLiteral("sourceRef")},
+        path, errors);
+    HoleRuleDefinition definition;
+    RequireString(object, QStringLiteral("ruleVersion"), path, errors,
+                  &definition.ruleVersion);
+    RequireString(object, QStringLiteral("effectiveFrom"), path, errors,
+                  &definition.effectiveFrom);
+    RequireString(object, QStringLiteral("effectiveTo"), path, errors,
+                  &definition.effectiveTo, true);
+    RequireSignedInteger(object, QStringLiteral("priority"), path, errors,
+                         &definition.priority);
+    RequireBool(object, QStringLiteral("enabled"), path, errors,
+                &definition.enabled);
+    RequireStringArray(object, QStringLiteral("materials"), path, errors,
+                       &definition.materials);
+    RequireStringArray(object, QStringLiteral("machineProfiles"), path, errors,
+                       &definition.machineProfiles);
+    RequireString(object, QStringLiteral("planId"), path, errors,
+                  &definition.planId);
+    RequireString(object, QStringLiteral("planVersion"), path, errors,
+                  &definition.planVersion);
+    RequireStringArray(object, QStringLiteral("planStepIds"), path, errors,
+                       &definition.planStepIds);
+    RequireString(object, QStringLiteral("sourceRef"), path, errors,
+                  &definition.sourceRef);
+
+    if (!QDate::fromString(definition.effectiveFrom, Qt::ISODate).isValid()) {
+        AddError(errors, path + QStringLiteral(".effectiveFrom"),
+                 QStringLiteral("must be a valid ISO date"));
+    }
+    if (!definition.effectiveTo.isEmpty()
+        && !QDate::fromString(definition.effectiveTo, Qt::ISODate).isValid()) {
+        AddError(errors, path + QStringLiteral(".effectiveTo"),
+                 QStringLiteral("must be a valid ISO date"));
+    }
+    if (!definition.effectiveTo.isEmpty()
+        && definition.effectiveTo < definition.effectiveFrom) {
+        AddError(errors, path + QStringLiteral(".effectiveTo"),
+                 QStringLiteral("must not precede effectiveFrom"));
+    }
+    if (definition.planStepIds.size() > 11) {
+        AddError(errors, path + QStringLiteral(".planStepIds"),
+                 QStringLiteral("must contain at most 11 steps"));
+    }
+    QSet<QString> plan_step_ids;
+    for (const QString &step_id : definition.planStepIds) {
+        if (plan_step_ids.contains(step_id)) {
+            AddError(errors, path + QStringLiteral(".planStepIds"),
+                     QStringLiteral("must not contain duplicate step IDs"));
+        }
+        plan_step_ids.insert(step_id);
+    }
+
+    QJsonArray conditions;
+    RequireArray(object, QStringLiteral("layerConditions"), path, errors,
+                 &conditions);
+    if (conditions.isEmpty()) {
+        AddError(errors, path + QStringLiteral(".layerConditions"),
+                 QStringLiteral("must not be empty"));
+    }
+    const QSet<QString> allowed_kinds{QStringLiteral("cylindrical"),
+                                      QStringLiteral("conical_countersink")};
+    for (int index = 0; index < conditions.size(); ++index) {
+        const QString condition_path =
+            path + QStringLiteral(".layerConditions[%1]").arg(index);
+        if (!conditions.at(index).isObject()) {
+            AddError(errors, condition_path, QStringLiteral("must be an object"));
+            continue;
+        }
+        const QJsonObject condition_object = conditions.at(index).toObject();
+        RejectUnknownFields(
+            condition_object,
+            {QStringLiteral("ordinal"), QStringLiteral("acceptedKinds"),
+             QStringLiteral("lowerMm"), QStringLiteral("upperMm"),
+             QStringLiteral("lowerClosed"), QStringLiteral("upperClosed")},
+            condition_path, errors);
+        HoleRuleLayerCondition condition;
+        RequireInteger(condition_object, QStringLiteral("ordinal"),
+                       condition_path, errors, &condition.ordinal);
+        RequireStringArray(condition_object, QStringLiteral("acceptedKinds"),
+                           condition_path, errors, &condition.acceptedKinds);
+        RequireNumber(condition_object, QStringLiteral("lowerMm"),
+                      condition_path, errors, &condition.lowerMm);
+        RequireNumber(condition_object, QStringLiteral("upperMm"),
+                      condition_path, errors, &condition.upperMm);
+        RequireBool(condition_object, QStringLiteral("lowerClosed"),
+                    condition_path, errors, &condition.lowerClosed);
+        RequireBool(condition_object, QStringLiteral("upperClosed"),
+                    condition_path, errors, &condition.upperClosed);
+        if (condition.ordinal != index + 1) {
+            AddError(errors, condition_path + QStringLiteral(".ordinal"),
+                     QStringLiteral("must be consecutive starting at 1"));
+        }
+        RequirePositive(condition.lowerMm,
+                        condition_path + QStringLiteral(".lowerMm"), errors);
+        if (condition.upperMm < condition.lowerMm) {
+            AddError(errors, condition_path + QStringLiteral(".upperMm"),
+                     QStringLiteral("must be at least lowerMm"));
+        }
+        if (condition.upperMm == condition.lowerMm
+            && (!condition.lowerClosed || !condition.upperClosed)) {
+            AddError(errors, condition_path,
+                     QStringLiteral("an open zero-width diameter range is empty"));
+        }
+        for (const QString &kind : condition.acceptedKinds) {
+            if (!allowed_kinds.contains(kind)) {
+                AddError(errors, condition_path + QStringLiteral(".acceptedKinds"),
+                         QStringLiteral("contains an unsupported layer kind"));
+            }
+        }
+        definition.layerConditions.append(condition);
+    }
+    return definition;
+}
+
 FeatureMatchingRule ParseFeatureMatchingRule(const QJsonObject &object,
                                              const QString &path,
                                              QStringList *errors)
@@ -364,7 +541,8 @@ FeatureMatchingRule ParseFeatureMatchingRule(const QJsonObject &object,
         {QStringLiteral("id"), QStringLiteral("featureKind"),
          QStringLiteral("category"), QStringLiteral("minimumSizeMm"),
          QStringLiteral("maximumSizeMm"), QStringLiteral("diameterBands"),
-         QStringLiteral("closed"), QStringLiteral("through")},
+         QStringLiteral("closed"), QStringLiteral("through"),
+         QStringLiteral("holeRule")},
         path, errors);
     FeatureMatchingRule rule;
     RequireString(object, QStringLiteral("id"), path, errors, &rule.id);
@@ -421,6 +599,21 @@ FeatureMatchingRule ParseFeatureMatchingRule(const QJsonObject &object,
         rule.featureKind != QStringLiteral("frame")) {
         AddError(errors, path + QStringLiteral(".featureKind"),
                  QStringLiteral("must be 'hole' or 'frame'"));
+    }
+    if (object.contains(QStringLiteral("holeRule"))) {
+        const QString hole_rule_path = path + QStringLiteral(".holeRule");
+        if (!object.value(QStringLiteral("holeRule")).isObject()) {
+            AddError(errors, hole_rule_path, QStringLiteral("must be an object"));
+        } else {
+            rule.hasHoleRuleDefinition = true;
+            rule.holeRule = ParseHoleRuleDefinition(
+                object.value(QStringLiteral("holeRule")).toObject(),
+                hole_rule_path, errors);
+            if (rule.featureKind != QStringLiteral("hole")) {
+                AddError(errors, hole_rule_path,
+                         QStringLiteral("is only supported for hole rules"));
+            }
+        }
     }
     RequirePositive(rule.minimumSizeMm,
                     path + QStringLiteral(".minimumSizeMm"), errors);
@@ -785,6 +978,36 @@ QJsonObject ToolSetToJson(const ToolCuttingParameterSet &set)
             {QStringLiteral("coolant"), set.coolant}};
 }
 
+QJsonObject HoleRuleToJson(const HoleRuleDefinition &definition)
+{
+    QJsonArray layer_conditions;
+    for (const HoleRuleLayerCondition &condition : definition.layerConditions) {
+        layer_conditions.append(QJsonObject{
+            {QStringLiteral("ordinal"), condition.ordinal},
+            {QStringLiteral("acceptedKinds"),
+             QJsonArray::fromStringList(condition.acceptedKinds)},
+            {QStringLiteral("lowerMm"), condition.lowerMm},
+            {QStringLiteral("upperMm"), condition.upperMm},
+            {QStringLiteral("lowerClosed"), condition.lowerClosed},
+            {QStringLiteral("upperClosed"), condition.upperClosed}});
+    }
+    return {{QStringLiteral("ruleVersion"), definition.ruleVersion},
+            {QStringLiteral("effectiveFrom"), definition.effectiveFrom},
+            {QStringLiteral("effectiveTo"), definition.effectiveTo},
+            {QStringLiteral("priority"), definition.priority},
+            {QStringLiteral("enabled"), definition.enabled},
+            {QStringLiteral("materials"),
+             QJsonArray::fromStringList(definition.materials)},
+            {QStringLiteral("machineProfiles"),
+             QJsonArray::fromStringList(definition.machineProfiles)},
+            {QStringLiteral("layerConditions"), layer_conditions},
+            {QStringLiteral("planId"), definition.planId},
+            {QStringLiteral("planVersion"), definition.planVersion},
+            {QStringLiteral("planStepIds"),
+             QJsonArray::fromStringList(definition.planStepIds)},
+            {QStringLiteral("sourceRef"), definition.sourceRef}};
+}
+
 QJsonObject FeatureRuleToJson(const FeatureMatchingRule &rule)
 {
     QJsonArray bands;
@@ -795,14 +1018,18 @@ QJsonObject FeatureRuleToJson(const FeatureMatchingRule &rule)
             {QStringLiteral("minimumInclusive"), band.minimumInclusive},
             {QStringLiteral("maximumInclusive"), band.maximumInclusive}});
     }
-    return {{QStringLiteral("id"), rule.id},
-            {QStringLiteral("featureKind"), rule.featureKind},
-            {QStringLiteral("category"), rule.category},
-            {QStringLiteral("minimumSizeMm"), rule.minimumSizeMm},
-            {QStringLiteral("maximumSizeMm"), rule.maximumSizeMm},
-            {QStringLiteral("diameterBands"), bands},
-            {QStringLiteral("closed"), rule.closed},
-            {QStringLiteral("through"), rule.through}};
+    QJsonObject object{{QStringLiteral("id"), rule.id},
+                       {QStringLiteral("featureKind"), rule.featureKind},
+                       {QStringLiteral("category"), rule.category},
+                       {QStringLiteral("minimumSizeMm"), rule.minimumSizeMm},
+                       {QStringLiteral("maximumSizeMm"), rule.maximumSizeMm},
+                       {QStringLiteral("diameterBands"), bands},
+                       {QStringLiteral("closed"), rule.closed},
+                       {QStringLiteral("through"), rule.through}};
+    if (rule.hasHoleRuleDefinition) {
+        object.insert(QStringLiteral("holeRule"), HoleRuleToJson(rule.holeRule));
+    }
+    return object;
 }
 
 QJsonObject PlanStepToJson(const AutomationMachiningPlanStep &step)

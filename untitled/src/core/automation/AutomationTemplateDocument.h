@@ -31,6 +31,30 @@ struct ToolCuttingParameterSet {
     QString coolant;
 };
 
+struct HoleRuleLayerCondition {
+    int ordinal = 0;
+    QStringList acceptedKinds;
+    double lowerMm = 0.0;
+    double upperMm = 0.0;
+    bool lowerClosed = false;
+    bool upperClosed = false;
+};
+
+struct HoleRuleDefinition {
+    QString ruleVersion;
+    QString effectiveFrom;
+    QString effectiveTo;
+    int priority = 0;
+    bool enabled = false;
+    QStringList materials;
+    QStringList machineProfiles;
+    QList<HoleRuleLayerCondition> layerConditions;
+    QString planId;
+    QString planVersion;
+    QStringList planStepIds;
+    QString sourceRef;
+};
+
 struct FeatureMatchingRule {
     QString id;
     QString featureKind;
@@ -40,6 +64,8 @@ struct FeatureMatchingRule {
     QList<DiameterBand> diameterBands;
     bool closed = false;
     bool through = false;
+    bool hasHoleRuleDefinition = false;
+    HoleRuleDefinition holeRule;
 };
 
 struct AutomationMachiningPlanStep {
