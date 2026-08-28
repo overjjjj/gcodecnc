@@ -639,6 +639,12 @@ DeepHoleStageParameters ParseDeepHoleStageParameters(
     }
     RequirePositive(parameters.peckReductionMm,
                     path + QStringLiteral(".peckReductionMm"), errors);
+    if (parameters.guideEnabled || parameters.slowEntryEnabled ||
+        parameters.breakthroughEnabled || parameters.transitionEnabled) {
+        AddError(errors, path,
+                 QStringLiteral(
+                     "position-based deep-hole stages require confirmed reference semantics"));
+    }
     if (parameters.variableSpeedEnabled) {
         AddError(errors, path + QStringLiteral(".variableSpeedEnabled"),
                  QStringLiteral("variable speed staging is unsupported"));
