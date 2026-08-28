@@ -15,6 +15,17 @@ bool Expect(bool condition, const char *message)
     return true;
 }
 
+bool HasReason(const HoleRuleMatchResult &result, const QString &code,
+               const QString &field_path)
+{
+    for (const HoleRuleMatchReason &reason : result.reasons) {
+        if (reason.code == code && reason.fieldPath == field_path) {
+            return true;
+        }
+    }
+    return false;
+}
+
 VersionedCatalogReference MakeReference(const QString &id,
                                         const QString &catalog_id,
                                         const QString &catalog_version)
@@ -281,6 +292,116 @@ bool TestPlanValidationAndSemanticGate()
                   "an invalid normalized source slot should reject the rule");
 }
 
+bool TestRequiredFeatureFieldsAndEvidence()
+{
+    AutomationTemplateDocument document = MakeDocument();
+    document.featureMatchingRules = {
+        MakeRule(QStringLiteral("rule"), 20, 3.0, true, 8.0, true,
+                 {QStringLiteral("drill-core")})
+    };
+    HoleRuleMatchRequest request = MakeRequest();
+    request.feature.setupRef.clear();
+    HoleRuleMatchResult result =
+        AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("SETUP_UNCONFIRMED"),
+                          QStringLiteral("feature.setupRef")),
+                "a missing setup reference should be rejected")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.feature.geometryRevision.clear();
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("GEOMETRY_REF_MISSING"),
+                          QStringLiteral("feature.geometryRevision")),
+                "a missing geometry revision should be rejected")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.feature.category.clear();
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("GEOMETRY_UNSUPPORTED"),
+                          QStringLiteral("feature.category")),
+                "a missing feature category should be rejected")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.feature.layers.first().sourceToleranceRef.clear();
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("LAYER_GEOMETRY_INVALID"),
+                          QStringLiteral(
+                              "feature.layers[0].sourceToleranceRef")),
+                "a missing source tolerance reference should be rejected")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.feature.rejectionEvidence =
+        QStringList{QStringLiteral("non-manifold layer")};
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    return Expect(HasReason(result, QStringLiteral("GEOMETRY_UNSUPPORTED"),
+                            QStringLiteral("feature.rejectionEvidence"))
+                      && !result.reasons.isEmpty()
+                      && result.reasons.first().message
+                          .contains(QStringLiteral("non-manifold layer")),
+                  "upstream rejection evidence should be retained and rejected");
+}
+
+bool TestLayerContinuityAndRuleCatalogIdentity()
+{
+    AutomationTemplateDocument document = MakeDocument();
+    FeatureMatchingRule rule = MakeRule(
+        QStringLiteral("two-layer"), 20, 3.0, true, 8.0, true,
+        {QStringLiteral("drill-core")});
+    HoleRuleLayerCondition second = rule.holeRule.layerConditions.first();
+    second.ordinal = 2;
+    second.lowerMm = 8.0;
+    second.upperMm = 12.0;
+    rule.holeRule.layerConditions.append(second);
+    document.featureMatchingRules = {rule};
+    HoleRuleMatchRequest request = MakeRequest();
+    HoleRuleLayerInput second_layer = request.feature.layers.first();
+    second_layer.ordinal = 2;
+    second_layer.diameterMm = 10.0;
+    second_layer.startPlaneMm = -9.0;
+    second_layer.endPlaneMm = -20.0;
+    request.feature.layers.append(second_layer);
+    HoleRuleMatchResult result =
+        AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("LAYER_SEQUENCE_INVALID"),
+                          QStringLiteral("feature.layers[1].startPlaneMm")),
+                "a gap between adjacent layers should be rejected exactly")) {
+        return false;
+    }
+    request.feature.layers[1].startPlaneMm = -11.0;
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    if (!Expect(HasReason(result, QStringLiteral("LAYER_SEQUENCE_INVALID"),
+                          QStringLiteral("feature.layers[1].startPlaneMm")),
+                "an overlap between adjacent layers should be rejected exactly")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.ruleCatalogRef.id = QStringLiteral("other-rules");
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    return Expect(HasReason(result, QStringLiteral("CATALOG_VERSION_MISSING"),
+                            QStringLiteral("ruleCatalogRef.id")),
+                  "the rule catalog identity should not be ignored");
+}
+
+bool TestUnprovenStartExpressionIsRejected()
+{
+    AutomationTemplateDocument document = MakeDocument();
+    document.featureMatchingRules = {
+        MakeRule(QStringLiteral("rule"), 20, 3.0, true, 8.0, true,
+                 {QStringLiteral("drill-core")})
+    };
+    document.machiningPlanSteps.first().startExpression = QStringLiteral("5");
+    const HoleRuleMatchResult result =
+        AutoHoleRuleMatchingService::Match(document, MakeRequest());
+    return Expect(result.state == HoleRuleMatchState::Rejected
+                      && HasReason(result, QStringLiteral("FORMULA_REJECTED"),
+                                   QStringLiteral("holeRule.planStepIds[0]")),
+                  "a start expression without an approved geometric meaning should reject");
+}
+
 bool TestInputRejectionDoesNotMutateDocument()
 {
     AutomationTemplateDocument document = MakeDocument();
@@ -310,6 +431,9 @@ int main(int argc, char **argv)
 
     if (!TestExplicitEndpointsAndEligibility() || !TestPriorityAndLayerMatching()
         || !TestPlanValidationAndSemanticGate()
+        || !TestRequiredFeatureFieldsAndEvidence()
+        || !TestLayerContinuityAndRuleCatalogIdentity()
+        || !TestUnprovenStartExpressionIsRejected()
         || !TestInputRejectionDoesNotMutateDocument()) {
         return 1;
     }
