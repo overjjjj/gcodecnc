@@ -118,6 +118,7 @@ SOURCES += \
     src/services/SlotFramePlanningService.cpp \
     src/services/ProcessTemplateService.cpp \
     src/services/RestrictedFormulaEvaluator.cpp \
+    src/services/ToolCuttingParameterService.cpp \
     src/simulation/SimulationController.cpp \
     src/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
@@ -228,6 +229,7 @@ HEADERS += \
     src/services/SlotFramePlanningService.h \
     src/services/ProcessTemplateService.h \
     src/services/RestrictedFormulaEvaluator.h \
+    src/services/ToolCuttingParameterService.h \
     src/simulation/SimulationController.h \
     src/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \

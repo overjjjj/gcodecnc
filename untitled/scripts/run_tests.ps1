@@ -169,6 +169,11 @@ try {
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
+        -Name "tool_cutting_parameter_service_test" `
+        -Sources @("tests\tool_cutting_parameter_service_test.cpp", "src\services\ToolCuttingParameterService.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
         -Name "process_template_library_test" `
         -Sources @("tests\process_template_library_test.cpp", "src\core\ProcessTemplateLibrary.cpp", "src\services\ProcessTemplateService.cpp", "src\services\OperationFactory.cpp", "src\core\ProcessContext.cpp", "src\core\ProcessParameterSchema.cpp", "src\strategies\OperationProposal.cpp", "src\core\FeatureIdentity.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
