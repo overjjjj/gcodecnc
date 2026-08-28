@@ -920,6 +920,21 @@ AutomationTemplateParseResult AutomationTemplateDocument::FromJson(
             root, QStringLiteral("threadSpecifications"), &result.errors,
             ParseThreadSpecification);
 
+    QSet<QString> thread_keys;
+    for (const ThreadSpecification &specification :
+         result.document.threadSpecifications) {
+        const QString key = specification.system + QLatin1Char('\n') +
+                            specification.standard + QLatin1Char('\n') +
+                            specification.designation;
+        if (thread_keys.contains(key)) {
+            AddError(&result.errors,
+                     QStringLiteral("threadSpecifications"),
+                     QStringLiteral("duplicate thread specification key for '%1'")
+                         .arg(specification.designation));
+        }
+        thread_keys.insert(key);
+    }
+
     for (int left = 0;
          left < result.document.toolCuttingParameterSets.size(); ++left) {
         const ToolCuttingParameterSet &first =
