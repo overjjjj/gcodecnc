@@ -65,11 +65,11 @@ FeatureMatchingRule MakeRule(const QString &id, int priority, double lower,
     rule.holeRule.effectiveTo = QStringLiteral("2026-08-31");
     rule.holeRule.priority = priority;
     rule.holeRule.enabled = true;
-    rule.holeRule.materials = {QStringLiteral("aluminum-6061")};
-    rule.holeRule.machineProfiles = {QStringLiteral("front-z-3axis")};
+    rule.holeRule.materials = QStringList{QStringLiteral("aluminum-6061")};
+    rule.holeRule.machineProfiles = QStringList{QStringLiteral("front-z-3axis")};
     HoleRuleLayerCondition condition;
     condition.ordinal = 1;
-    condition.acceptedKinds = {QStringLiteral("cylindrical")};
+    condition.acceptedKinds = QStringList{QStringLiteral("cylindrical")};
     condition.lowerMm = lower;
     condition.upperMm = upper;
     condition.lowerClosed = lower_closed;
