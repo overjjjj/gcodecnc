@@ -20,6 +20,7 @@ TRANSLATIONS += \
 
 SOURCES += \
     src/core/geometry2d/ToolpathGeometry2D.cpp \
+    src/core/automation/AutomationTemplateDocument.cpp \
     main.cpp \
     src/core/AppController.cpp \
     src/core/ProjectManager.cpp \
@@ -124,6 +125,7 @@ SOURCES += \
 
 HEADERS += \
     src/core/geometry2d/ToolpathGeometry2D.h \
+    src/core/automation/AutomationTemplateDocument.h \
     src/core/AppController.h \
     src/core/MachineProfile.h \
     src/core/MachineProfileValidator.h \

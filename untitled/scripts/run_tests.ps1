@@ -164,6 +164,11 @@ try {
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
+        -Name "automation_template_json_test" `
+        -Sources @("tests\automation_template_json_test.cpp", "src\core\automation\AutomationTemplateDocument.cpp", "src\services\RestrictedFormulaEvaluator.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
         -Name "process_template_library_test" `
         -Sources @("tests\process_template_library_test.cpp", "src\core\ProcessTemplateLibrary.cpp", "src\services\ProcessTemplateService.cpp", "src\services\OperationFactory.cpp", "src\core\ProcessContext.cpp", "src\core\ProcessParameterSchema.cpp", "src\strategies\OperationProposal.cpp", "src\core\FeatureIdentity.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
