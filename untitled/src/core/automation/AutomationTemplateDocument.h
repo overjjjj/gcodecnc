@@ -81,6 +81,12 @@ struct AutomationMachiningPlanStep {
     bool cornerInsertionEnabled = false;
     bool dynamicMillingEnabled = false;
     bool threeDMachiningEnabled = false;
+    bool hasHolePlanStepDefinition = false;
+    int sourceSlot = 0;
+    int sequence = 0;
+    int layerOrdinal = 0;
+    bool countersinkStep = false;
+    QString coolantCompat;
 };
 
 struct DeepHoleStageParameters {

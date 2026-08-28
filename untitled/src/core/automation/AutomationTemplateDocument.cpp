@@ -654,7 +654,8 @@ AutomationMachiningPlanStep ParseMachiningPlanStep(
          QStringLiteral("unsupportedReason"),
          QStringLiteral("cornerInsertionEnabled"),
          QStringLiteral("dynamicMillingEnabled"),
-         QStringLiteral("threeDMachiningEnabled")},
+         QStringLiteral("threeDMachiningEnabled"),
+         QStringLiteral("holePlanStep")},
         path, errors);
     AutomationMachiningPlanStep step;
     RequireString(object, QStringLiteral("id"), path, errors, &step.id);
@@ -702,6 +703,44 @@ AutomationMachiningPlanStep ParseMachiningPlanStep(
     if (step.threeDMachiningEnabled) {
         AddError(errors, path + QStringLiteral(".threeDMachiningEnabled"),
                  QStringLiteral("3D machining is unsupported"));
+    }
+    if (object.contains(QStringLiteral("holePlanStep"))) {
+        const QString hole_step_path = path + QStringLiteral(".holePlanStep");
+        if (!object.value(QStringLiteral("holePlanStep")).isObject()) {
+            AddError(errors, hole_step_path, QStringLiteral("must be an object"));
+            return step;
+        }
+        const QJsonObject hole_step =
+            object.value(QStringLiteral("holePlanStep")).toObject();
+        RejectUnknownFields(
+            hole_step,
+            {QStringLiteral("sourceSlot"), QStringLiteral("sequence"),
+             QStringLiteral("layerOrdinal"), QStringLiteral("countersinkStep"),
+             QStringLiteral("coolantCompat")},
+            hole_step_path, errors);
+        step.hasHolePlanStepDefinition = true;
+        RequireInteger(hole_step, QStringLiteral("sourceSlot"), hole_step_path,
+                       errors, &step.sourceSlot);
+        RequireInteger(hole_step, QStringLiteral("sequence"), hole_step_path,
+                       errors, &step.sequence);
+        RequireInteger(hole_step, QStringLiteral("layerOrdinal"), hole_step_path,
+                       errors, &step.layerOrdinal);
+        RequireBool(hole_step, QStringLiteral("countersinkStep"), hole_step_path,
+                    errors, &step.countersinkStep);
+        RequireString(hole_step, QStringLiteral("coolantCompat"), hole_step_path,
+                      errors, &step.coolantCompat, true);
+        if (step.sourceSlot < 1 || step.sourceSlot > 11) {
+            AddError(errors, hole_step_path + QStringLiteral(".sourceSlot"),
+                     QStringLiteral("must be in 1..11"));
+        }
+        if (step.sequence < 1) {
+            AddError(errors, hole_step_path + QStringLiteral(".sequence"),
+                     QStringLiteral("must be greater than zero"));
+        }
+        if (step.layerOrdinal < 1) {
+            AddError(errors, hole_step_path + QStringLiteral(".layerOrdinal"),
+                     QStringLiteral("must be greater than zero"));
+        }
     }
     return step;
 }
@@ -1034,21 +1073,31 @@ QJsonObject FeatureRuleToJson(const FeatureMatchingRule &rule)
 
 QJsonObject PlanStepToJson(const AutomationMachiningPlanStep &step)
 {
-    return {{QStringLiteral("id"), step.id},
-            {QStringLiteral("strategy"), step.strategy},
-            {QStringLiteral("toolSelector"), step.toolSelector},
-            {QStringLiteral("referenceTool"), step.referenceTool},
-            {QStringLiteral("startExpression"), step.startExpression},
-            {QStringLiteral("depthExpression"), step.depthExpression},
-            {QStringLiteral("coolant"), step.coolant},
-            {QStringLiteral("enabled"), step.enabled},
-            {QStringLiteral("unsupportedReason"), step.unsupportedReason},
-            {QStringLiteral("cornerInsertionEnabled"),
-             step.cornerInsertionEnabled},
-            {QStringLiteral("dynamicMillingEnabled"),
-             step.dynamicMillingEnabled},
-            {QStringLiteral("threeDMachiningEnabled"),
-             step.threeDMachiningEnabled}};
+    QJsonObject object{{QStringLiteral("id"), step.id},
+                       {QStringLiteral("strategy"), step.strategy},
+                       {QStringLiteral("toolSelector"), step.toolSelector},
+                       {QStringLiteral("referenceTool"), step.referenceTool},
+                       {QStringLiteral("startExpression"), step.startExpression},
+                       {QStringLiteral("depthExpression"), step.depthExpression},
+                       {QStringLiteral("coolant"), step.coolant},
+                       {QStringLiteral("enabled"), step.enabled},
+                       {QStringLiteral("unsupportedReason"), step.unsupportedReason},
+                       {QStringLiteral("cornerInsertionEnabled"),
+                        step.cornerInsertionEnabled},
+                       {QStringLiteral("dynamicMillingEnabled"),
+                        step.dynamicMillingEnabled},
+                       {QStringLiteral("threeDMachiningEnabled"),
+                        step.threeDMachiningEnabled}};
+    if (step.hasHolePlanStepDefinition) {
+        object.insert(
+            QStringLiteral("holePlanStep"),
+            QJsonObject{{QStringLiteral("sourceSlot"), step.sourceSlot},
+                        {QStringLiteral("sequence"), step.sequence},
+                        {QStringLiteral("layerOrdinal"), step.layerOrdinal},
+                        {QStringLiteral("countersinkStep"), step.countersinkStep},
+                        {QStringLiteral("coolantCompat"), step.coolantCompat}});
+    }
+    return object;
 }
 
 QJsonObject DeepHoleToJson(const DeepHoleStageParameters &parameters)
@@ -1198,6 +1247,57 @@ AutomationTemplateParseResult AutomationTemplateDocument::FromJson(
         ParseObjectArray<ThreadSpecification>(
             root, QStringLiteral("threadSpecifications"), &result.errors,
             ParseThreadSpecification);
+
+    QMap<QString, const AutomationMachiningPlanStep *> steps_by_id;
+    for (const AutomationMachiningPlanStep &step :
+         result.document.machiningPlanSteps) {
+        if (steps_by_id.contains(step.id)) {
+            AddError(&result.errors, QStringLiteral("machiningPlanSteps"),
+                     QStringLiteral("duplicate step ID '%1'").arg(step.id));
+        }
+        steps_by_id.insert(step.id, &step);
+    }
+    for (int rule_index = 0;
+         rule_index < result.document.featureMatchingRules.size(); ++rule_index) {
+        const FeatureMatchingRule &rule =
+            result.document.featureMatchingRules.at(rule_index);
+        if (!rule.hasHoleRuleDefinition) {
+            continue;
+        }
+        const QString rule_path = QStringLiteral("featureMatchingRules[%1].holeRule")
+            .arg(rule_index);
+        QSet<int> source_slots;
+        for (int step_index = 0;
+             step_index < rule.holeRule.planStepIds.size(); ++step_index) {
+            const QString step_id = rule.holeRule.planStepIds.at(step_index);
+            const AutomationMachiningPlanStep *step = steps_by_id.value(step_id);
+            const QString step_path = rule_path + QStringLiteral(".planStepIds[%1]")
+                .arg(step_index);
+            if (step == nullptr) {
+                AddError(&result.errors, step_path,
+                         QStringLiteral("references an unknown plan step"));
+                continue;
+            }
+            if (!step->hasHolePlanStepDefinition) {
+                AddError(&result.errors, step_path,
+                         QStringLiteral("references a step without holePlanStep"));
+                continue;
+            }
+            if (step->sequence != step_index + 1) {
+                AddError(&result.errors, step_path,
+                         QStringLiteral("must reference consecutive step sequences"));
+            }
+            if (source_slots.contains(step->sourceSlot)) {
+                AddError(&result.errors, step_path,
+                         QStringLiteral("references a duplicate source slot"));
+            }
+            source_slots.insert(step->sourceSlot);
+            if (step->layerOrdinal > rule.holeRule.layerConditions.size()) {
+                AddError(&result.errors, step_path,
+                         QStringLiteral("references a missing layer condition"));
+            }
+        }
+    }
 
     QSet<QString> thread_keys;
     for (const ThreadSpecification &specification :
