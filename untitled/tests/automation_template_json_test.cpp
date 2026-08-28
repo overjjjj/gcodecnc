@@ -39,6 +39,7 @@ QByteArray ValidJson()
             "type": "offline_conversion",
             "name": "approved-template-export",
             "revision": "rev-3",
+            "effectiveDate": "2026-08-28",
             "checksumSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         },
         "units": {
@@ -54,6 +55,8 @@ QByteArray ValidJson()
             "toolName": "carbide-drill",
             "minimumDiameterMm": 3.0,
             "maximumDiameterMm": 8.0,
+            "minimumInclusive": true,
+            "maximumInclusive": true,
             "plungeFeedMmPerMin": 90.0,
             "cuttingFeedMmPerMin": 180.0,
             "retractFeedMmPerMin": 300.0,
@@ -70,8 +73,10 @@ QByteArray ValidJson()
             "minimumSizeMm": 3.0,
             "maximumSizeMm": 20.0,
             "diameterBands": [
-                {"minimumDiameterMm": 3.0, "maximumDiameterMm": 8.0},
-                {"minimumDiameterMm": 8.1, "maximumDiameterMm": 20.0}
+                {"minimumDiameterMm": 3.0, "maximumDiameterMm": 8.0,
+                 "minimumInclusive": true, "maximumInclusive": true},
+                {"minimumDiameterMm": 8.0, "maximumDiameterMm": 20.0,
+                 "minimumInclusive": false, "maximumInclusive": true}
             ],
             "closed": false,
             "through": false
@@ -167,6 +172,27 @@ QByteArray WithUnitValue(const QString &key, const QString &value)
     return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 
+QByteArray WithoutArrayObjectField(const QString &arrayName,
+                                  const QString &key)
+{
+    QJsonObject object = QJsonDocument::fromJson(ValidJson()).object();
+    QJsonArray array = object.value(arrayName).toArray();
+    QJsonObject item = array.first().toObject();
+    item.remove(key);
+    array[0] = item;
+    object.insert(arrayName, array);
+    return QJsonDocument(object).toJson(QJsonDocument::Compact);
+}
+
+QByteArray WithoutSourceField(const QString &key)
+{
+    QJsonObject object = QJsonDocument::fromJson(ValidJson()).object();
+    QJsonObject source = object.value(QStringLiteral("source")).toObject();
+    source.remove(key);
+    object.insert(QStringLiteral("source"), source);
+    return QJsonDocument(object).toJson(QJsonDocument::Compact);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -214,8 +240,13 @@ int main(int argc, char **argv)
          QStringLiteral("unknown field")},
         {WithTopLevelValue(QStringLiteral("schemaVersion"), 2),
          QStringLiteral("schemaVersion")},
+        {WithoutSourceField(QStringLiteral("effectiveDate")),
+         QStringLiteral("effectiveDate")},
         {WithUnitValue(QStringLiteral("feed"), QStringLiteral("inch/min")),
          QStringLiteral("unsupported unit")},
+        {WithoutArrayObjectField(QStringLiteral("toolCuttingParameterSets"),
+                                 QStringLiteral("minimumInclusive")),
+         QStringLiteral("minimumInclusive")},
         {WithArrayObjectValue(QStringLiteral("toolCuttingParameterSets"),
                               QStringLiteral("feedUnit"),
                               QStringLiteral("inch/min")),
@@ -243,9 +274,16 @@ int main(int argc, char **argv)
         {WithArrayObjectValue(QStringLiteral("deepHoleStageParameters"),
                               QStringLiteral("variableSpeedEnabled"), true),
          QStringLiteral("variable speed")},
+        {WithArrayObjectValue(QStringLiteral("deepHoleStageParameters"),
+                              QStringLiteral("retractEnabled"), true),
+         QStringLiteral("controller contract")},
         {WithArrayObjectValue(QStringLiteral("threadSpecifications"),
                               QStringLiteral("xyLayeringEnabled"), true),
-         QStringLiteral("XY layering")}
+         QStringLiteral("XY layering")},
+        {WithArrayObjectValue(QStringLiteral("threadSpecifications"),
+                              QStringLiteral("system"),
+                              QStringLiteral("unified")),
+         QStringLiteral("system")}
     };
     for (const auto &rejected : rejectedDocuments) {
         const AutomationTemplateParseResult result =
@@ -280,6 +318,8 @@ int main(int argc, char **argv)
     QJsonObject second_specification = specifications.first().toObject();
     second_specification.insert(QStringLiteral("id"),
                                 QStringLiteral("metric-m10-duplicate"));
+    second_specification.insert(QStringLiteral("standard"),
+                                QStringLiteral("alternate-standard"));
     specifications.append(second_specification);
     duplicate_thread.insert(QStringLiteral("threadSpecifications"),
                             specifications);
@@ -290,6 +330,16 @@ int main(int argc, char **argv)
                     HasError(duplicate_specification,
                              QStringLiteral("duplicate thread specification")),
                 "thread system, standard and designation should form a unique key")) {
+        return 1;
+    }
+
+    const AutomationTemplateParseResult american_specification =
+        AutomationTemplateDocument::FromJson(
+            WithArrayObjectValue(QStringLiteral("threadSpecifications"),
+                                 QStringLiteral("system"),
+                                 QStringLiteral("american")));
+    if (!Expect(american_specification.ok,
+                "metric, imperial and american should be distinct systems")) {
         return 1;
     }
 
