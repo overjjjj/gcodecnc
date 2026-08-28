@@ -79,7 +79,28 @@ QByteArray ValidJson()
                  "minimumInclusive": false, "maximumInclusive": true}
             ],
             "closed": false,
-            "through": false
+            "through": false,
+            "holeRule": {
+                "ruleVersion": "1",
+                "effectiveFrom": "2026-08-01",
+                "effectiveTo": "2026-08-31",
+                "priority": 20,
+                "enabled": true,
+                "materials": ["aluminum-6061"],
+                "machineProfiles": ["front-z-3axis"],
+                "layerConditions": [{
+                    "ordinal": 1,
+                    "acceptedKinds": ["cylindrical"],
+                    "lowerMm": 3.0,
+                    "upperMm": 8.0,
+                    "lowerClosed": true,
+                    "upperClosed": true
+                }],
+                "planId": "counterbore-plan",
+                "planVersion": "1",
+                "planStepIds": ["drill-core"],
+                "sourceRef": "cleanroom:m2-counterbore"
+            }
         }],
         "machiningPlanSteps": [{
             "id": "drill-core",
@@ -234,6 +255,16 @@ int main(int argc, char **argv)
                 "version, source metadata and DTO values should round-trip")) {
         return 1;
     }
+    const QJsonObject serialized_rule = QJsonDocument::fromJson(serialized)
+        .object().value(QStringLiteral("featureMatchingRules")).toArray()
+        .first().toObject();
+    if (!Expect(serialized_rule.value(QStringLiteral("holeRule")).isObject()
+                    && serialized_rule.value(QStringLiteral("holeRule"))
+                        .toObject().value(QStringLiteral("priority")).toInt()
+                        == 20,
+                "versioned M2 hole rule fields should round-trip")) {
+        return 1;
+    }
 
     const QList<QPair<QByteArray, QString>> rejectedDocuments{
         {WithTopLevelValue(QStringLiteral("futureField"), true),
@@ -254,6 +285,11 @@ int main(int argc, char **argv)
         {WithArrayObjectValue(QStringLiteral("toolCuttingParameterSets"),
                               QStringLiteral("stepOverPercent"), 101.0),
          QStringLiteral("stepOverPercent")},
+        {WithArrayObjectValue(QStringLiteral("featureMatchingRules"),
+                              QStringLiteral("holeRule"),
+                              QJsonObject{{QStringLiteral("ruleVersion"),
+                                           QStringLiteral("1")}}),
+         QStringLiteral("effectiveFrom")},
         {WithArrayObjectValue(QStringLiteral("machiningPlanSteps"),
                               QStringLiteral("depthExpression"),
                               QStringLiteral("system('dir')")),
