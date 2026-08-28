@@ -173,9 +173,21 @@ bool TestExplicitEndpointsAndEligibility()
         return false;
     }
     request.materialRef.id = QStringLiteral("steel");
-    return Expect(AutoHoleRuleMatchingService::Match(document, request).state
-                      == HoleRuleMatchState::Rejected,
-                  "material eligibility should use an exact condition");
+    if (!Expect(AutoHoleRuleMatchingService::Match(document, request).state
+                    == HoleRuleMatchState::Rejected,
+                "material eligibility should use an exact condition")) {
+        return false;
+    }
+    request = MakeRequest();
+    request.asOfDate = QStringLiteral("2026-09-01");
+    result = AutoHoleRuleMatchingService::Match(document, request);
+    return Expect(result.state == HoleRuleMatchState::Rejected
+                      && result.explanation.filterReasons.size() == 1
+                      && result.explanation.filterReasons.first().code
+                          == QStringLiteral("RULE_NOT_EFFECTIVE")
+                      && result.explanation.filterReasons.first().fieldPath
+                          == QStringLiteral("featureMatchingRules[0].holeRule"),
+                  "ineligible dates should retain a stable filtering reason");
 }
 
 bool TestPriorityAndLayerMatching()
