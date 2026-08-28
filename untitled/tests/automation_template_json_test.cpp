@@ -114,7 +114,14 @@ QByteArray ValidJson()
             "unsupportedReason": "",
             "cornerInsertionEnabled": false,
             "dynamicMillingEnabled": false,
-            "threeDMachiningEnabled": false
+            "threeDMachiningEnabled": false,
+            "holePlanStep": {
+                "sourceSlot": 1,
+                "sequence": 1,
+                "layerOrdinal": 1,
+                "countersinkStep": false,
+                "coolantCompat": "M8"
+            }
         }],
         "deepHoleStageParameters": [{
             "id": "deep-drill-default",
@@ -265,6 +272,16 @@ int main(int argc, char **argv)
                 "versioned M2 hole rule fields should round-trip")) {
         return 1;
     }
+    const QJsonObject serialized_step = QJsonDocument::fromJson(serialized)
+        .object().value(QStringLiteral("machiningPlanSteps")).toArray()
+        .first().toObject();
+    if (!Expect(serialized_step.value(QStringLiteral("holePlanStep")).isObject()
+                    && serialized_step.value(QStringLiteral("holePlanStep"))
+                        .toObject().value(QStringLiteral("sourceSlot")).toInt()
+                        == 1,
+                "normalized M2 hole plan step fields should round-trip")) {
+        return 1;
+    }
 
     const QList<QPair<QByteArray, QString>> rejectedDocuments{
         {WithTopLevelValue(QStringLiteral("futureField"), true),
@@ -290,6 +307,10 @@ int main(int argc, char **argv)
                               QJsonObject{{QStringLiteral("ruleVersion"),
                                            QStringLiteral("1")}}),
          QStringLiteral("effectiveFrom")},
+        {WithArrayObjectValue(QStringLiteral("machiningPlanSteps"),
+                              QStringLiteral("holePlanStep"),
+                              QJsonObject{{QStringLiteral("sequence"), 1}}),
+         QStringLiteral("sourceSlot")},
         {WithArrayObjectValue(QStringLiteral("machiningPlanSteps"),
                               QStringLiteral("depthExpression"),
                               QStringLiteral("system('dir')")),
