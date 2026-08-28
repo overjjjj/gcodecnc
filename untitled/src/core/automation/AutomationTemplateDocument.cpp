@@ -2,6 +2,7 @@
 
 #include "../../services/RestrictedFormulaEvaluator.h"
 
+#include <QDate>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -224,12 +225,15 @@ void ParseSource(const QJsonObject &object,
     RejectUnknownFields(
         object,
         {QStringLiteral("type"), QStringLiteral("name"),
-         QStringLiteral("revision"), QStringLiteral("checksumSha256")},
+         QStringLiteral("revision"), QStringLiteral("effectiveDate"),
+         QStringLiteral("checksumSha256")},
         path, errors);
     RequireString(object, QStringLiteral("type"), path, errors, &source->type);
     RequireString(object, QStringLiteral("name"), path, errors, &source->name);
     RequireString(object, QStringLiteral("revision"), path, errors,
                   &source->revision);
+    RequireString(object, QStringLiteral("effectiveDate"), path, errors,
+                  &source->effectiveDate);
     RequireString(object, QStringLiteral("checksumSha256"), path, errors,
                   &source->checksumSha256);
     const QSet<QString> allowed_types{
@@ -243,6 +247,10 @@ void ParseSource(const QJsonObject &object,
     if (!checksum_pattern.match(source->checksumSha256).hasMatch()) {
         AddError(errors, path + QStringLiteral(".checksumSha256"),
                  QStringLiteral("must contain 64 hexadecimal characters"));
+    }
+    if (!QDate::fromString(source->effectiveDate, Qt::ISODate).isValid()) {
+        AddError(errors, path + QStringLiteral(".effectiveDate"),
+                 QStringLiteral("must be a valid ISO date"));
     }
 }
 
@@ -279,6 +287,8 @@ ToolCuttingParameterSet ParseToolCuttingParameterSet(
          QStringLiteral("toolType"), QStringLiteral("toolName"),
          QStringLiteral("minimumDiameterMm"),
          QStringLiteral("maximumDiameterMm"),
+         QStringLiteral("minimumInclusive"),
+         QStringLiteral("maximumInclusive"),
          QStringLiteral("plungeFeedMmPerMin"),
          QStringLiteral("cuttingFeedMmPerMin"),
          QStringLiteral("retractFeedMmPerMin"),
@@ -298,6 +308,10 @@ ToolCuttingParameterSet ParseToolCuttingParameterSet(
                   &set.minimumDiameterMm);
     RequireNumber(object, QStringLiteral("maximumDiameterMm"), path, errors,
                   &set.maximumDiameterMm);
+    RequireBool(object, QStringLiteral("minimumInclusive"), path, errors,
+                &set.minimumInclusive);
+    RequireBool(object, QStringLiteral("maximumInclusive"), path, errors,
+                &set.maximumInclusive);
     RequireNumber(object, QStringLiteral("plungeFeedMmPerMin"), path, errors,
                   &set.plungeFeedMmPerMin);
     RequireNumber(object, QStringLiteral("cuttingFeedMmPerMin"), path, errors,
@@ -319,6 +333,11 @@ ToolCuttingParameterSet ParseToolCuttingParameterSet(
     if (set.maximumDiameterMm < set.minimumDiameterMm) {
         AddError(errors, path + QStringLiteral(".maximumDiameterMm"),
                  QStringLiteral("must be at least minimumDiameterMm"));
+    }
+    if (set.maximumDiameterMm == set.minimumDiameterMm &&
+        (!set.minimumInclusive || !set.maximumInclusive)) {
+        AddError(errors, path,
+                 QStringLiteral("an open zero-width diameter range is empty"));
     }
     RequirePositive(set.plungeFeedMmPerMin,
                     path + QStringLiteral(".plungeFeedMmPerMin"), errors);
@@ -372,18 +391,29 @@ FeatureMatchingRule ParseFeatureMatchingRule(const QJsonObject &object,
         RejectUnknownFields(
             band_object,
             {QStringLiteral("minimumDiameterMm"),
-             QStringLiteral("maximumDiameterMm")},
+             QStringLiteral("maximumDiameterMm"),
+             QStringLiteral("minimumInclusive"),
+             QStringLiteral("maximumInclusive")},
             band_path, errors);
         DiameterBand band;
         RequireNumber(band_object, QStringLiteral("minimumDiameterMm"),
                       band_path, errors, &band.minimumDiameterMm);
         RequireNumber(band_object, QStringLiteral("maximumDiameterMm"),
                       band_path, errors, &band.maximumDiameterMm);
+        RequireBool(band_object, QStringLiteral("minimumInclusive"), band_path,
+                    errors, &band.minimumInclusive);
+        RequireBool(band_object, QStringLiteral("maximumInclusive"), band_path,
+                    errors, &band.maximumInclusive);
         RequirePositive(band.minimumDiameterMm,
                         band_path + QStringLiteral(".minimumDiameterMm"), errors);
         if (band.maximumDiameterMm < band.minimumDiameterMm) {
             AddError(errors, band_path + QStringLiteral(".maximumDiameterMm"),
                      QStringLiteral("must be at least minimumDiameterMm"));
+        }
+        if (band.maximumDiameterMm == band.minimumDiameterMm &&
+            (!band.minimumInclusive || !band.maximumInclusive)) {
+            AddError(errors, band_path,
+                     QStringLiteral("an open zero-width diameter range is empty"));
         }
         rule.diameterBands.append(band);
     }
@@ -404,8 +434,14 @@ FeatureMatchingRule ParseFeatureMatchingRule(const QJsonObject &object,
                   return left.minimumDiameterMm < right.minimumDiameterMm;
               });
     for (int index = 1; index < sorted_bands.size(); ++index) {
-        if (sorted_bands.at(index).minimumDiameterMm <=
-            sorted_bands.at(index - 1).maximumDiameterMm) {
+        const DiameterBand &previous = sorted_bands.at(index - 1);
+        const DiameterBand &current = sorted_bands.at(index);
+        const bool interior_overlap =
+            current.minimumDiameterMm < previous.maximumDiameterMm;
+        const bool shared_closed_boundary =
+            current.minimumDiameterMm == previous.maximumDiameterMm &&
+            current.minimumInclusive && previous.maximumInclusive;
+        if (interior_overlap || shared_closed_boundary) {
             AddError(errors, path + QStringLiteral(".diameterBands"),
                      QStringLiteral("diameter bands overlap"));
         }
@@ -607,6 +643,11 @@ DeepHoleStageParameters ParseDeepHoleStageParameters(
         AddError(errors, path + QStringLiteral(".variableSpeedEnabled"),
                  QStringLiteral("variable speed staging is unsupported"));
     }
+    if (parameters.retractEnabled) {
+        AddError(errors, path + QStringLiteral(".retractEnabled"),
+                 QStringLiteral(
+                     "retract staging requires a verified controller contract"));
+    }
     return parameters;
 }
 
@@ -654,10 +695,10 @@ ThreadSpecification ParseThreadSpecification(const QJsonObject &object,
                   &specification.finishAllowanceMm);
     const QSet<QString> systems{
         QStringLiteral("metric"), QStringLiteral("imperial"),
-        QStringLiteral("unified")};
+        QStringLiteral("american")};
     if (!systems.contains(specification.system)) {
         AddError(errors, path + QStringLiteral(".system"),
-                 QStringLiteral("must be metric, imperial or unified"));
+                 QStringLiteral("must be metric, imperial or american"));
     }
     RequirePositive(specification.pilotHoleDiameterMm,
                     path + QStringLiteral(".pilotHoleDiameterMm"), errors);
@@ -714,6 +755,7 @@ QJsonObject SourceToJson(const AutomationTemplateSourceMetadata &source)
     return {{QStringLiteral("type"), source.type},
             {QStringLiteral("name"), source.name},
             {QStringLiteral("revision"), source.revision},
+            {QStringLiteral("effectiveDate"), source.effectiveDate},
             {QStringLiteral("checksumSha256"), source.checksumSha256}};
 }
 
@@ -725,6 +767,8 @@ QJsonObject ToolSetToJson(const ToolCuttingParameterSet &set)
             {QStringLiteral("toolName"), set.toolName},
             {QStringLiteral("minimumDiameterMm"), set.minimumDiameterMm},
             {QStringLiteral("maximumDiameterMm"), set.maximumDiameterMm},
+            {QStringLiteral("minimumInclusive"), set.minimumInclusive},
+            {QStringLiteral("maximumInclusive"), set.maximumInclusive},
             {QStringLiteral("plungeFeedMmPerMin"), set.plungeFeedMmPerMin},
             {QStringLiteral("cuttingFeedMmPerMin"), set.cuttingFeedMmPerMin},
             {QStringLiteral("retractFeedMmPerMin"), set.retractFeedMmPerMin},
@@ -741,7 +785,9 @@ QJsonObject FeatureRuleToJson(const FeatureMatchingRule &rule)
     for (const DiameterBand &band : rule.diameterBands) {
         bands.append(QJsonObject{
             {QStringLiteral("minimumDiameterMm"), band.minimumDiameterMm},
-            {QStringLiteral("maximumDiameterMm"), band.maximumDiameterMm}});
+            {QStringLiteral("maximumDiameterMm"), band.maximumDiameterMm},
+            {QStringLiteral("minimumInclusive"), band.minimumInclusive},
+            {QStringLiteral("maximumInclusive"), band.maximumInclusive}});
     }
     return {{QStringLiteral("id"), rule.id},
             {QStringLiteral("featureKind"), rule.featureKind},
@@ -924,7 +970,6 @@ AutomationTemplateParseResult AutomationTemplateDocument::FromJson(
     for (const ThreadSpecification &specification :
          result.document.threadSpecifications) {
         const QString key = specification.system + QLatin1Char('\n') +
-                            specification.standard + QLatin1Char('\n') +
                             specification.designation;
         if (thread_keys.contains(key)) {
             AddError(&result.errors,
@@ -946,9 +991,13 @@ AutomationTemplateParseResult AutomationTemplateDocument::FromJson(
             const bool same_key = first.material == second.material &&
                                   first.toolType == second.toolType &&
                                   first.toolName == second.toolName;
-            const bool overlaps =
-                first.minimumDiameterMm <= second.maximumDiameterMm &&
-                second.minimumDiameterMm <= first.maximumDiameterMm;
+            bool overlaps = first.minimumDiameterMm < second.maximumDiameterMm &&
+                            second.minimumDiameterMm < first.maximumDiameterMm;
+            if (first.maximumDiameterMm == second.minimumDiameterMm) {
+                overlaps = first.maximumInclusive && second.minimumInclusive;
+            } else if (second.maximumDiameterMm == first.minimumDiameterMm) {
+                overlaps = second.maximumInclusive && first.minimumInclusive;
+            }
             if (same_key && overlaps) {
                 AddError(&result.errors,
                          QStringLiteral("toolCuttingParameterSets"),

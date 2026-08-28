@@ -8,6 +8,8 @@
 struct DiameterBand {
     double minimumDiameterMm = 0.0;
     double maximumDiameterMm = 0.0;
+    bool minimumInclusive = false;
+    bool maximumInclusive = false;
 };
 
 struct ToolCuttingParameterSet {
@@ -17,6 +19,8 @@ struct ToolCuttingParameterSet {
     QString toolName;
     double minimumDiameterMm = 0.0;
     double maximumDiameterMm = 0.0;
+    bool minimumInclusive = false;
+    bool maximumInclusive = false;
     double plungeFeedMmPerMin = 0.0;
     double cuttingFeedMmPerMin = 0.0;
     double retractFeedMmPerMin = 0.0;
@@ -104,6 +108,7 @@ struct AutomationTemplateSourceMetadata {
     QString type;
     QString name;
     QString revision;
+    QString effectiveDate;
     QString checksumSha256;
 };
 
