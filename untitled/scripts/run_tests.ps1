@@ -169,6 +169,11 @@ try {
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
+        -Name "auto_hole_rule_matching_service_test" `
+        -Sources @("tests\auto_hole_rule_matching_service_test.cpp", "src\services\AutoHoleRuleMatchingService.cpp", "src\services\RestrictedFormulaEvaluator.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
         -Name "tool_cutting_parameter_service_test" `
         -Sources @("tests\tool_cutting_parameter_service_test.cpp", "src\services\ToolCuttingParameterService.cpp") `
         -Libs @("-lQt5Core")
