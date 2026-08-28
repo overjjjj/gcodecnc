@@ -73,10 +73,24 @@ bool ValidateFeature(const HoleRuleMatchRequest &request,
                            QStringLiteral("A geometry reference is required."));
         return false;
     }
-    if (!feature.setupConfirmed) {
+    if (feature.geometryRevision.trimmed().isEmpty()) {
+        *result = Rejected(QStringLiteral("GEOMETRY_REF_MISSING"),
+                           QStringLiteral("feature.geometryRevision"),
+                           QStringLiteral("A geometry revision is required."));
+        return false;
+    }
+    if (feature.setupRef.trimmed().isEmpty() || !feature.setupConfirmed) {
         *result = Rejected(QStringLiteral("SETUP_UNCONFIRMED"),
                            QStringLiteral("feature.setupRef"),
                            QStringLiteral("The setup must be confirmed."));
+        return false;
+    }
+    if (!feature.rejectionEvidence.isEmpty()) {
+        *result = Rejected(
+            QStringLiteral("GEOMETRY_UNSUPPORTED"),
+            QStringLiteral("feature.rejectionEvidence"),
+            QStringLiteral("Upstream geometry rejection: %1")
+                .arg(feature.rejectionEvidence.join(QStringLiteral("; "))));
         return false;
     }
     if (feature.region != HoleRuleFeatureRegion::Front
@@ -84,6 +98,15 @@ bool ValidateFeature(const HoleRuleMatchRequest &request,
         *result = Rejected(QStringLiteral("GEOMETRY_UNSUPPORTED"),
                            QStringLiteral("feature.axis"),
                            QStringLiteral("Only front positive-Z holes are supported."));
+        return false;
+    }
+    const QSet<QString> supported_categories{QStringLiteral("single"),
+                                             QStringLiteral("counterbore"),
+                                             QStringLiteral("countersink")};
+    if (!supported_categories.contains(feature.category)) {
+        *result = Rejected(QStringLiteral("GEOMETRY_UNSUPPORTED"),
+                           QStringLiteral("feature.category"),
+                           QStringLiteral("The feature category is unsupported."));
         return false;
     }
     if (feature.layers.isEmpty()) {
@@ -103,6 +126,21 @@ bool ValidateFeature(const HoleRuleMatchRequest &request,
             || (layer.through && index != feature.layers.size() - 1)) {
             *result = Rejected(QStringLiteral("LAYER_SEQUENCE_INVALID"), path,
                                QStringLiteral("Layer geometry or order is invalid."));
+            return false;
+        }
+        if (layer.sourceToleranceRef.trimmed().isEmpty()) {
+            *result = Rejected(
+                QStringLiteral("LAYER_GEOMETRY_INVALID"),
+                path + QStringLiteral(".sourceToleranceRef"),
+                QStringLiteral("A source tolerance reference is required."));
+            return false;
+        }
+        if (index > 0
+            && feature.layers.at(index - 1).endPlaneMm != layer.startPlaneMm) {
+            *result = Rejected(
+                QStringLiteral("LAYER_SEQUENCE_INVALID"),
+                path + QStringLiteral(".startPlaneMm"),
+                QStringLiteral("Adjacent layers must share an exact plane."));
             return false;
         }
     }
@@ -134,10 +172,11 @@ bool ValidateRequest(const AutomationTemplateDocument &document,
                            QStringLiteral("All catalog references must be versioned."));
         return false;
     }
-    if (request.ruleCatalogRef.catalogId != document.documentId
+    if (request.ruleCatalogRef.id != document.documentId
+        || request.ruleCatalogRef.catalogId != document.documentId
         || request.ruleCatalogRef.catalogVersion != document.documentVersion) {
         *result = Rejected(QStringLiteral("CATALOG_VERSION_MISSING"),
-                           QStringLiteral("ruleCatalogRef"),
+                           QStringLiteral("ruleCatalogRef.id"),
                            QStringLiteral("The referenced rule catalog is unavailable."));
         return false;
     }
@@ -188,18 +227,19 @@ bool ValidatePlan(const AutomationTemplateDocument &document,
                        QStringLiteral("Hn and AT semantics are unconfirmed.")};
             return false;
         }
+        const HoleRuleLayerInput &layer = request.feature.layers.at(
+            step->layerOrdinal - 1);
         const FormulaEvaluationResult start = RestrictedFormulaEvaluator::Evaluate(
             step->startExpression, {});
         const FormulaEvaluationResult depth = RestrictedFormulaEvaluator::Evaluate(
             step->depthExpression, {});
-        if (!start.ok || !depth.ok || !std::isfinite(depth.value)
+        if (!start.ok || !std::isfinite(start.value) || start.value != 0.0
+            || layer.startPlaneMm != 0.0 || !depth.ok || !std::isfinite(depth.value)
             || depth.value <= 0.0) {
             *reason = {QStringLiteral("FORMULA_REJECTED"), path,
-                       QStringLiteral("The plan step formula is invalid.")};
+                       QStringLiteral("The plan step formula is not provably safe.")};
             return false;
         }
-        const HoleRuleLayerInput &layer = request.feature.layers.at(
-            step->layerOrdinal - 1);
         const double layer_depth = layer.startPlaneMm - layer.endPlaneMm;
         if (depth.value > layer_depth) {
             *reason = {QStringLiteral("DEPTH_OUT_OF_BOUNDS"), path,
@@ -333,8 +373,11 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
 
     const FeatureMatchingRule &rule = *top_matches.first();
     QList<AutomationMachiningPlanStep> steps;
-    HoleRuleMatchReason ignored_reason;
-    ValidatePlan(document, rule, request, &steps, &ignored_reason);
+    HoleRuleMatchReason plan_reason;
+    if (!ValidatePlan(document, rule, request, &steps, &plan_reason)) {
+        result.reasons.append(plan_reason);
+        return result;
+    }
     result.state = HoleRuleMatchState::Draft;
     result.candidate.geometryRef = request.feature.geometryRef;
     result.candidate.geometryRevision = request.feature.geometryRevision;

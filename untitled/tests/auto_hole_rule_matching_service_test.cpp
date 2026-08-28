@@ -119,7 +119,7 @@ HoleRuleMatchRequest MakeRequest()
     request.toolCatalogRef = MakeReference(QStringLiteral("tool-catalog"),
                                             QStringLiteral("tools"),
                                             QStringLiteral("2026.08"));
-    request.ruleCatalogRef = MakeReference(QStringLiteral("rules"),
+    request.ruleCatalogRef = MakeReference(QStringLiteral("hole-rule-catalog"),
                                             QStringLiteral("hole-rule-catalog"),
                                             QStringLiteral("2026.08.1"));
     request.feature.geometryRef = QStringLiteral("face:42/hole:7");
