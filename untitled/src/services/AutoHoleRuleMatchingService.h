@@ -62,6 +62,7 @@ struct HoleRuleMatchReason {
 struct HoleRuleMatchExplanation {
     QStringList consideredRuleIds;
     QStringList filteredRuleIds;
+    QList<HoleRuleMatchReason> filterReasons;
     QStringList topRuleIds;
     QStringList layerMatches;
 };

@@ -224,7 +224,10 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
 
     QList<const FeatureMatchingRule *> matches;
     HoleRuleMatchReason blocked_reason;
-    for (const FeatureMatchingRule &rule : document.featureMatchingRules) {
+    for (int rule_index = 0;
+         rule_index < document.featureMatchingRules.size(); ++rule_index) {
+        const FeatureMatchingRule &rule =
+            document.featureMatchingRules.at(rule_index);
         if (!rule.hasHoleRuleDefinition || rule.featureKind != QStringLiteral("hole")) {
             continue;
         }
@@ -233,13 +236,35 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
         const bool effective = request.asOfDate >= definition.effectiveFrom
             && (definition.effectiveTo.isEmpty()
                 || request.asOfDate <= definition.effectiveTo);
-        const bool eligible = definition.enabled && effective
-            && definition.materials.contains(request.materialRef.id)
+        if (!definition.enabled) {
+            result.explanation.filteredRuleIds.append(rule.id);
+            result.explanation.filterReasons.append(
+                {QStringLiteral("RULE_DISABLED"),
+                 QStringLiteral("featureMatchingRules[%1].holeRule.enabled")
+                     .arg(rule_index),
+                 QStringLiteral("The rule is disabled.")});
+            continue;
+        }
+        if (!effective) {
+            result.explanation.filteredRuleIds.append(rule.id);
+            result.explanation.filterReasons.append(
+                {QStringLiteral("RULE_NOT_EFFECTIVE"),
+                 QStringLiteral("featureMatchingRules[%1].holeRule")
+                     .arg(rule_index),
+                 QStringLiteral("The rule is outside its effective date range.")});
+            continue;
+        }
+        const bool eligible = definition.materials.contains(request.materialRef.id)
             && definition.machineProfiles.contains(request.machineProfileRef.id)
             && rule.category == request.feature.category
             && definition.layerConditions.size() == request.feature.layers.size();
         if (!eligible) {
             result.explanation.filteredRuleIds.append(rule.id);
+            result.explanation.filterReasons.append(
+                {QStringLiteral("RULE_CONDITION_NOT_MET"),
+                 QStringLiteral("featureMatchingRules[%1].holeRule")
+                     .arg(rule_index),
+                 QStringLiteral("The rule conditions do not match the request.")});
             continue;
         }
         bool layers_match = true;
@@ -256,6 +281,11 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
         }
         if (!layers_match) {
             result.explanation.filteredRuleIds.append(rule.id);
+            result.explanation.filterReasons.append(
+                {QStringLiteral("RULE_CONDITION_NOT_MET"),
+                 QStringLiteral("featureMatchingRules[%1].holeRule.layerConditions")
+                     .arg(rule_index),
+                 QStringLiteral("The rule layer conditions do not match.")});
             continue;
         }
         QList<AutomationMachiningPlanStep> steps;
@@ -265,6 +295,7 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
                 blocked_reason = plan_reason;
             }
             result.explanation.filteredRuleIds.append(rule.id);
+            result.explanation.filterReasons.append(plan_reason);
             continue;
         }
         matches.append(&rule);
@@ -275,9 +306,11 @@ HoleRuleMatchResult AutoHoleRuleMatchingService::Match(
             result.reasons.append(blocked_reason);
             return result;
         }
-        return Rejected(QStringLiteral("RULE_NOT_FOUND"),
-                        QStringLiteral("featureMatchingRules"),
-                        QStringLiteral("No eligible hole rule matched the feature."));
+        result.reasons.append(
+            {QStringLiteral("RULE_NOT_FOUND"),
+             QStringLiteral("featureMatchingRules"),
+             QStringLiteral("No eligible hole rule matched the feature.")});
+        return result;
     }
     int highest_priority = matches.first()->holeRule.priority;
     for (const FeatureMatchingRule *rule : matches) {
