@@ -401,11 +401,25 @@ bool TestResolutionPriorityAndValidation()
     request.resolutionView.entries[1].referenceIdentity =
         OpaqueIdentity(QStringLiteral("wrong-geometry"));
     result = HoleCandidateReconciliationService::Reconcile(request);
+    if (!Expect(result.state == CandidateReconciliationState::Rejected
+                    && HasIssue(result.reasons,
+                                QStringLiteral("RESOLUTION_VIEW_INVALID"),
+                                QStringLiteral("/featureIdentity/geometryRef")),
+                "a resolution entry must carry the exact referenced identity")) {
+        return false;
+    }
+
+    request = MakeRequest();
+    request.resolutionView.entries.append(
+        {CandidateResolutionSide::Observed, QStringLiteral("/unexpected"),
+         OpaqueIdentity(QStringLiteral("unexpected")),
+         CandidateReferenceResolutionState::Resolvable});
+    result = HoleCandidateReconciliationService::Reconcile(request);
     return Expect(result.state == CandidateReconciliationState::Rejected
                       && HasIssue(result.reasons,
                                   QStringLiteral("RESOLUTION_VIEW_INVALID"),
-                                  QStringLiteral("/featureIdentity/geometryRef")),
-                  "a resolution entry must carry the exact referenced identity");
+                                  QStringLiteral("/unexpected")),
+                  "a resolution entry path outside the whitelist should reject");
 }
 
 bool TestObservedPropagationAndStaleRecovery()
