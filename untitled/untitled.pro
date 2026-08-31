@@ -116,6 +116,7 @@ SOURCES += \
     src/services/OperationFactory.cpp \
     src/services/AutoHolePlanningService.cpp \
     src/services/AutoHoleRuleMatchingService.cpp \
+    src/services/HoleCandidateReconciliationService.cpp \
     src/services/SlotFramePlanningService.cpp \
     src/services/ProcessTemplateService.cpp \
     src/services/RestrictedFormulaEvaluator.cpp \
@@ -228,6 +229,7 @@ HEADERS += \
     src/services/OperationFactory.h \
     src/services/AutoHolePlanningService.h \
     src/services/AutoHoleRuleMatchingService.h \
+    src/services/HoleCandidateReconciliationService.h \
     src/services/SlotFramePlanningService.h \
     src/services/ProcessTemplateService.h \
     src/services/RestrictedFormulaEvaluator.h \

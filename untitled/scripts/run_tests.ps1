@@ -174,6 +174,11 @@ try {
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
+        -Name "hole_candidate_reconciliation_service_test" `
+        -Sources @("tests\hole_candidate_reconciliation_service_test.cpp", "src\services\HoleCandidateReconciliationService.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
         -Name "tool_cutting_parameter_service_test" `
         -Sources @("tests\tool_cutting_parameter_service_test.cpp", "src\services\ToolCuttingParameterService.cpp") `
         -Libs @("-lQt5Core")
