@@ -85,14 +85,6 @@ bool SameIdentity(const CandidateReferenceIdentity &left,
         && left.catalogVersion == right.catalogVersion;
 }
 
-bool SameFeatureIdentity(const CandidateFeatureIdentity &left,
-                         const CandidateFeatureIdentity &right)
-{
-    return left.geometryRef == right.geometryRef
-        && left.geometryRevision == right.geometryRevision
-        && left.layerSignature == right.layerSignature;
-}
-
 bool SameProvenance(const CandidateProvenance &left,
                     const CandidateProvenance &right)
 {
