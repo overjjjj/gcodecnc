@@ -2,7 +2,7 @@
 
 #include <QDialog>
 
-#include "../core/SetupOrigin.h"
+#include "../../../core/SetupOrigin.h"
 
 class QComboBox;
 class QDoubleSpinBox;

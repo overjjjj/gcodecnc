@@ -2,9 +2,9 @@
 
 #include <QDialog>
 
-#include "../import/StepImporter.h"
-#include "../strategies/StrategyBase.h"
-#include "../tool/ToolEntry.h"
+#include "../../../import/StepImporter.h"
+#include "../../../strategies/StrategyBase.h"
+#include "../../../tool/ToolEntry.h"
 
 class QComboBox;
 class QDoubleSpinBox;

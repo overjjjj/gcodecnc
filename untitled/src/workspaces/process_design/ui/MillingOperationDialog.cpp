@@ -1,7 +1,7 @@
 #include "MillingOperationDialog.h"
 
-#include "../strategies/StrategyFactory.h"
-#include "../tool/ToolLibrary.h"
+#include "../../../strategies/StrategyFactory.h"
+#include "../../../tool/ToolLibrary.h"
 
 #include <QComboBox>
 #include <QDialogButtonBox>

@@ -2,7 +2,7 @@
 
 #include <QDialog>
 
-#include "../core/StockDefinition.h"
+#include "../../../core/StockDefinition.h"
 
 class QDoubleSpinBox;
 class QLabel;

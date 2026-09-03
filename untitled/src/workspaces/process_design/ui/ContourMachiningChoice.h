@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../strategies/StrategyBase.h"
+#include "../../../strategies/StrategyBase.h"
 
 enum class ContourTraversalDirection {
     Forward,

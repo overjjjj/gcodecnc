@@ -37,17 +37,17 @@ SOURCES += \
     src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
     src/ui/MachineProfileDialog.cpp \
     src/workspaces/process_design/ui/CircleMillDialog.cpp \
-    src/ui/MillingOperationDialog.cpp \
+    src/workspaces/process_design/ui/MillingOperationDialog.cpp \
     src/workspaces/process_design/ui/ToolLibraryPanel.cpp \
     src/workspaces/process_design/ui/FeatureDisplayFilter.cpp \
-    src/ui/ContourMachiningChoice.cpp \
-    src/ui/ContourMachiningChoiceDialog.cpp \
+    src/workspaces/process_design/ui/ContourMachiningChoice.cpp \
+    src/workspaces/process_design/ui/ContourMachiningChoiceDialog.cpp \
     src/workspaces/process_design/ui/ToolOperationCompatibility.cpp \
     src/workspaces/process_design/ui/ContourFeatureGrouping.cpp \
     src/workspaces/process_design/ui/HoleFeatureGrouping.cpp \
     src/workspaces/process_design/ui/HoleSelectionDialog.cpp \
-    src/ui/SetupOriginDialog.cpp \
-    src/ui/StockDefinitionDialog.cpp \
+    src/workspaces/process_design/ui/SetupOriginDialog.cpp \
+    src/workspaces/process_design/ui/StockDefinitionDialog.cpp \
     src/workspaces/process_design/ui/FeatureListPanel.cpp \
     src/ui/BottomBar.cpp \
     src/ui/GCodeEditor.cpp \
@@ -122,17 +122,17 @@ HEADERS += \
     src/workspaces/process_design/ui/ParameterEditorDialog.h \
     src/ui/MachineProfileDialog.h \
     src/workspaces/process_design/ui/CircleMillDialog.h \
-    src/ui/MillingOperationDialog.h \
+    src/workspaces/process_design/ui/MillingOperationDialog.h \
     src/workspaces/process_design/ui/ToolLibraryPanel.h \
     src/workspaces/process_design/ui/FeatureDisplayFilter.h \
-    src/ui/ContourMachiningChoice.h \
-    src/ui/ContourMachiningChoiceDialog.h \
+    src/workspaces/process_design/ui/ContourMachiningChoice.h \
+    src/workspaces/process_design/ui/ContourMachiningChoiceDialog.h \
     src/workspaces/process_design/ui/ToolOperationCompatibility.h \
     src/workspaces/process_design/ui/ContourFeatureGrouping.h \
     src/workspaces/process_design/ui/HoleFeatureGrouping.h \
     src/workspaces/process_design/ui/HoleSelectionDialog.h \
-    src/ui/SetupOriginDialog.h \
-    src/ui/StockDefinitionDialog.h \
+    src/workspaces/process_design/ui/SetupOriginDialog.h \
+    src/workspaces/process_design/ui/StockDefinitionDialog.h \
     src/workspaces/process_design/ui/FeatureListPanel.h \
     src/ui/BottomBar.h \
     src/ui/GCodeEditor.h \
