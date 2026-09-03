@@ -4610,6 +4610,17 @@ void MainWindow::onSendToMachine()
     if (!validateCurrentGCodeForOutput(tr("send to machine"))) {
         return;
     }
+    ProjectManager *project = AppController::instance().projectManager();
+    const ProgramEntry program = project && !m_currentProgramId.trimmed().isEmpty()
+                                     ? project->programById(m_currentProgramId)
+                                     : ProgramEntry{};
+    if (!MachineOperationWorkspaceFacade::canSend(program)) {
+        QMessageBox::warning(
+            this,
+            tr("Program Snapshot is incomplete"),
+            tr("Cannot send to the machine because the current program has no confirmed operation provenance. Regenerate it from confirmed operations."));
+        return;
+    }
     CncSendDialog dlg(m_gcodeEditor->toPlainText(), this);
     dlg.exec();
 }

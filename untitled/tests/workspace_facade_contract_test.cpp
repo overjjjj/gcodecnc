@@ -32,5 +32,10 @@ int main()
         std::cerr << "valid program rejected\n";
         return 1;
     }
+    program.sourceOperationIds.clear();
+    if (MachineOperationWorkspaceFacade::canSend(program)) {
+        std::cerr << "program without operation provenance accepted\n";
+        return 1;
+    }
     return 0;
 }
