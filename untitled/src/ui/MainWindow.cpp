@@ -28,6 +28,7 @@
 #include "../postprocessor/PostProcessorRegistry.h"
 #include "../simulation/SimulationController.h"
 #include "../services/ProgramGenerationService.h"
+#include "../core/WorkspaceFacades.h"
 #include "../strategies/StrategyFactory.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
 #include "../strategies/mill/SlotMachiningGeometry.h"
@@ -4289,6 +4290,11 @@ void MainWindow::connectSignals()
 
         for (int opIndex = 0; opIndex < operations.size(); ++opIndex) {
             const MachiningOperation &op = operations[opIndex];
+            if (!ProgramVerificationWorkspaceFacade::canGenerate(op)) {
+                onErrorOccurred(QStringLiteral("Operation %1: toolpath is not valid or operation is disabled.")
+                                    .arg(opIndex + 1));
+                return;
+            }
             if (op.opType == OperationType::Contour) {
                 const StrategyParams generationParams = isSlotMillingStrategy(op.strategyId)
                                                             ? slotMachiningParamsWithoutGeometry(op.params)
