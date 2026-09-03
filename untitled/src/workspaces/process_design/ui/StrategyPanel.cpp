@@ -3,10 +3,10 @@
 #include "CircleMillDialog.h"
 #include "ParameterEditorDialog.h"
 #include "ToolOperationCompatibility.h"
-#include "../core/Settings.h"
-#include "../core/SetupOrientation.h"
-#include "../strategies/StrategyFactory.h"
-#include "../tool/ToolLibrary.h"
+#include "../../../core/Settings.h"
+#include "../../../core/SetupOrientation.h"
+#include "../../../strategies/StrategyFactory.h"
+#include "../../../tool/ToolLibrary.h"
 
 #include <QComboBox>
 #include <QDialog>

@@ -33,16 +33,16 @@ SOURCES += \
     src/core/Settings.cpp \
     src/ui/MainWindow.cpp \
     src/ui/ViewportWidget.cpp \
-    src/ui/StrategyPanel.cpp \
-    src/ui/ParameterEditorDialog.cpp \
+    src/workspaces/process_design/ui/StrategyPanel.cpp \
+    src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
     src/ui/MachineProfileDialog.cpp \
-    src/ui/CircleMillDialog.cpp \
+    src/workspaces/process_design/ui/CircleMillDialog.cpp \
     src/ui/MillingOperationDialog.cpp \
     src/ui/ToolLibraryPanel.cpp \
     src/workspaces/process_design/ui/FeatureDisplayFilter.cpp \
     src/ui/ContourMachiningChoice.cpp \
     src/ui/ContourMachiningChoiceDialog.cpp \
-    src/ui/ToolOperationCompatibility.cpp \
+    src/workspaces/process_design/ui/ToolOperationCompatibility.cpp \
     src/workspaces/process_design/ui/ContourFeatureGrouping.cpp \
     src/workspaces/process_design/ui/HoleFeatureGrouping.cpp \
     src/ui/HoleSelectionDialog.cpp \
@@ -118,16 +118,16 @@ HEADERS += \
     src/core/Settings.h \
     src/ui/MainWindow.h \
     src/ui/ViewportWidget.h \
-    src/ui/StrategyPanel.h \
-    src/ui/ParameterEditorDialog.h \
+    src/workspaces/process_design/ui/StrategyPanel.h \
+    src/workspaces/process_design/ui/ParameterEditorDialog.h \
     src/ui/MachineProfileDialog.h \
-    src/ui/CircleMillDialog.h \
+    src/workspaces/process_design/ui/CircleMillDialog.h \
     src/ui/MillingOperationDialog.h \
     src/ui/ToolLibraryPanel.h \
     src/workspaces/process_design/ui/FeatureDisplayFilter.h \
     src/ui/ContourMachiningChoice.h \
     src/ui/ContourMachiningChoiceDialog.h \
-    src/ui/ToolOperationCompatibility.h \
+    src/workspaces/process_design/ui/ToolOperationCompatibility.h \
     src/workspaces/process_design/ui/ContourFeatureGrouping.h \
     src/workspaces/process_design/ui/HoleFeatureGrouping.h \
     src/ui/HoleSelectionDialog.h \

@@ -8,10 +8,10 @@
 #include <QStringList>
 #include <QTableWidget>
 #include <QWidget>
-#include "../import/StepImporter.h"
-#include "../strategies/OperationProposal.h"
-#include "../strategies/StrategyBase.h"
-#include "../tool/ToolEntry.h"
+#include "../../../import/StepImporter.h"
+#include "../../../strategies/OperationProposal.h"
+#include "../../../strategies/StrategyBase.h"
+#include "../../../tool/ToolEntry.h"
 
 class StrategyPanel : public QWidget
 {

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <QDialog>
-#include "../import/StepImporter.h"
-#include "../strategies/StrategyBase.h"
+#include "../../../import/StepImporter.h"
+#include "../../../strategies/StrategyBase.h"
 
 class QComboBox;
 class QDoubleSpinBox;

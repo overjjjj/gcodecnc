@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../strategies/StrategyBase.h"
-#include "../tool/ToolEntry.h"
+#include "../../../strategies/StrategyBase.h"
+#include "../../../tool/ToolEntry.h"
 
 #include <QVector>
 

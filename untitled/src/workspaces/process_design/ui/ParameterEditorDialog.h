@@ -4,7 +4,7 @@
 #include <QMap>
 #include <QSet>
 
-#include "../strategies/StrategyBase.h"
+#include "../../../strategies/StrategyBase.h"
 
 class QCheckBox;
 class QLabel;
