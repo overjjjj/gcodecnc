@@ -1,4 +1,4 @@
-#include "../src/core/WorkspaceModule.h"
+#include "../src/workspaces/shared/WorkspaceModule.h"
 
 #include <iostream>
 

@@ -1,4 +1,4 @@
-#include "../src/core/WorkspaceContracts.h"
+#include "../src/workspaces/shared/WorkspaceContracts.h"
 
 #include <iostream>
 

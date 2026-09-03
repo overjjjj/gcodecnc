@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../strategies/OperationProposal.h"
-#include "../strategies/MachiningOperation.h"
-#include "ProjectManager.h"
+#include "../../strategies/OperationProposal.h"
+#include "../../strategies/MachiningOperation.h"
+#include "../../core/ProjectManager.h"
 
 class ProcessDesignWorkspaceFacade
 {

@@ -1,4 +1,4 @@
-#include "../src/core/WorkspaceFacades.h"
+#include "../src/workspaces/shared/WorkspaceFacades.h"
 
 #include <iostream>
 

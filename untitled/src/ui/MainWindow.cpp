@@ -28,7 +28,7 @@
 #include "../postprocessor/PostProcessorRegistry.h"
 #include "../simulation/SimulationController.h"
 #include "../services/ProgramGenerationService.h"
-#include "../core/WorkspaceFacades.h"
+#include "../workspaces/shared/WorkspaceFacades.h"
 #include "../strategies/StrategyFactory.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
 #include "../strategies/mill/SlotMachiningGeometry.h"

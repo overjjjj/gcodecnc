@@ -109,9 +109,9 @@ HEADERS += \
     src/core/HoleSelectionSession.h \
     src/core/OperationWorkflow.h \
     src/core/SelectionChainController.h \
-    src/core/WorkspaceModule.h \
-    src/core/WorkspaceContracts.h \
-    src/core/WorkspaceFacades.h \
+    src/workspaces/shared/WorkspaceModule.h \
+    src/workspaces/shared/WorkspaceContracts.h \
+    src/workspaces/shared/WorkspaceFacades.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
