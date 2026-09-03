@@ -35,7 +35,7 @@ SOURCES += \
     src/ui/ViewportWidget.cpp \
     src/workspaces/process_design/ui/StrategyPanel.cpp \
     src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
-    src/ui/MachineProfileDialog.cpp \
+    src/workspaces/machine_operation/ui/MachineProfileDialog.cpp \
     src/workspaces/process_design/ui/CircleMillDialog.cpp \
     src/workspaces/process_design/ui/MillingOperationDialog.cpp \
     src/workspaces/process_design/ui/ToolLibraryPanel.cpp \
@@ -50,9 +50,9 @@ SOURCES += \
     src/workspaces/process_design/ui/StockDefinitionDialog.cpp \
     src/workspaces/process_design/ui/FeatureListPanel.cpp \
     src/ui/BottomBar.cpp \
-    src/ui/GCodeEditor.cpp \
-    src/ui/GCodeHighlighter.cpp \
-    src/ui/CncSendDialog.cpp \
+    src/workspaces/program_verification/ui/GCodeEditor.cpp \
+    src/workspaces/program_verification/ui/GCodeHighlighter.cpp \
+    src/workspaces/machine_operation/ui/CncSendDialog.cpp \
     src/workspaces/process_design/ui/OperationListPanel.cpp \
     src/import/StepImporter.cpp \
     src/import/TopoAnalyzer.cpp \
@@ -120,7 +120,7 @@ HEADERS += \
     src/ui/ViewportWidget.h \
     src/workspaces/process_design/ui/StrategyPanel.h \
     src/workspaces/process_design/ui/ParameterEditorDialog.h \
-    src/ui/MachineProfileDialog.h \
+    src/workspaces/machine_operation/ui/MachineProfileDialog.h \
     src/workspaces/process_design/ui/CircleMillDialog.h \
     src/workspaces/process_design/ui/MillingOperationDialog.h \
     src/workspaces/process_design/ui/ToolLibraryPanel.h \
@@ -135,9 +135,9 @@ HEADERS += \
     src/workspaces/process_design/ui/StockDefinitionDialog.h \
     src/workspaces/process_design/ui/FeatureListPanel.h \
     src/ui/BottomBar.h \
-    src/ui/GCodeEditor.h \
-    src/ui/GCodeHighlighter.h \
-    src/ui/CncSendDialog.h \
+    src/workspaces/program_verification/ui/GCodeEditor.h \
+    src/workspaces/program_verification/ui/GCodeHighlighter.h \
+    src/workspaces/machine_operation/ui/CncSendDialog.h \
     src/workspaces/process_design/ui/OperationListPanel.h \
     src/import/StepImporter.h \
     src/import/TopoAnalyzer.h \
