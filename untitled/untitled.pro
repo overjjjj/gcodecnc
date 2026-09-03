@@ -38,14 +38,14 @@ SOURCES += \
     src/ui/MachineProfileDialog.cpp \
     src/workspaces/process_design/ui/CircleMillDialog.cpp \
     src/ui/MillingOperationDialog.cpp \
-    src/ui/ToolLibraryPanel.cpp \
+    src/workspaces/process_design/ui/ToolLibraryPanel.cpp \
     src/workspaces/process_design/ui/FeatureDisplayFilter.cpp \
     src/ui/ContourMachiningChoice.cpp \
     src/ui/ContourMachiningChoiceDialog.cpp \
     src/workspaces/process_design/ui/ToolOperationCompatibility.cpp \
     src/workspaces/process_design/ui/ContourFeatureGrouping.cpp \
     src/workspaces/process_design/ui/HoleFeatureGrouping.cpp \
-    src/ui/HoleSelectionDialog.cpp \
+    src/workspaces/process_design/ui/HoleSelectionDialog.cpp \
     src/ui/SetupOriginDialog.cpp \
     src/ui/StockDefinitionDialog.cpp \
     src/workspaces/process_design/ui/FeatureListPanel.cpp \
@@ -53,7 +53,7 @@ SOURCES += \
     src/ui/GCodeEditor.cpp \
     src/ui/GCodeHighlighter.cpp \
     src/ui/CncSendDialog.cpp \
-    src/ui/OperationListPanel.cpp \
+    src/workspaces/process_design/ui/OperationListPanel.cpp \
     src/import/StepImporter.cpp \
     src/import/TopoAnalyzer.cpp \
     src/import/FeatureRecognizer.cpp \
@@ -123,14 +123,14 @@ HEADERS += \
     src/ui/MachineProfileDialog.h \
     src/workspaces/process_design/ui/CircleMillDialog.h \
     src/ui/MillingOperationDialog.h \
-    src/ui/ToolLibraryPanel.h \
+    src/workspaces/process_design/ui/ToolLibraryPanel.h \
     src/workspaces/process_design/ui/FeatureDisplayFilter.h \
     src/ui/ContourMachiningChoice.h \
     src/ui/ContourMachiningChoiceDialog.h \
     src/workspaces/process_design/ui/ToolOperationCompatibility.h \
     src/workspaces/process_design/ui/ContourFeatureGrouping.h \
     src/workspaces/process_design/ui/HoleFeatureGrouping.h \
-    src/ui/HoleSelectionDialog.h \
+    src/workspaces/process_design/ui/HoleSelectionDialog.h \
     src/ui/SetupOriginDialog.h \
     src/ui/StockDefinitionDialog.h \
     src/workspaces/process_design/ui/FeatureListPanel.h \
@@ -138,7 +138,7 @@ HEADERS += \
     src/ui/GCodeEditor.h \
     src/ui/GCodeHighlighter.h \
     src/ui/CncSendDialog.h \
-    src/ui/OperationListPanel.h \
+    src/workspaces/process_design/ui/OperationListPanel.h \
     src/import/StepImporter.h \
     src/import/TopoAnalyzer.h \
     src/import/FeatureRecognizer.h \

@@ -2,7 +2,7 @@
 
 #include <QDialog>
 
-#include "../workspaces/process_design/selection/HoleSelectionSession.h"
+#include "../selection/HoleSelectionSession.h"
 
 class QCheckBox;
 class QPushButton;

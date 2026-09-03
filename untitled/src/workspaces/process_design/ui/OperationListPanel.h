@@ -4,8 +4,8 @@
 #include <QPushButton>
 #include <QToolButton>
 
-#include "../strategies/MachiningOperation.h"
-#include "../import/StepImporter.h"
+#include "../../../strategies/MachiningOperation.h"
+#include "../../../import/StepImporter.h"
 
 class QLabel;
 

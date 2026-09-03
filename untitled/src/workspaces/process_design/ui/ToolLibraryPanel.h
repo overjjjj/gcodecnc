@@ -3,8 +3,8 @@
 #include <QListWidget>
 #include <QLabel>
 #include <QPushButton>
-#include "../tool/ToolEntry.h"
-#include "../tool/ToolLibrary.h"
+#include "../../../tool/ToolEntry.h"
+#include "../../../tool/ToolLibrary.h"
 
 class ToolLibraryPanel : public QWidget
 {

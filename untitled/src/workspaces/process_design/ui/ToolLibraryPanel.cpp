@@ -1,6 +1,6 @@
 #include "ToolLibraryPanel.h"
 
-#include "../core/Settings.h"
+#include "../../../core/Settings.h"
 
 #include <QComboBox>
 #include <QDialog>

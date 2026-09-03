@@ -1,9 +1,9 @@
 #include "OperationListPanel.h"
 
-#include "../workspaces/process_design/operations/OperationWorkflow.h"
-#include "../core/Settings.h"
-#include "../tool/ToolLibrary.h"
-#include "../strategies/StrategyFactory.h"
+#include "../operations/OperationWorkflow.h"
+#include "../../../core/Settings.h"
+#include "../../../tool/ToolLibrary.h"
+#include "../../../strategies/StrategyFactory.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
