@@ -113,6 +113,11 @@ function Invoke-OccFixtureTest {
 Push-Location $ProjectDir
 try {
     Invoke-TestBuild `
+        -Name "workspace_module_contract_test" `
+        -Sources @("tests\workspace_module_contract_test.cpp") `
+        -Libs @()
+
+    Invoke-TestBuild `
         -Name "standalone_ui_contract_test" `
         -Sources @("tests\standalone_ui_contract_test.cpp") `
         -Libs @("-lQt5Core")
