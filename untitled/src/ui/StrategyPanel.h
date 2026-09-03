@@ -23,6 +23,7 @@ public:
     void clearFeature();
     void setContourFeature(const MachiningFeature &feature);
     void clearContourFeature();
+    void setWorkOffset(const QString &workOffset);
     ToolEntry currentTool() const;
     void retranslateUi();
 
@@ -69,6 +70,7 @@ private:
     MachiningFeature m_contourFeature;
     bool m_hasContourFeature = false;
     FaceRegion m_activeRegion = FaceRegion::Unknown;
+    int m_workOffset = 54;
     QString m_currentStrategyId;
     QMap<QString, StrategyParams> m_userParams;
     QLabel *m_proposalTitleLabel = nullptr;

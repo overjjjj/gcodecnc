@@ -1,8 +1,10 @@
 #include "../src/import/StepImporter.h"
+#include "../src/core/FeatureIdentity.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/services/ProgramGenerationService.h"
 #include "../src/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
+#include "../src/strategies/mill/PocketRoughingStrategy.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -76,7 +78,21 @@ int main(int argc, char **argv)
     HoleFeature pairedThroughHole;
     bool hasSelectedThroughHole = false;
     bool hasPairedThroughHole = false;
+    MachiningFeature selectedComplexPocket;
+    bool hasSelectedComplexPocket = false;
+    int pocketIndex = 0;
+    int sevenIslandPocketCount = 0;
     for (const MachiningFeature &feature : importer.features()) {
+        if (feature.kind == FeatureKind::Pocket) {
+            ++pocketIndex;
+            if (feature.islandBoundaries.size() == 7) {
+                ++sevenIslandPocketCount;
+                if (!hasSelectedComplexPocket) {
+                    selectedComplexPocket = feature;
+                    hasSelectedComplexPocket = true;
+                }
+            }
+        }
         if ((feature.kind == FeatureKind::Hole || feature.kind == FeatureKind::Thread) &&
             feature.region == FaceRegion::Front) {
             ++frontHoleCount;
@@ -122,6 +138,14 @@ int main(int argc, char **argv)
                       << " modelZSpan=" << modelZSpan << '\n';
             return 1;
         }
+    }
+    if (!expect(pocketIndex == 13,
+                "the acceptance model should retain its thirteen recognized pockets") ||
+        !expect(sevenIslandPocketCount == 2 && hasSelectedComplexPocket,
+                "the acceptance model should retain two complex pockets with seven islands each")) {
+        std::cerr << "recognized pockets=" << pocketIndex
+                  << " seven-island pockets=" << sevenIslandPocketCount << '\n';
+        return 1;
     }
     if (!expect(sideAxisSlots >= 4,
                 "known side-axis slots should remain recognized as side features")) {
@@ -240,6 +264,116 @@ int main(int argc, char **argv)
     if (!expect(hasFeedMoveTo(path, rapidSegments, QVector3D(-60.0f, 305.0f, -51.0f)) &&
                     hasFeedMoveTo(path, rapidSegments, QVector3D(-60.0f, -305.0f, -51.0f)),
                 "the final acceptance G83 program should simulate both D21 hole-bottom feed moves")) {
+        return 1;
+    }
+
+    ContourFeature complexPocket;
+    complexPocket.subType = QStringLiteral("irregular_pocket");
+    complexPocket.center = selectedComplexPocket.center;
+    complexPocket.depth = selectedComplexPocket.depth;
+    complexPocket.width = selectedComplexPocket.width;
+    complexPocket.length = selectedComplexPocket.length;
+    complexPocket.angle = selectedComplexPocket.angle;
+    complexPocket.axis = selectedComplexPocket.axis;
+    complexPocket.region = selectedComplexPocket.region;
+    complexPocket.points = selectedComplexPocket.boundaryPoints;
+    complexPocket.islands = selectedComplexPocket.islandBoundaries;
+
+    const auto pocketStrategy = std::make_shared<PocketRoughingStrategy>();
+    ProgramGenerationService pocketGenerationService(
+        [pocketStrategy](const QString &strategyId) -> std::shared_ptr<StrategyBase> {
+            return strategyId == pocketStrategy->id()
+                ? pocketStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int toolId) {
+            ToolEntry tool;
+            if (toolId == 10) {
+                tool.id = 10;
+                tool.type = QStringLiteral("end_mill");
+                tool.diameter = 10.0;
+                tool.fluteLen = 200.0;
+                tool.totalLen = 250.0;
+            }
+            return tool;
+        });
+
+    MachiningOperation pocketOperation;
+    pocketOperation.id = QStringLiteral("acceptance-pocket-seven-islands");
+    pocketOperation.opType = OperationType::Roughing;
+    pocketOperation.stage = OperationStage::RoughCut;
+    pocketOperation.featureRef = QStringLiteral("WH250852 seven-island pocket");
+    pocketOperation.strategyId = pocketStrategy->id();
+    pocketOperation.toolId = 10;
+    pocketOperation.params = pocketStrategy->defaultParams();
+    pocketOperation.params.set(QStringLiteral("entryMode"), 0.0);
+    pocketOperation.params.set(QStringLiteral("safeHeight"), 70.0);
+    pocketOperation.params.set(QStringLiteral("feedHeight"), 5.0);
+    pocketOperation.params.set(QStringLiteral("stepDown"), 10.0);
+    pocketOperation.params.set(QStringLiteral("stepover"), 20.0);
+    pocketOperation.params.set(QStringLiteral("stockToLeave"), 0.5);
+    pocketOperation.contourFeature = complexPocket;
+    pocketOperation.selectionEvidence.sourceFingerprint = fingerprint;
+    pocketOperation.selectionEvidence.setupFingerprint = QStringLiteral("acceptance-setup");
+    pocketOperation.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    for (int faceIndex : selectedComplexPocket.faceIndices) {
+        pocketOperation.selectionEvidence.orderedGeometryIds.append(
+            QStringLiteral("face:%1").arg(faceIndex));
+    }
+    if (pocketOperation.selectionEvidence.orderedGeometryIds.isEmpty()) {
+        pocketOperation.selectionEvidence.orderedGeometryIds.append(
+            stableContourId(complexPocket));
+    }
+    pocketOperation.selectionEvidence.selectedSurfaceNormal = complexPocket.axis;
+    pocketOperation.selectionEvidence.toolAxis = QVector3D(0, 0, 1);
+    pocketOperation.selectionEvidence.closed = true;
+    pocketOperation.selectionEvidence.outerLoopPointCount = complexPocket.points.size();
+    pocketOperation.selectionEvidence.islandCount = complexPocket.islands.size();
+    pocketOperation.selectionEvidence.explicitUserSelection = true;
+
+    ProgramGenerationSnapshotOptions pocketSnapshotOptions = snapshotOptions;
+    pocketSnapshotOptions.setupFingerprint = QStringLiteral("acceptance-setup");
+    pocketSnapshotOptions.name = QStringLiteral("WH250852 acceptance complex pocket");
+    pocketSnapshotOptions.sourceSummary =
+        QStringLiteral("acceptance STEP / confirmed seven-island pocket roughing");
+    pocketSnapshotOptions.mainProgramName = QStringLiteral("WH250852_POCKET");
+    const ProgramGenerationResult generatedPocket = pocketGenerationService.generate(
+        {pocketOperation}, postProcessor, postOptions, pocketSnapshotOptions);
+    if (!expect(generatedPocket.ok,
+                "the confirmed acceptance complex pocket should generate final CQ8 G-code") ||
+        !expect(!generatedPocket.snapshot.expandedGcodeText.isEmpty() &&
+                    generatedPocket.snapshot.lineCount < generatedPocket.snapshot.expandedLineCount,
+                "the complex pocket should retain a shorter CQ8 macro program and expanded safety program") ||
+        !expect(generatedPocket.snapshot.gcodeText.contains(QStringLiteral("M98 P")) &&
+                    generatedPocket.snapshot.macroText.contains(QStringLiteral("M99")),
+                "the complex pocket should expose a callable CQ8 routine and terminating macro library") ||
+        !expect(generatedPocket.snapshot.sourceOperationIds ==
+                    QStringList{QStringLiteral("acceptance-pocket-seven-islands")},
+                "the complex-pocket snapshot should retain its confirmed operation ID")) {
+        if (!generatedPocket.errors.isEmpty()) {
+            std::cerr << generatedPocket.errors.join(QLatin1Char('\n')).toStdString() << '\n';
+        }
+        return 1;
+    }
+
+    QVector<QVector3D> pocketPath;
+    QVector<bool> pocketRapidSegments;
+    QObject::connect(&simulation, &SimulationController::toolPathReady,
+                     [&pocketPath, &pocketRapidSegments](
+                         const QVector<QVector3D> &newPath,
+                         const QVector<bool> &newRapidSegments) {
+        pocketPath = newPath;
+        pocketRapidSegments = newRapidSegments;
+    });
+    simulation.loadGCode(generatedPocket.snapshot.expandedGcodeText);
+    int pocketFeedSegments = 0;
+    for (bool rapid : pocketRapidSegments) {
+        if (!rapid) {
+            ++pocketFeedSegments;
+        }
+    }
+    if (!expect(pocketPath.size() > 2 && pocketFeedSegments > 0,
+                "the expanded complex-pocket program should produce visible feed toolpath segments")) {
         return 1;
     }
     return 0;

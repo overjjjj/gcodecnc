@@ -16,6 +16,9 @@ namespace {
 static QStringList preferredParamOrder()
 {
     return {
+        QStringLiteral("workOffset"),
+        QStringLiteral("coolantMode"),
+        QStringLiteral("depthMode"),
         QStringLiteral("safeHeight"),
         QStringLiteral("feedHeight"),
         QStringLiteral("depth"),
@@ -31,14 +34,25 @@ static QStringList preferredParamOrder()
         QStringLiteral("slotWidth"),
         QStringLiteral("angle"),
         QStringLiteral("pitch"),
+        QStringLiteral("threadHandedness"),
+        QStringLiteral("tapRetract"),
+        QStringLiteral("chipBreakRetract"),
         QStringLiteral("chamferWidth"),
         QStringLiteral("chamferAngle"),
+        QStringLiteral("toolTipRadius"),
         QStringLiteral("leadLength"),
         QStringLiteral("compensation"),
         QStringLiteral("helixRadius"),
         QStringLiteral("helixPitch"),
         QStringLiteral("finishStock"),
-        QStringLiteral("slopeDirection")
+        QStringLiteral("slopeDirection"),
+        QStringLiteral("cutDirection"),
+        QStringLiteral("linkMode"),
+        QStringLiteral("boundingRectangle"),
+        QStringLiteral("pathPattern"),
+        QStringLiteral("keepIslands"),
+        QStringLiteral("overcut"),
+        QStringLiteral("startAtMidpoint")
     };
 }
 
@@ -139,6 +153,8 @@ StrategyParams ParameterEditorDialog::params() const
     return m_params;
 }
 
+// 中文说明：收集编辑器中的参数并执行统一范围校验；失败时保持对话框打开，
+// 避免非法参数进入工序或后处理层。
 void ParameterEditorDialog::onAccept()
 {
     const QString error = validationError();
@@ -212,6 +228,7 @@ QString ParameterEditorDialog::labelForKey(const QString &key) const
     return m_labels.value(key, key);
 }
 
+// 中文说明：把 UI 字段校验集中在一个只读函数中，供确认动作和测试复用。
 QString ParameterEditorDialog::validationError() const
 {
     for (int row = 0; row < m_table->rowCount(); ++row) {
@@ -229,6 +246,18 @@ QString ParameterEditorDialog::validationError() const
             return m_chineseUi
                 ? QStringLiteral("%1 必须是数字。").arg(label)
                 : QStringLiteral("%1 must be numeric.").arg(label);
+        }
+
+        if (key == QStringLiteral("workOffset") &&
+            (value < 54.0 || value > 59.0 || value != static_cast<int>(value))) {
+            return m_chineseUi
+                ? QStringLiteral("%1 必须是 G54-G59 的整数。").arg(label)
+                : QStringLiteral("%1 must be an integer from G54-G59.").arg(label);
+        }
+        if (key == QStringLiteral("depthMode") && value != 0.0) {
+            return m_chineseUi
+                ? QStringLiteral("当前仅支持绝对深度模式（0）。").arg(label)
+                : QStringLiteral("Only absolute depth mode (0) is currently supported.").arg(label);
         }
 
         if (m_allowAnyValueKeys.contains(key)) {

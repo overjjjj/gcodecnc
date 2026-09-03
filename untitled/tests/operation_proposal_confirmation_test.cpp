@@ -1,4 +1,5 @@
 #include "../src/strategies/OperationProposal.h"
+#include "../src/core/FeatureIdentity.h"
 
 #include <QCoreApplication>
 #include <type_traits>
@@ -61,7 +62,9 @@ int main(int argc, char **argv)
                    confirmed.operation.holeFeature.radius == hole.radius,
                "hole geometry should be copied into the confirmed operation") ||
         expect(confirmed.operation.params.get(QStringLiteral("feedRate")) == 320.0,
-               "proposal parameters should be copied into the confirmed operation")) {
+               "proposal parameters should be copied into the confirmed operation") ||
+        expect(confirmed.operation.geometryRefs == QStringList{stableFeatureId(hole)},
+               "confirmed holes should retain a stable geometry reference")) {
         return 1;
     }
 
@@ -85,7 +88,10 @@ int main(int argc, char **argv)
         expect(contourConfirmed.operation.opType == OperationType::Finish,
                "a contour finish proposal should become a finish operation") ||
         expect(contourConfirmed.operation.stage == OperationStage::FinishCut,
-               "a contour finish proposal should use the finish stage")) {
+               "a contour finish proposal should use the finish stage") ||
+        expect(contourConfirmed.operation.geometryRefs ==
+                   QStringList{stableContourId(contourProposal.contourFeature)},
+               "confirmed contours should retain a stable geometry reference")) {
         return 1;
     }
 
@@ -97,6 +103,22 @@ int main(int argc, char **argv)
     pocketProposal.contourFeature.length = 40.0;
     pocketProposal.contourFeature.width = 20.0;
     pocketProposal.contourFeature.depth = 4.0;
+    pocketProposal.contourFeature.region = FaceRegion::Side;
+    pocketProposal.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    pocketProposal.selectionEvidence.sourceFingerprint = QStringLiteral("STEP-ABC");
+    pocketProposal.selectionEvidence.setupFingerprint = QStringLiteral("SETUP-123");
+    pocketProposal.selectionEvidence.orderedGeometryIds =
+        QStringList{QStringLiteral("face:42")};
+    pocketProposal.selectionEvidence.selectionMode = ChainSelectionMode::Face;
+    pocketProposal.selectionEvidence.selectedSurfaceNormal = QVector3D(0, 0, 1);
+    pocketProposal.selectionEvidence.toolAxis = QVector3D(0, 0, 1);
+    pocketProposal.selectionEvidence.closed = true;
+    pocketProposal.selectionEvidence.outerLoopPointCount = 4;
+    pocketProposal.selectionEvidence.explicitUserSelection = true;
+    OperationConfirmationContext pocketContext;
+    pocketContext.sourceFingerprint = QStringLiteral("STEP-ABC");
+    pocketContext.setupFingerprint = QStringLiteral("SETUP-123");
+    pocketContext.coordinateSystemId = QStringLiteral("G54");
     if (expect(!confirmOperationProposal(
                     pocketProposal, OperationConfirmationIntent::ExplicitUser).ok,
                "pocket roughing must require an explicit entry-method choice")) {
@@ -104,11 +126,33 @@ int main(int argc, char **argv)
     }
     pocketProposal.params.set(QStringLiteral("entryMode"), 0.0);
     const OperationConfirmationResult pocketConfirmed = confirmOperationProposal(
-        pocketProposal, OperationConfirmationIntent::ExplicitUser);
+        pocketProposal, OperationConfirmationIntent::ExplicitUser, pocketContext);
     if (expect(pocketConfirmed.ok,
                "pocket roughing with an explicit entry method should be confirmable") ||
         expect(pocketConfirmed.operation.params.get(QStringLiteral("entryMode"), -1.0) == 0.0,
-               "confirmed pocket operation must retain the operator entry choice")) {
+               "confirmed pocket operation must retain the operator entry choice") ||
+        expect(pocketConfirmed.operation.selectionEvidence.explicitUserSelection &&
+                   pocketConfirmed.operation.selectionEvidence.orderedGeometryIds ==
+                       QStringList{QStringLiteral("face:42")},
+               "confirmed operation must retain its user-selection evidence")) {
+        return 1;
+    }
+
+    OperationProposal unreachablePocket = pocketProposal;
+    unreachablePocket.selectionEvidence.selectedSurfaceNormal = QVector3D(1, 0, 0);
+    if (expect(!confirmOperationProposal(unreachablePocket,
+                                         OperationConfirmationIntent::ExplicitUser,
+                                         pocketContext).ok,
+               "a truly side-facing pocket must remain blocked in a Z-axis Setup")) {
+        return 1;
+    }
+
+    OperationConfirmationContext changedSource = pocketContext;
+    changedSource.sourceFingerprint = QStringLiteral("STEP-CHANGED");
+    if (expect(!confirmOperationProposal(pocketProposal,
+                                         OperationConfirmationIntent::ExplicitUser,
+                                         changedSource).ok,
+               "stale selection evidence must not create a confirmed operation")) {
         return 1;
     }
 

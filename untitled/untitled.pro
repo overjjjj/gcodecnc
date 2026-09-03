@@ -23,6 +23,9 @@ SOURCES += \
     src/core/AppController.cpp \
     src/core/ProjectManager.cpp \
     src/core/SourceFileFingerprint.cpp \
+    src/core/FeatureIdentity.cpp \
+    src/core/HoleSelectionSession.cpp \
+    src/core/SelectionChainController.cpp \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
@@ -42,6 +45,7 @@ SOURCES += \
     src/ui/ToolOperationCompatibility.cpp \
     src/ui/ContourFeatureGrouping.cpp \
     src/ui/HoleFeatureGrouping.cpp \
+    src/ui/HoleSelectionDialog.cpp \
     src/ui/SetupOriginDialog.cpp \
     src/ui/StockDefinitionDialog.cpp \
     src/ui/FeatureListPanel.cpp \
@@ -101,6 +105,10 @@ HEADERS += \
     src/core/MachineProfileValidator.h \
     src/core/ProjectManager.h \
     src/core/SourceFileFingerprint.h \
+    src/core/FeatureIdentity.h \
+    src/core/HoleSelectionSession.h \
+    src/core/OperationWorkflow.h \
+    src/core/SelectionChainController.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
@@ -119,6 +127,7 @@ HEADERS += \
     src/ui/ToolOperationCompatibility.h \
     src/ui/ContourFeatureGrouping.h \
     src/ui/HoleFeatureGrouping.h \
+    src/ui/HoleSelectionDialog.h \
     src/ui/SetupOriginDialog.h \
     src/ui/StockDefinitionDialog.h \
     src/ui/FeatureListPanel.h \

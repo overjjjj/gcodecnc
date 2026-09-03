@@ -64,6 +64,8 @@ public:
     void setWorkOffset(const QString &workOffset);
     void setSetupOrigin(const SetupOrigin &origin);
     void setStockDefinition(const StockDefinition &stock);
+    // 中文说明：源模型变化时原子替换模型与特征，并使依赖旧几何的工序/程序失效。
+    // 不删除历史程序，便于追溯；调用方必须要求用户重新确认工艺。
     void replaceChangedSource(const MeshData &mesh,
                               const QVector<MachiningFeature> &features,
                               const QString &sourceFilePath,
@@ -87,7 +89,9 @@ public:
     const MachineProfile             &machineProfile() const { return m_machineProfile; }
     ProgramEntry programById(const QString &id) const;
 
+    // 中文说明：保存完整项目快照，包括模型指纹、Setup、毛坯、参数来源和程序状态。
     bool saveToFile(const QString &path);
+    // 中文说明：加载后验证源文件指纹；缺失或变化时返回问题状态，不静默使用旧几何。
     bool loadFromFile(const QString &path);
     bool isModified() const { return m_modified; }
 
@@ -111,4 +115,6 @@ private:
     StockDefinition           m_stockDefinition;
     MachineProfile            m_machineProfile;
     bool                      m_modified = false;
+
+    void invalidateOperations(const QString &reason);
 };

@@ -1,5 +1,6 @@
 #include "OperationListPanel.h"
 
+#include "../core/OperationWorkflow.h"
 #include "../core/Settings.h"
 #include "../tool/ToolLibrary.h"
 #include "../strategies/StrategyFactory.h"
@@ -9,6 +10,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <QUuid>
 #include <algorithm>
 
@@ -105,6 +107,23 @@ static QString operationStageText(OperationStage stage, bool zh)
     return zh ? QStringLiteral("粗切") : QStringLiteral("Rough");
 }
 
+static QString toolpathStateText(ToolpathState state, bool zh)
+{
+    switch (state) {
+    case ToolpathState::Empty:
+        return zh ? QStringLiteral("未生成") : QStringLiteral("Empty");
+    case ToolpathState::Calculating:
+        return zh ? QStringLiteral("计算中") : QStringLiteral("Calculating");
+    case ToolpathState::Valid:
+        return zh ? QStringLiteral("有效") : QStringLiteral("Valid");
+    case ToolpathState::Stale:
+        return zh ? QStringLiteral("需重算") : QStringLiteral("Stale");
+    case ToolpathState::Error:
+        return zh ? QStringLiteral("错误") : QStringLiteral("Error");
+    }
+    return zh ? QStringLiteral("未生成") : QStringLiteral("Empty");
+}
+
 static FaceRegion operationRegion(const MachiningOperation &op)
 {
     return op.opType == OperationType::Hole
@@ -132,6 +151,7 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     , m_btnDelete(new QToolButton(this))
     , m_btnApplyTool(new QToolButton(this))
     , m_btnSortStage(new QToolButton(this))
+    , m_btnRecalculate(new QToolButton(this))
     , m_btnGenerateProgram(new QPushButton(this))
 {
     setObjectName(QStringLiteral("operationListPanel"));
@@ -161,16 +181,18 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     toolbar->addWidget(m_btnDelete);
     toolbar->addWidget(m_btnApplyTool);
     toolbar->addWidget(m_btnSortStage);
+    toolbar->addWidget(m_btnRecalculate);
     toolbar->addStretch();
     layout->addLayout(toolbar);
 
-    m_table->setColumnCount(5);
+    m_table->setColumnCount(6);
     m_table->horizontalHeader()->setStretchLastSection(false);
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
     m_table->verticalHeader()->setVisible(false);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -186,10 +208,13 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     connect(m_btnDelete, &QToolButton::clicked, this, &OperationListPanel::onDelete);
     connect(m_btnApplyTool, &QToolButton::clicked, this, &OperationListPanel::applyCurrentToolRequested);
     connect(m_btnSortStage, &QToolButton::clicked, this, &OperationListPanel::onSortByStage);
+    connect(m_btnRecalculate, &QToolButton::clicked, this, &OperationListPanel::onRecalculate);
     connect(m_btnGenerateProgram, &QPushButton::clicked,
             this, &OperationListPanel::onGenerateProgram);
     connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &OperationListPanel::onSelectionChanged);
+    connect(m_table, &QTableWidget::itemChanged,
+            this, &OperationListPanel::onItemChanged);
 
     onSelectionChanged();
 }
@@ -234,6 +259,8 @@ bool OperationListPanel::selectOperationById(const QString &operationId)
     return false;
 }
 
+// 中文说明：只接收已由用户确认的操作提案并建立稳定 ID；此处不生成 G 代码，
+// 程序生成统一由 ProgramGenerationService 负责。
 QStringList OperationListPanel::addConfirmedOperations(
     const QList<MachiningOperation> &operations)
 {
@@ -305,11 +332,32 @@ bool OperationListPanel::applyToolToSelection(int toolId)
     for (int row : rows) {
         if (row >= 0 && row < m_operations.size()) {
             m_operations[row].toolId = toolId;
+            m_operations[row].markToolpathStale(QStringLiteral("tool changed"));
         }
     }
     refreshTable();
     emit operationsEdited(m_operations);
     return true;
+}
+
+bool OperationListPanel::setToolpathResult(const QString &operationId,
+                                           bool success,
+                                           const QString &message)
+{
+    for (MachiningOperation &operation : m_operations) {
+        if (operation.id != operationId) {
+            continue;
+        }
+        if (success) {
+            operation.markToolpathValid();
+        } else {
+            operation.markToolpathError(message);
+        }
+        refreshTable();
+        emit operationsEdited(m_operations);
+        return true;
+    }
+    return false;
 }
 
 void OperationListPanel::setActiveRegion(FaceRegion region)
@@ -319,12 +367,16 @@ void OperationListPanel::setActiveRegion(FaceRegion region)
 
 void OperationListPanel::refreshTable()
 {
+    const QSignalBlocker blocker(m_table);
     m_table->setRowCount(0);
     const bool zh = isChineseUi();
     int row = 0;
     for (const MachiningOperation &op : m_operations) {
         m_table->insertRow(row);
-        m_table->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
+        auto *orderItem = new QTableWidgetItem(QString::number(row + 1));
+        orderItem->setFlags(orderItem->flags() | Qt::ItemIsUserCheckable);
+        orderItem->setCheckState(op.enabled ? Qt::Checked : Qt::Unchecked);
+        m_table->setItem(row, 0, orderItem);
         m_table->setItem(row, 1, new QTableWidgetItem(operationTypeText(op, zh)));
         m_table->setItem(row, 2, new QTableWidgetItem(operationStageText(op.stage, zh)));
         m_table->setItem(row, 3, new QTableWidgetItem(operationLabel(op)));
@@ -333,7 +385,10 @@ void OperationListPanel::refreshTable()
         const QString toolText = tool.id > 0
             ? QStringLiteral("T%1 D%2").arg(tool.id).arg(tool.diameter, 0, 'f', 1)
             : QStringLiteral("-");
-        m_table->setItem(row, 4, new QTableWidgetItem(toolText));
+        auto *stateItem = new QTableWidgetItem(toolpathStateText(op.toolpathState, zh));
+        stateItem->setToolTip(op.warnings.join(QLatin1Char('\n')));
+        m_table->setItem(row, 4, stateItem);
+        m_table->setItem(row, 5, new QTableWidgetItem(toolText));
         ++row;
     }
     updateSummary();
@@ -346,9 +401,10 @@ void OperationListPanel::updateSummary()
         return;
     }
     const bool zh = isChineseUi();
+    const int enabledCount = enabledOperations(m_operations).size();
     m_summaryLabel->setText(
-        zh ? QStringLiteral("%1 道已确认").arg(m_operations.size())
-           : QStringLiteral("%1 confirmed").arg(m_operations.size()));
+        zh ? QStringLiteral("%1/%2 道启用").arg(enabledCount).arg(m_operations.size())
+           : QStringLiteral("%1/%2 enabled").arg(enabledCount).arg(m_operations.size()));
 }
 
 QString OperationListPanel::operationLabel(const MachiningOperation &op) const
@@ -444,11 +500,49 @@ void OperationListPanel::onSortByStage()
     emit operationsEdited(m_operations);
 }
 
+void OperationListPanel::onRecalculate()
+{
+    QList<MachiningOperation> selected;
+    for (const QModelIndex &index : m_table->selectionModel()->selectedRows()) {
+        const int row = index.row();
+        if (row >= 0 && row < m_operations.size() && m_operations.at(row).enabled) {
+            selected.append(m_operations.at(row));
+        }
+    }
+    if (selected.isEmpty()) {
+        const int row = m_table->currentRow();
+        if (row >= 0 && row < m_operations.size() && m_operations.at(row).enabled) {
+            selected.append(m_operations.at(row));
+        }
+    }
+    if (!selected.isEmpty()) {
+        emit recalculateRequested(selected);
+    }
+}
+
+// 中文说明：触发当前有效工序的程序生成请求；禁用、过期或错误工序不得绕过状态门。
 void OperationListPanel::onGenerateProgram()
 {
-    if (!m_operations.isEmpty()) {
-        emit generateProgramRequested(m_operations);
+    const QList<MachiningOperation> executable = enabledOperations(m_operations);
+    if (!executable.isEmpty()) {
+        emit generateProgramRequested(executable);
     }
+}
+
+void OperationListPanel::onItemChanged(QTableWidgetItem *item)
+{
+    if (!item || item->column() != 0 ||
+        item->row() < 0 || item->row() >= m_operations.size()) {
+        return;
+    }
+    const bool enabled = item->checkState() == Qt::Checked;
+    if (m_operations[item->row()].enabled == enabled) {
+        return;
+    }
+    m_operations[item->row()].enabled = enabled;
+    updateSummary();
+    onSelectionChanged();
+    emit operationsEdited(m_operations);
 }
 
 void OperationListPanel::onSelectionChanged()
@@ -459,7 +553,9 @@ void OperationListPanel::onSelectionChanged()
     m_btnDown->setEnabled(hasSelection && row < m_operations.size() - 1);
     m_btnDelete->setEnabled(hasSelection);
     m_btnApplyTool->setEnabled(!m_operations.isEmpty());
-    m_btnGenerateProgram->setEnabled(!m_operations.isEmpty());
+    m_btnRecalculate->setEnabled(hasSelection && row < m_operations.size() &&
+                                 m_operations.at(row).enabled);
+    m_btnGenerateProgram->setEnabled(!enabledOperations(m_operations).isEmpty());
     emit currentOperationChanged(hasSelection ? row + 1 : -1);
 }
 
@@ -473,6 +569,7 @@ void OperationListPanel::retranslateUi()
     m_btnDelete->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
     m_btnApplyTool->setText(zh ? QStringLiteral("用当前刀具") : QStringLiteral("Use Tool"));
     m_btnSortStage->setText(zh ? QStringLiteral("按流程排序") : QStringLiteral("Sort Flow"));
+    m_btnRecalculate->setText(zh ? QStringLiteral("重新生成刀路") : QStringLiteral("Recalculate Toolpath"));
     m_btnGenerateProgram->setText(zh ? QStringLiteral("从已确认工序生成程序")
                                      : QStringLiteral("Generate Program from Confirmed Operations"));
     m_table->setHorizontalHeaderLabels({
@@ -480,6 +577,7 @@ void OperationListPanel::retranslateUi()
         zh ? QStringLiteral("类型") : QStringLiteral("Type"),
         zh ? QStringLiteral("阶段") : QStringLiteral("Stage"),
         zh ? QStringLiteral("特征") : QStringLiteral("Feature"),
+        zh ? QStringLiteral("状态") : QStringLiteral("State"),
         zh ? QStringLiteral("刀具") : QStringLiteral("Tool")
     });
     m_table->setAccessibleName(zh ? QStringLiteral("已确认工序列表")

@@ -89,6 +89,8 @@ static QString unsupportedFixedCycleCode(const QString &line)
 
 } // namespace
 
+// 中文说明：只检查最终文本中的危险状态和收尾完整性，避免“显示路径安全”
+// 与“实际导出代码危险”出现分叉；发现问题时返回可直接展示给用户的原因。
 GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
 {
     GCodeSafetyReport report;

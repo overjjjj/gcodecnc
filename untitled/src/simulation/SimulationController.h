@@ -24,6 +24,8 @@ public:
     explicit SimulationController(QObject *parent = nullptr);
 
     void setMesh(const MeshData &mesh);
+    // 中文说明：仿真必须解析最终输出文本，而不是独立的刀路缓存，确保显示与导出同源。
+    // 解析后立即执行碰撞/越界初筛，并通过信号把路径和告警交给界面。
     void loadGCode(const QString &gcode);
 
     void play();

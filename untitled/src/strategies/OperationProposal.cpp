@@ -1,5 +1,7 @@
 #include "OperationProposal.h"
 
+#include "../core/FeatureIdentity.h"
+
 #include <QUuid>
 #include <cmath>
 
@@ -58,6 +60,16 @@ bool hasUsableContourGeometry(const ContourFeature &feature)
            !feature.points.isEmpty();
 }
 
+bool requiresClosedSelection(const QString &strategyId)
+{
+    return strategyId == QStringLiteral("mill_pocket_rough") ||
+           strategyId == QStringLiteral("mill_pocket_finish") ||
+           strategyId == QStringLiteral("mill_pocket_floor_finish") ||
+           strategyId == QStringLiteral("mill_closed_contour") ||
+           strategyId == QStringLiteral("mill_blind_slot") ||
+           strategyId == QStringLiteral("mill_tapered_slot");
+}
+
 } // namespace
 
 FaceRegion OperationProposal::featureRegion() const
@@ -69,7 +81,16 @@ FaceRegion OperationProposal::featureRegion() const
 
 OperationConfirmationResult confirmOperationProposal(
     const OperationProposal &proposal,
-    OperationConfirmationIntent confirmationIntent)
+    OperationConfirmationIntent confirmationIntent,
+    const OperationConfirmationContext &context)
+{
+    return OperationFactory::confirm(proposal, confirmationIntent, context);
+}
+
+OperationConfirmationResult OperationFactory::confirm(
+    const OperationProposal &proposal,
+    OperationConfirmationIntent confirmationIntent,
+    const OperationConfirmationContext &context)
 {
     OperationConfirmationResult result;
     if (confirmationIntent != OperationConfirmationIntent::ExplicitUser) {
@@ -94,6 +115,21 @@ OperationConfirmationResult confirmOperationProposal(
         result.error = QStringLiteral("Contour geometry is invalid.");
         return result;
     }
+    if (proposal.kind == OperationProposalKind::Contour &&
+        (proposal.selectionEvidence.explicitUserSelection ||
+         proposal.contourFeature.region == FaceRegion::Side)) {
+        const SetupAccessResult access = evaluateSelectionAccess(
+            proposal.selectionEvidence,
+            context.sourceFingerprint,
+            context.setupFingerprint,
+            context.coordinateSystemId,
+            requiresClosedSelection(proposal.strategyId));
+        result.accessStatus = access.status;
+        if (!access.ok()) {
+            result.error = access.issueCode;
+            return result;
+        }
+    }
     if (proposal.strategyId == QStringLiteral("mill_pocket_rough")) {
         if (!proposal.params.values.contains(QStringLiteral("entryMode"))) {
             result.error = QStringLiteral("Pocket entry method requires explicit operator selection.");
@@ -114,13 +150,17 @@ OperationConfirmationResult confirmOperationProposal(
     operation.strategyId = proposal.strategyId;
     operation.toolId = proposal.toolId;
     operation.params = proposal.params;
+    operation.selectionEvidence = proposal.selectionEvidence;
     if (proposal.kind == OperationProposalKind::Hole) {
         operation.holeFeature = proposal.holeFeature;
+        operation.geometryRefs = QStringList{stableFeatureId(proposal.holeFeature)};
     } else {
         operation.contourFeature = proposal.contourFeature;
+        operation.geometryRefs = QStringList{stableContourId(proposal.contourFeature)};
     }
 
     result.ok = true;
+    result.accessStatus = SetupAccessStatus::Ready;
     result.operation = operation;
     return result;
 }

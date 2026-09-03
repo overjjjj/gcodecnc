@@ -19,6 +19,8 @@
 #include "mill/BlindSlotMillingStrategy.h"
 #include "mill/TaperedSlotMillingStrategy.h"
 
+#include <utility>
+
 StrategyFactory::StrategyFactory()
 {
     registerDefaults();
@@ -32,7 +34,7 @@ StrategyFactory &StrategyFactory::instance()
 
 void StrategyFactory::registerStrategy(std::shared_ptr<StrategyBase> strategy)
 {
-    m_strategies[strategy->id()] = strategy;
+    m_strategies[strategy->id()] = std::move(strategy);
 }
 
 std::shared_ptr<StrategyBase> StrategyFactory::strategy(const QString &id) const

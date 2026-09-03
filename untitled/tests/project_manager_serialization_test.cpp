@@ -32,6 +32,15 @@ static MachiningOperation sampleOperation()
     operation.toolId = 1;
     operation.params.set(QStringLiteral("safeHeight"), 50.0);
     operation.params.set(QStringLiteral("feedRate"), 120.0);
+    operation.enabled = false;
+    operation.geometryRefs = QStringList{QStringLiteral("feature:stable-hole")};
+    operation.selectionEvidence.sourceFingerprint = QStringLiteral("sha256:test-source");
+    operation.selectionEvidence.setupFingerprint = QStringLiteral("setup:test");
+    operation.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    operation.selectionEvidence.orderedGeometryIds = QStringList{QStringLiteral("face:12")};
+    operation.selectionEvidence.explicitUserSelection = true;
+    operation.toolpathState = ToolpathState::Stale;
+    operation.warnings = QStringList{QStringLiteral("stock changed")};
     operation.holeFeature.radius = 5.0;
     operation.holeFeature.depth = 12.0;
     operation.holeFeature.center = QVector3D(10.0f, 20.0f, 0.0f);
@@ -276,6 +285,23 @@ int main(int argc, char **argv)
                "operation id should round-trip")) {
         return 1;
     }
+    const MachiningOperation loadedOperation = loaded.operations().first();
+    if (expect(!loadedOperation.enabled,
+               "operation enabled state should round-trip") ||
+        expect(loadedOperation.geometryRefs == operation.geometryRefs,
+               "stable geometry references should round-trip") ||
+        expect(loadedOperation.toolpathState == ToolpathState::Stale,
+               "toolpath state should round-trip") ||
+        expect(loadedOperation.warnings == operation.warnings,
+               "operation warnings should round-trip") ||
+        expect(loadedOperation.selectionEvidence.sourceFingerprint ==
+                   operation.selectionEvidence.sourceFingerprint &&
+                   loadedOperation.selectionEvidence.orderedGeometryIds ==
+                       operation.selectionEvidence.orderedGeometryIds &&
+                   loadedOperation.selectionEvidence.explicitUserSelection,
+               "selection evidence should round-trip")) {
+        return 1;
+    }
     if (expect(loaded.sourceFileFingerprint() == QStringLiteral("sha256:test-source"),
                "source STEP fingerprint should round-trip")) {
         return 1;
@@ -425,6 +451,12 @@ int main(int argc, char **argv)
         return 1;
     }
     const ProgramEntry legacyProgram = legacy.programById(QStringLiteral("program-legacy"));
+    if (expect(legacy.operations().first().enabled &&
+                   legacy.operations().first().toolpathState == ToolpathState::Empty &&
+                   legacy.operations().first().geometryRefs.isEmpty(),
+               "legacy operations should receive safe workflow defaults")) {
+        return 1;
+    }
     if (expect(legacyProgram.id == QStringLiteral("program-legacy"), "legacy program should load")) {
         return 1;
     }

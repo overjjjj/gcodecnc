@@ -20,6 +20,8 @@ AppController &AppController::instance()
     return s_instance;
 }
 
+// 中文说明：导入入口负责把文件读取、几何分类和项目状态更新串成原子流程；
+// 任何失败都通过 errorOccurred 通知界面，不覆盖上一份有效模型。
 void AppController::importStep(const QString &filePath)
 {
     emit statusMessage(tr("正在导入 STEP 文件：%1").arg(QFileInfo(filePath).fileName()));
@@ -114,6 +116,7 @@ bool AppController::reloadStepWithSetupRotation(const QQuaternion &rotation, QSt
 }
 #endif
 
+// 中文说明：UI 的程序生成槽函数只做命令编排，实际安全校验和快照生成下沉到服务层。
 void AppController::generateGCode()
 {
     emit statusMessage(tr("正在生成 G 代码..."));

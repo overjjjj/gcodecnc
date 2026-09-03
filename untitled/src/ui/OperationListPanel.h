@@ -24,6 +24,8 @@ public:
     bool selectOperationById(const QString &operationId);
 
     bool applyToolToSelection(int toolId);
+    bool setToolpathResult(const QString &operationId, bool success,
+                           const QString &message = QString());
 
     void retranslateUi();
 
@@ -32,6 +34,7 @@ public slots:
 
 signals:
     void generateProgramRequested(const QList<MachiningOperation> &operations);
+    void recalculateRequested(const QList<MachiningOperation> &operations);
     void operationsEdited(const QList<MachiningOperation> &operations);
     void applyCurrentToolRequested();
     void currentOperationChanged(int operationNumber);
@@ -41,8 +44,10 @@ private slots:
     void onMoveDown();
     void onDelete();
     void onSortByStage();
+    void onRecalculate();
     void onGenerateProgram();
     void onSelectionChanged();
+    void onItemChanged(QTableWidgetItem *item);
 
 private:
     QLabel         *m_titleLabel;
@@ -53,6 +58,7 @@ private:
     QToolButton   *m_btnDelete;
     QToolButton   *m_btnApplyTool;
     QToolButton   *m_btnSortStage;
+    QToolButton   *m_btnRecalculate;
     QPushButton   *m_btnGenerateProgram;
 
     QList<MachiningOperation> m_operations;

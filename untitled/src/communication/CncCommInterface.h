@@ -5,7 +5,7 @@
 class QSerialPort;
 #endif
 
-// TODO: QSerialPort DNC communication — implement when hardware interface is defined.
+// TODO: Implement QSerialPort DNC communication when the hardware interface is defined.
 class CncCommInterface : public QObject
 {
     Q_OBJECT

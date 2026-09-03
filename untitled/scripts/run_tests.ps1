@@ -35,6 +35,7 @@ function Invoke-TestBuild {
     )
     if ($NeedsGui) {
         $Includes += "-I$(Join-Path $QtInclude 'QtGui')"
+        $Includes += "-I$(Join-Path $QtInclude 'QtWidgets')"
     }
 
     $LibArgs = @("-L$QtLib") + $Libs
@@ -114,6 +115,44 @@ try {
     Invoke-TestBuild `
         -Name "standalone_ui_contract_test" `
         -Sources @("tests\standalone_ui_contract_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "operation_list_panel_workflow_test" `
+        -Sources @("tests\operation_list_panel_workflow_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "operation_lifecycle_wiring_test" `
+        -Sources @("tests\operation_lifecycle_wiring_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "work_offset_parameter_wiring_test" `
+        -Sources @("tests\work_offset_parameter_wiring_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "operation_workflow_model_test" `
+        -Sources @("tests\operation_workflow_model_test.cpp", "src\core\FeatureIdentity.cpp", "src\core\HoleSelectionSession.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "selection_chain_controller_test" `
+        -Sources @("tests\selection_chain_controller_test.cpp", "src\core\SelectionChainController.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "hole_selection_dialog_test" `
+        -Sources @("tests\hole_selection_dialog_test.cpp", "src\ui\HoleSelectionDialog.cpp", "src\core\HoleSelectionSession.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui", "-lQt5Widgets") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "hole_selection_dialog_wiring_test" `
+        -Sources @("tests\hole_selection_dialog_wiring_test.cpp") `
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
@@ -228,13 +267,13 @@ try {
 
     Invoke-TestBuild `
         -Name "operation_proposal_confirmation_test" `
-        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\strategies\OperationProposal.cpp") `
+        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\strategies\OperationProposal.cpp", "src\core\FeatureIdentity.cpp", "src\core\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "program_generation_service_test" `
-        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp") `
+        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", "src\core\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -306,9 +345,11 @@ try {
         -Name "acceptance_step_model_test" `
         -TestSource "tests\acceptance_step_model_test.cpp" `
         -ExtraSources @(
+            "src\core\FeatureIdentity.cpp",
             "src\services\ProgramGenerationService.cpp",
             "src\strategies\StrategyBase.cpp",
             "src\strategies\hole\PeckDrillingStrategy.cpp",
+            "src\strategies\mill\PocketRoughingStrategy.cpp",
             "src\gcode\GCodeSafetyValidator.cpp",
             "src\gcode\GCodeModalOptimizer.cpp",
             "src\gcode\Cq8MacroProgramBuilder.cpp",
@@ -338,6 +379,12 @@ try {
     Invoke-TestBuild `
         -Name "project_manager_serialization_test" `
         -Sources @("tests\project_manager_serialization_test.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "project_operation_invalidation_test" `
+        -Sources @("tests\project_operation_invalidation_test.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 

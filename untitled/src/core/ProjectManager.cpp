@@ -1,4 +1,5 @@
 #include "ProjectManager.h"
+#include "OperationWorkflow.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QJsonDocument>
@@ -147,7 +148,12 @@ void ProjectManager::setSourceFileFingerprint(const QString &fingerprint)
 
 void ProjectManager::setSetupRotation(const QQuaternion &rotation)
 {
-    m_setupRotation = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    const QQuaternion normalized = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    if (m_setupRotation == normalized) {
+        return;
+    }
+    m_setupRotation = normalized;
+    invalidateOperations(QStringLiteral("setup orientation changed"));
     m_modified = true;
 }
 
@@ -164,23 +170,47 @@ void ProjectManager::setWorkOffset(const QString &workOffset)
         QStringLiteral("G54"), QStringLiteral("G55"), QStringLiteral("G56"),
         QStringLiteral("G57"), QStringLiteral("G58"), QStringLiteral("G59")
     };
-    m_workOffset = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    const QString accepted = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    if (m_workOffset == accepted) {
+        return;
+    }
+    m_workOffset = accepted;
+    invalidateOperations(QStringLiteral("work offset changed"));
     m_modified = true;
 }
 
 void ProjectManager::setSetupOrigin(const SetupOrigin &origin)
 {
+    const QString previous = m_setupOrigin.fingerprint(m_workOffset);
     m_setupOrigin = origin;
+    if (m_setupOrigin.fingerprint(m_workOffset) != previous) {
+        invalidateOperations(QStringLiteral("setup origin changed"));
+    }
     m_modified = true;
     emit projectChanged();
 }
 
 void ProjectManager::setStockDefinition(const StockDefinition &stock)
 {
+    const QString previous = m_stockDefinition.fingerprint();
     m_stockDefinition = stock;
     m_stockDefinition.normalize();
+    if (m_stockDefinition.fingerprint() != previous) {
+        invalidateOperations(QStringLiteral("stock changed"));
+    }
     m_modified = true;
     emit projectChanged();
+}
+
+// 中文说明：集中处理几何、Setup、毛坯或机床配置变化后的失效传播，
+// 保留旧程序内容但禁止其继续导出/发送。
+void ProjectManager::invalidateOperations(const QString &reason)
+{
+    if (m_operations.isEmpty()) {
+        return;
+    }
+    markOperationsStale(m_operations, reason);
+    emit operationsChanged();
 }
 
 QString ProjectManager::setupFingerprint() const
@@ -196,6 +226,8 @@ QString ProjectManager::setupFingerprint() const
                                                         QCryptographicHash::Sha256).toHex());
 }
 
+// 中文说明：替换外部模型时同步更新指纹和候选特征，确保历史工序不会
+// 在新几何上被误复用；调用方应要求重新确认工艺。
 void ProjectManager::replaceChangedSource(const MeshData &mesh,
                                           const QVector<MachiningFeature> &features,
                                           const QString &sourceFilePath,
@@ -461,6 +493,27 @@ static OperationStage operationStageFromName(const QString &s)
     return OperationStage::RoughCut;
 }
 
+static QString toolpathStateName(ToolpathState state)
+{
+    switch (state) {
+    case ToolpathState::Empty:       return QStringLiteral("empty");
+    case ToolpathState::Calculating: return QStringLiteral("calculating");
+    case ToolpathState::Valid:       return QStringLiteral("valid");
+    case ToolpathState::Stale:       return QStringLiteral("stale");
+    case ToolpathState::Error:       return QStringLiteral("error");
+    }
+    return QStringLiteral("empty");
+}
+
+static ToolpathState toolpathStateFromName(const QString &name)
+{
+    if (name == QStringLiteral("calculating")) return ToolpathState::Calculating;
+    if (name == QStringLiteral("valid"))       return ToolpathState::Valid;
+    if (name == QStringLiteral("stale"))       return ToolpathState::Stale;
+    if (name == QStringLiteral("error"))       return ToolpathState::Error;
+    return ToolpathState::Empty;
+}
+
 static QJsonArray serializeStringList(const QStringList &values)
 {
     QJsonArray array;
@@ -477,6 +530,71 @@ static QStringList deserializeStringList(const QJsonArray &array)
         values.append(value.toString());
     }
     return values;
+}
+
+static QJsonArray selectionVector(const QVector3D &value)
+{
+    return QJsonArray{value.x(), value.y(), value.z()};
+}
+
+static QVector3D selectionVector(const QJsonArray &value,
+                                 const QVector3D &fallback = {})
+{
+    return value.size() == 3
+        ? QVector3D(float(value.at(0).toDouble()),
+                    float(value.at(1).toDouble()),
+                    float(value.at(2).toDouble()))
+        : fallback;
+}
+
+static QJsonObject serializeSelectionChain(const SelectionChain &selection)
+{
+    QJsonObject object;
+    object["id"] = selection.id;
+    object["sourceFingerprint"] = selection.sourceFingerprint;
+    object["setupFingerprint"] = selection.setupFingerprint;
+    object["geometrySource"] = int(selection.geometrySource);
+    object["selectionMode"] = int(selection.selectionMode);
+    object["machiningSide"] = int(selection.machiningSide);
+    object["coordinateSystemId"] = selection.coordinateSystemId;
+    object["orderedGeometryIds"] = serializeStringList(selection.orderedGeometryIds);
+    object["selectedSurfaceNormal"] = selectionVector(selection.selectedSurfaceNormal);
+    object["toolAxis"] = selectionVector(selection.toolAxis);
+    object["startPoint"] = selectionVector(selection.startPoint);
+    object["hasStartPoint"] = selection.hasStartPoint;
+    object["reversed"] = selection.reversed;
+    object["closed"] = selection.closed;
+    object["outerLoopPointCount"] = selection.outerLoopPointCount;
+    object["islandCount"] = selection.islandCount;
+    object["freeEndCount"] = selection.freeEndCount;
+    object["explicitUserSelection"] = selection.explicitUserSelection;
+    object["sortStrategy"] = int(selection.sortStrategy);
+    return object;
+}
+
+static SelectionChain deserializeSelectionChain(const QJsonObject &object)
+{
+    SelectionChain selection;
+    selection.id = object["id"].toString();
+    selection.sourceFingerprint = object["sourceFingerprint"].toString();
+    selection.setupFingerprint = object["setupFingerprint"].toString();
+    selection.geometrySource = ChainGeometrySource(object["geometrySource"].toInt(0));
+    selection.selectionMode = ChainSelectionMode(object["selectionMode"].toInt(1));
+    selection.machiningSide = ChainMachiningSide(object["machiningSide"].toInt(2));
+    selection.coordinateSystemId = object["coordinateSystemId"].toString(QStringLiteral("G54"));
+    selection.orderedGeometryIds = deserializeStringList(object["orderedGeometryIds"].toArray());
+    selection.selectedSurfaceNormal = selectionVector(object["selectedSurfaceNormal"].toArray());
+    selection.toolAxis = selectionVector(object["toolAxis"].toArray(), QVector3D(0, 0, 1));
+    selection.startPoint = selectionVector(object["startPoint"].toArray());
+    selection.hasStartPoint = object["hasStartPoint"].toBool(false);
+    selection.reversed = object["reversed"].toBool(false);
+    selection.closed = object["closed"].toBool(false);
+    selection.outerLoopPointCount = object["outerLoopPointCount"].toInt(0);
+    selection.islandCount = object["islandCount"].toInt(0);
+    selection.freeEndCount = object["freeEndCount"].toInt(0);
+    selection.explicitUserSelection = object["explicitUserSelection"].toBool(false);
+    selection.sortStrategy = ChainSortStrategy(object["sortStrategy"].toInt(0));
+    return selection;
 }
 
 static QJsonObject serializeParametricProgram(
@@ -710,6 +828,11 @@ bool ProjectManager::saveToFile(const QString &path)
         oo["featureRef"] = op.featureRef;
         oo["strategyId"] = op.strategyId;
         oo["toolId"]     = op.toolId;
+        oo["enabled"] = op.enabled;
+        oo["geometryRefs"] = serializeStringList(op.geometryRefs);
+        oo["toolpathState"] = toolpathStateName(op.toolpathState);
+        oo["warnings"] = serializeStringList(op.warnings);
+        oo["selectionEvidence"] = serializeSelectionChain(op.selectionEvidence);
 
         QJsonObject paramsObj;
         for (auto it = op.params.values.cbegin(); it != op.params.values.cend(); ++it) {
@@ -847,6 +970,13 @@ bool ProjectManager::loadFromFile(const QString &path)
         op.featureRef = oo["featureRef"].toString();
         op.strategyId = oo["strategyId"].toString();
         op.toolId     = oo["toolId"].toInt(-1);
+        op.enabled = oo["enabled"].toBool(true);
+        op.geometryRefs = deserializeStringList(oo["geometryRefs"].toArray());
+        op.toolpathState = toolpathStateFromName(
+            oo["toolpathState"].toString(QStringLiteral("empty")));
+        op.warnings = deserializeStringList(oo["warnings"].toArray());
+        op.selectionEvidence = deserializeSelectionChain(
+            oo["selectionEvidence"].toObject());
 
         const QJsonObject paramsObj = oo["params"].toObject();
         for (auto it = paramsObj.begin(); it != paramsObj.end(); ++it) {

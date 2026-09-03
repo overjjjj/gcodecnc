@@ -19,16 +19,34 @@ struct OperationProposal {
     StrategyParams params;
     HoleFeature holeFeature;
     ContourFeature contourFeature;
+    SelectionChain selectionEvidence;
 
     FaceRegion featureRegion() const;
+};
+
+struct OperationConfirmationContext {
+    QString sourceFingerprint;
+    QString setupFingerprint;
+    QString coordinateSystemId = QStringLiteral("G54");
 };
 
 struct OperationConfirmationResult {
     bool ok = false;
     QString error;
+    SetupAccessStatus accessStatus = SetupAccessStatus::InsufficientTopology;
     MachiningOperation operation;
+};
+
+class OperationFactory
+{
+public:
+    static OperationConfirmationResult confirm(
+        const OperationProposal &proposal,
+        OperationConfirmationIntent confirmationIntent,
+        const OperationConfirmationContext &context = {});
 };
 
 OperationConfirmationResult confirmOperationProposal(
     const OperationProposal &proposal,
-    OperationConfirmationIntent confirmationIntent);
+    OperationConfirmationIntent confirmationIntent,
+    const OperationConfirmationContext &context = {});

@@ -33,6 +33,16 @@ bool isPocketMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_pocket_floor_finish");
 }
 
+bool requiresClosedSelection(const QString &strategyId)
+{
+    return strategyId == QStringLiteral("mill_pocket_rough") ||
+           strategyId == QStringLiteral("mill_pocket_finish") ||
+           strategyId == QStringLiteral("mill_pocket_floor_finish") ||
+           strategyId == QStringLiteral("mill_closed_contour") ||
+           strategyId == QStringLiteral("mill_blind_slot") ||
+           strategyId == QStringLiteral("mill_tapered_slot");
+}
+
 QString expectedHoleToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
@@ -60,16 +70,19 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
             .arg(expectedToolType);
     }
 
+    const double cuttingDepth = operation.strategyId == QStringLiteral("hole_spot")
+        ? operation.params.get(QStringLiteral("depth"), 2.0)
+        : operation.holeFeature.depth;
     if (tool.fluteLen > 0.0 &&
-        operation.holeFeature.depth > tool.fluteLen + 0.01) {
+        cuttingDepth > tool.fluteLen + 0.01) {
         return QStringLiteral("cutting depth %1 mm exceeds tool flute length %2 mm.")
-            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(cuttingDepth, 0, 'f', 3)
             .arg(tool.fluteLen, 0, 'f', 3);
     }
     if (tool.totalLen > 0.0 &&
-        operation.holeFeature.depth >= tool.totalLen - 0.01) {
+        cuttingDepth >= tool.totalLen - 0.01) {
         return QStringLiteral("cutting depth %1 mm reaches tool total length %2 mm; safe stick-out is impossible.")
-            .arg(operation.holeFeature.depth, 0, 'f', 3)
+            .arg(cuttingDepth, 0, 'f', 3)
             .arg(tool.totalLen, 0, 'f', 3);
     }
 
@@ -238,6 +251,9 @@ QString operationBlock(int operationNumber,
     header += QStringLiteral(" ----");
     lines << header;
     lines << QStringLiteral("; %1").arg(operationSummary(operation));
+    const int workOffset = static_cast<int>(std::round(
+        operation.params.get(QStringLiteral("workOffset"), 54.0)));
+    lines << QStringLiteral("G%1").arg(workOffset);
     lines << gcode.trimmed();
     return lines.join(QLatin1Char('\n'));
 }
@@ -307,6 +323,8 @@ ProgramGenerationService::ProgramGenerationService(StrategyLookup strategyLookup
 {
 }
 
+// 中文说明：按工序顺序构造后处理输入，执行 Setup/刀具/参数安全门，
+// 再生成程序快照并校验最终文本；任何一步失败都不返回可发布程序。
 ProgramGenerationResult ProgramGenerationService::generate(
     const QList<MachiningOperation> &operations,
     const PostProcessorBase &postProcessor,
@@ -320,8 +338,33 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     for (int index = 0; index < operations.size(); ++index) {
+        if (!operations[index].enabled) {
+            output.errors << QStringLiteral("Operation %1 is disabled.").arg(index + 1);
+        }
+        if (operations[index].toolpathState == ToolpathState::Stale ||
+            operations[index].toolpathState == ToolpathState::Error) {
+            output.errors << QStringLiteral(
+                "Operation %1 has an invalidated toolpath and must be recalculated.")
+                                 .arg(index + 1);
+        }
         if (operations[index].id.trimmed().isEmpty()) {
             output.errors << QStringLiteral("Operation %1 is not a confirmed operation.")
+                                 .arg(index + 1);
+        }
+        const double configuredWorkOffset =
+            operations[index].params.get(QStringLiteral("workOffset"), 54.0);
+        if (!std::isfinite(configuredWorkOffset) ||
+            std::round(configuredWorkOffset) != configuredWorkOffset ||
+            configuredWorkOffset < 54.0 || configuredWorkOffset > 59.0) {
+            output.errors << QStringLiteral(
+                "Operation %1: work offset must be an integer from G54-G59.")
+                                 .arg(index + 1);
+        }
+        const double depthMode =
+            operations[index].params.get(QStringLiteral("depthMode"), 0.0);
+        if (depthMode != 0.0) {
+            output.errors << QStringLiteral(
+                "Operation %1: incremental depth mode is not supported; use absolute depth mode.")
                                  .arg(index + 1);
         }
         if (operations[index].opType == OperationType::Hole) {
@@ -341,9 +384,24 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     "Operation %1: slot axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
                                      .arg(index + 1);
             } else if (operations[index].contourFeature.region == FaceRegion::Side) {
-                output.errors << QStringLiteral(
-                    "Operation %1: Side-face slot requires a dedicated Setup before G-code generation.")
-                                     .arg(index + 1);
+                if (!operations[index].selectionEvidence.explicitUserSelection) {
+                    output.errors << QStringLiteral(
+                        "Operation %1: Side-face slot requires an explicit accessible machining-face selection.")
+                                         .arg(index + 1);
+                } else {
+                    const SetupAccessResult access = evaluateSelectionAccess(
+                        operations[index].selectionEvidence,
+                        snapshotOptions.sourceFingerprint,
+                        snapshotOptions.setupFingerprint,
+                        QStringLiteral("G%1").arg(static_cast<int>(std::round(configuredWorkOffset))),
+                        requiresClosedSelection(operations[index].strategyId));
+                    if (!access.ok()) {
+                        output.errors << QStringLiteral(
+                            "Operation %1: side-face slot selection is not accessible (%2).")
+                                             .arg(index + 1)
+                                             .arg(access.issueCode);
+                    }
+                }
             } else if (operations[index].contourFeature.region == FaceRegion::Back) {
                 output.errors << QStringLiteral(
                     "Operation %1: Back-face slot requires a transformed Setup before G-code generation.")
@@ -356,9 +414,24 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     "Operation %1: pocket axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
                                      .arg(index + 1);
             } else if (operations[index].contourFeature.region == FaceRegion::Side) {
-                output.errors << QStringLiteral(
-                    "Operation %1: Side-face pocket requires a dedicated Setup before G-code generation.")
-                                     .arg(index + 1);
+                if (!operations[index].selectionEvidence.explicitUserSelection) {
+                    output.errors << QStringLiteral(
+                        "Operation %1: Side-face pocket requires an explicit accessible machining-face selection.")
+                                         .arg(index + 1);
+                } else {
+                    const SetupAccessResult access = evaluateSelectionAccess(
+                        operations[index].selectionEvidence,
+                        snapshotOptions.sourceFingerprint,
+                        snapshotOptions.setupFingerprint,
+                        QStringLiteral("G%1").arg(static_cast<int>(std::round(configuredWorkOffset))),
+                        requiresClosedSelection(operations[index].strategyId));
+                    if (!access.ok()) {
+                        output.errors << QStringLiteral(
+                            "Operation %1: side-face pocket selection is not accessible (%2).")
+                                             .arg(index + 1)
+                                             .arg(access.issueCode);
+                    }
+                }
             } else if (operations[index].contourFeature.region == FaceRegion::Back) {
                 output.errors << QStringLiteral(
                     "Operation %1: Back-face pocket requires a transformed Setup before G-code generation.")
@@ -371,9 +444,24 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     "Operation %1: contour axis is not aligned with the front-face Z workflow; a transformed Setup is required before G-code generation.")
                                      .arg(index + 1);
             } else if (operations[index].contourFeature.region == FaceRegion::Side) {
-                output.errors << QStringLiteral(
-                    "Operation %1: Side-face contour requires a dedicated Setup before G-code generation.")
-                                     .arg(index + 1);
+                if (!operations[index].selectionEvidence.explicitUserSelection) {
+                    output.errors << QStringLiteral(
+                        "Operation %1: Side-face contour requires an explicit accessible machining-face selection.")
+                                         .arg(index + 1);
+                } else {
+                    const SetupAccessResult access = evaluateSelectionAccess(
+                        operations[index].selectionEvidence,
+                        snapshotOptions.sourceFingerprint,
+                        snapshotOptions.setupFingerprint,
+                        QStringLiteral("G%1").arg(static_cast<int>(std::round(configuredWorkOffset))),
+                        requiresClosedSelection(operations[index].strategyId));
+                    if (!access.ok()) {
+                        output.errors << QStringLiteral(
+                            "Operation %1: side-face contour selection is not accessible (%2).")
+                                             .arg(index + 1)
+                                             .arg(access.issueCode);
+                    }
+                }
             } else if (operations[index].contourFeature.region == FaceRegion::Back) {
                 output.errors << QStringLiteral(
                     "Operation %1: Back-face contour requires a transformed Setup before G-code generation.")
@@ -605,6 +693,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         ProgramSnapshotFingerprint::calculate(operations, sourceOperationIds);
     snapshot.machineProfileId = snapshotOptions.machineProfile.id;
     snapshot.machineProfileVersion = snapshotOptions.machineProfile.version;
+    snapshot.setupFingerprint = snapshotOptions.setupFingerprint;
     snapshot.safeStartBlocks = resolvedSafeStartBlocks(options);
     snapshot.sourceSummary = snapshotOptions.sourceSummary;
     snapshot.gcodeText = finalGCode;

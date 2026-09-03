@@ -176,6 +176,43 @@ int main(int argc, char **argv)
                 QStringLiteral("final program should omit only repeated modal words"))) {
         return 1;
     }
+
+    MachiningOperation offsetOperation = valid;
+    offsetOperation.id = QStringLiteral("op-g56");
+    offsetOperation.params.set(QStringLiteral("workOffset"), 56.0);
+    const ProgramGenerationResult offsetSuccess =
+        service.generate({offsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(offsetSuccess.ok,
+                QStringLiteral("a valid per-operation work offset should generate")) ||
+        !expect(offsetSuccess.snapshot.gcodeText.contains(
+                    QStringLiteral("[op:op-g56] ----\n; safe_hole | D6.000 Z-5.000 | T1\nG56")),
+                QStringLiteral("each operation should emit its configured G54-G59 work offset"))) {
+        return 1;
+    }
+
+    MachiningOperation invalidOffsetOperation = valid;
+    invalidOffsetOperation.params.set(QStringLiteral("workOffset"), 60.0);
+    const ProgramGenerationResult invalidOffset =
+        service.generate({invalidOffsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!invalidOffset.ok,
+                QStringLiteral("an invalid per-operation work offset must be rejected")) ||
+        !expect(!invalidOffset.errors.isEmpty() &&
+                    invalidOffset.errors.first().contains(QStringLiteral("G54-G59")),
+                QStringLiteral("the invalid work-offset error should identify the supported range"))) {
+        return 1;
+    }
+
+    MachiningOperation incrementalDepthOperation = valid;
+    incrementalDepthOperation.params.set(QStringLiteral("depthMode"), 1.0);
+    const ProgramGenerationResult incrementalDepth =
+        service.generate({incrementalDepthOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!incrementalDepth.ok,
+                QStringLiteral("incremental depth mode must be rejected until it is generated safely")) ||
+        !expect(!incrementalDepth.errors.isEmpty() &&
+                    incrementalDepth.errors.first().contains(QStringLiteral("depth mode")),
+                QStringLiteral("the incremental-depth error should identify the unsupported mode"))) {
+        return 1;
+    }
     if (!expect(success.snapshot.parametricPrograms.size() == 1 &&
                     success.snapshot.parametricPrograms.first().sourceOperationIds ==
                         QStringList{QStringLiteral("op-valid")} &&
@@ -705,6 +742,30 @@ int main(int argc, char **argv)
                 QStringLiteral("a side-face pocket must not generate in the front-face Z workflow")) ||
         !expect(sidePocketFailure.errors.join('\n').contains(QStringLiteral("Side-face pocket")),
                 QStringLiteral("side-pocket rejection should identify the required Setup change"))) {
+        return 1;
+    }
+
+    MachiningOperation accessibleSidePocket = sidePocket;
+    accessibleSidePocket.id = QStringLiteral("op-accessible-side-pocket");
+    accessibleSidePocket.contourFeature.width = 20.0;
+    accessibleSidePocket.selectionEvidence.sourceFingerprint = QStringLiteral("source-test");
+    accessibleSidePocket.selectionEvidence.setupFingerprint = QStringLiteral("setup-test");
+    accessibleSidePocket.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    accessibleSidePocket.selectionEvidence.orderedGeometryIds =
+        QStringList{QStringLiteral("face:42")};
+    accessibleSidePocket.selectionEvidence.selectedSurfaceNormal = QVector3D(0, 0, 1);
+    accessibleSidePocket.selectionEvidence.toolAxis = QVector3D(0, 0, 1);
+    accessibleSidePocket.selectionEvidence.closed = true;
+    accessibleSidePocket.selectionEvidence.outerLoopPointCount = 4;
+    accessibleSidePocket.selectionEvidence.explicitUserSelection = true;
+    const ProgramGenerationResult accessibleSidePocketResult =
+        oversizedPocketToolService.generate({accessibleSidePocket},
+                                             postProcessor,
+                                             options,
+                                             snapshotOptions);
+    if (!expect(accessibleSidePocketResult.ok,
+                QStringLiteral("a side-labeled pocket with explicit Z-facing selection evidence should generate"))) {
+        std::cerr << accessibleSidePocketResult.errors.join('\n').toStdString() << '\n';
         return 1;
     }
 

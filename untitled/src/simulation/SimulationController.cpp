@@ -280,6 +280,8 @@ static void expandDrillHole(QVector<ToolMove> &moves, QVector3D &cur,
 
 } // namespace
 
+// 中文说明：解析最终导出的 G 代码并展开常见直线、圆弧和钻孔循环，
+// 保留源行号用于界面高亮；不支持或参数不完整的指令不得静默伪造路径。
 QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
 {
     QVector<ToolMove> moves;
@@ -463,6 +465,8 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
     return moves;
 }
 
+// 中文说明：用毛坯包围盒、三角面插值和刀具包络做离线初筛，重点拦截快速移动
+// 进入毛坯、切削低于底面和刀具包络越界；该检查不能替代真实机床验证。
 QString SimulationController::detectCollisionMessage(const MeshData &mesh, const QVector<ToolMove> &moves)
 {
     if (mesh.isEmpty() || moves.isEmpty()) {

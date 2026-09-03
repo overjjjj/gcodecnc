@@ -128,6 +128,26 @@ static QJsonObject serializeOperation(const MachiningOperation *operation,
     obj[QStringLiteral("featureRef")] = operation->featureRef;
     obj[QStringLiteral("strategyId")] = operation->strategyId;
     obj[QStringLiteral("toolId")] = operation->toolId;
+    const SelectionChain &selection = operation->selectionEvidence;
+    obj[QStringLiteral("selectionId")] = selection.id;
+    obj[QStringLiteral("selectionSourceFingerprint")] = selection.sourceFingerprint;
+    obj[QStringLiteral("selectionSetupFingerprint")] = selection.setupFingerprint;
+    obj[QStringLiteral("selectionCoordinateSystem")] = selection.coordinateSystemId;
+    obj[QStringLiteral("selectionGeometryIds")] = QJsonArray::fromStringList(
+        selection.orderedGeometryIds);
+    obj[QStringLiteral("selectionNormal")] = QStringLiteral("%1,%2,%3")
+        .arg(selection.selectedSurfaceNormal.x(), 0, 'g', 9)
+        .arg(selection.selectedSurfaceNormal.y(), 0, 'g', 9)
+        .arg(selection.selectedSurfaceNormal.z(), 0, 'g', 9);
+    obj[QStringLiteral("selectionToolAxis")] = QStringLiteral("%1,%2,%3")
+        .arg(selection.toolAxis.x(), 0, 'g', 9)
+        .arg(selection.toolAxis.y(), 0, 'g', 9)
+        .arg(selection.toolAxis.z(), 0, 'g', 9);
+    obj[QStringLiteral("selectionClosed")] = selection.closed;
+    obj[QStringLiteral("selectionOuterLoopPointCount")] = selection.outerLoopPointCount;
+    obj[QStringLiteral("selectionIslandCount")] = selection.islandCount;
+    obj[QStringLiteral("selectionFreeEndCount")] = selection.freeEndCount;
+    obj[QStringLiteral("selectionExplicit")] = selection.explicitUserSelection;
 
     QJsonObject params;
     for (auto it = operation->params.values.cbegin(); it != operation->params.values.cend(); ++it) {

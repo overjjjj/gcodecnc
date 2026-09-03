@@ -204,6 +204,48 @@ static QSet<QString> unconstrainedParameterKeys()
     };
 }
 
+static void applyManualProcessParameters(const QString &strategyId, StrategyParams &params)
+{
+    // These values are retained with the operation as process-setting metadata.
+    // They make the Chapter 7 review fields visible before all controller outputs
+    // consume them; existing toolpath-specific parameters remain authoritative.
+    if (!params.values.contains(QStringLiteral("workOffset"))) {
+        params.set(QStringLiteral("workOffset"), 54.0);
+    }
+    if (!params.values.contains(QStringLiteral("coolantMode"))) {
+        params.set(QStringLiteral("coolantMode"), 1.0);
+    }
+    if (!params.values.contains(QStringLiteral("depthMode"))) {
+        params.set(QStringLiteral("depthMode"), 0.0);
+    }
+
+    if (strategyId == QStringLiteral("hole_tapping")) {
+        params.set(QStringLiteral("threadHandedness"), 1.0);
+        params.set(QStringLiteral("tapRetract"), 0.0);
+        params.set(QStringLiteral("chipBreakRetract"), 0.0);
+    } else if (strategyId == QStringLiteral("hole_chamfer")) {
+        params.set(QStringLiteral("toolTipRadius"), 0.0);
+    } else if (strategyId == QStringLiteral("hole_peck") ||
+               strategyId == QStringLiteral("hole_deephole")) {
+        params.set(QStringLiteral("retractDelta"), 0.0);
+        params.set(QStringLiteral("fullRetractEvery"), 1.0);
+    } else if (strategyId == QStringLiteral("mill_face") ||
+               strategyId == QStringLiteral("mill_surface_finish")) {
+        params.set(QStringLiteral("cutDirection"), 0.0);
+        params.set(QStringLiteral("linkMode"), 0.0);
+        params.set(QStringLiteral("boundingRectangle"), 0.0);
+    } else if (strategyId == QStringLiteral("mill_pocket_rough") ||
+               strategyId == QStringLiteral("mill_pocket_finish") ||
+               strategyId == QStringLiteral("mill_pocket_floor_finish")) {
+        params.set(QStringLiteral("pathPattern"), 0.0);
+        params.set(QStringLiteral("keepIslands"), 1.0);
+    } else if (strategyId == QStringLiteral("mill_closed_contour") ||
+               strategyId == QStringLiteral("mill_open_contour")) {
+        params.set(QStringLiteral("overcut"), 0.0);
+        params.set(QStringLiteral("startAtMidpoint"), 0.0);
+    }
+}
+
 } // namespace
 
 StrategyPanel::StrategyPanel(QWidget *parent)
@@ -486,6 +528,8 @@ void StrategyPanel::onStrategyChanged(int)
     updateStrategyHint();
 }
 
+// 中文说明：按默认值、模板值、自动规则、用户修改的优先级解析策略参数，
+// 同时保留参数来源，便于程序快照追溯和依赖变化后的失效判断。
 StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool preferUserParams) const
 {
     auto strategy = StrategyFactory::instance().strategy(strategyId);
@@ -496,6 +540,9 @@ StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool 
     StrategyParams params = (preferUserParams && m_userParams.contains(strategyId))
         ? m_userParams.value(strategyId)
         : strategy->defaultParams();
+
+    applyManualProcessParameters(strategyId, params);
+    params.set(QStringLiteral("workOffset"), m_workOffset);
 
     if ((!preferUserParams || !m_userParams.contains(strategyId)) &&
         m_hasFeature &&
@@ -522,6 +569,22 @@ StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool 
     }
 
     return params;
+}
+
+void StrategyPanel::setWorkOffset(const QString &workOffset)
+{
+    QString normalized = workOffset.trimmed().toUpper();
+    if (normalized.startsWith(QLatin1Char('G'))) {
+        normalized.remove(0, 1);
+    }
+    bool ok = false;
+    const int parsed = normalized.toInt(&ok);
+    if (!ok || parsed < 54 || parsed > 59 || m_workOffset == parsed) {
+        return;
+    }
+    cacheCurrentParams();
+    m_workOffset = parsed;
+    refreshParamTable();
 }
 
 void StrategyPanel::refreshParamTable()
@@ -906,6 +969,8 @@ void StrategyPanel::updateProposalState()
         !toolBlocked && !entryModeMissing && !helicalEntryInvalid);
 }
 
+// 中文说明：将当前特征、刀具和参数组装成待确认提案；只有确认后才创建正式工序，
+// 防止自动识别结果未经人工核对直接进入 G 代码链路。
 void StrategyPanel::onConfirmOperation()
 {
     const QString strategyId = m_strategyCombo->currentData().toString();
@@ -1179,6 +1244,20 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
     if (key == QStringLiteral("entryMode")) return QStringLiteral("下刀方式");
     if (key == QStringLiteral("finishStock")) return QStringLiteral("斜面精修余量");
     if (key == QStringLiteral("slopeDirection")) return QStringLiteral("斜面方向");
+    if (key == QStringLiteral("workOffset")) return QStringLiteral("工件坐标系（54=G54…59=G59）");
+    if (key == QStringLiteral("coolantMode")) return QStringLiteral("冷却方式（0无/1外冷/2内冷/3吹气/4混合）");
+    if (key == QStringLiteral("depthMode")) return QStringLiteral("深度模式（仅支持 0绝对）");
+    if (key == QStringLiteral("threadHandedness")) return QStringLiteral("螺纹旋向（1右旋/-1左旋）");
+    if (key == QStringLiteral("tapRetract")) return QStringLiteral("攻丝回退量");
+    if (key == QStringLiteral("chipBreakRetract")) return QStringLiteral("断屑回退量");
+    if (key == QStringLiteral("toolTipRadius")) return QStringLiteral("倒角刀尖半径");
+    if (key == QStringLiteral("cutDirection")) return QStringLiteral("平面走刀方向（0内向外/1外向内/2混合）");
+    if (key == QStringLiteral("linkMode")) return QStringLiteral("连接方式（0直线/1圆弧）");
+    if (key == QStringLiteral("boundingRectangle")) return QStringLiteral("外接矩形范围（0关/1开）");
+    if (key == QStringLiteral("pathPattern")) return QStringLiteral("型腔路径方式（0双向/1单向/2环切/3螺旋）");
+    if (key == QStringLiteral("keepIslands")) return QStringLiteral("保留岛屿（0否/1是）");
+    if (key == QStringLiteral("overcut")) return QStringLiteral("轮廓过切量");
+    if (key == QStringLiteral("startAtMidpoint")) return QStringLiteral("长直线中点起刀（0否/1是）");
     return key;
 }
 

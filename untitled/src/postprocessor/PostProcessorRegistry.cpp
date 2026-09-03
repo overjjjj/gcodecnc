@@ -3,6 +3,8 @@
 #include "FanucPostProcessor.h"
 #include "Cq8PostProcessor.h"
 
+#include <utility>
+
 PostProcessorRegistry &PostProcessorRegistry::instance()
 {
     static PostProcessorRegistry inst;
@@ -18,7 +20,7 @@ PostProcessorRegistry::PostProcessorRegistry()
 
 void PostProcessorRegistry::registerProcessor(std::shared_ptr<PostProcessorBase> pp)
 {
-    m_map.insert(pp->id(), pp);
+    m_map.insert(pp->id(), std::move(pp));
 }
 
 PostProcessorBase *PostProcessorRegistry::get(const QString &id) const

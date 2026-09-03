@@ -31,6 +31,8 @@ int main(int argc, char **argv)
     const QString strategySource = readUtf8(QStringLiteral("src/ui/StrategyPanel.cpp"));
     const QString strategyBaseSource = readUtf8(
         QStringLiteral("src/strategies/StrategyBase.h"));
+    const QString parameterEditorSource = readUtf8(
+        QStringLiteral("src/ui/ParameterEditorDialog.cpp"));
     const QString projectManagerSource = readUtf8(
         QStringLiteral("src/core/ProjectManager.h"));
     const QString highlighterSource = readUtf8(
@@ -76,6 +78,21 @@ int main(int argc, char **argv)
             QStringLiteral("G-code review must highlight CQ8 macro calls, routines, and variables"));
     require(source.contains(QStringLiteral("designWorkflowStrip")),
             QStringLiteral("design page must expose the operator workflow"));
+    require(source.contains(QStringLiteral("designCommandStrip")),
+            QStringLiteral("design page must expose the chapter-seven command navigation"));
+    require(source.contains(QStringLiteral("designHolesMenu")) &&
+                source.contains(QStringLiteral("designSlotsMenu")) &&
+                source.contains(QStringLiteral("designAssistMenu")),
+            QStringLiteral("design navigation must group hole, slot, and assist commands"));
+    require(source.contains(QStringLiteral("孔类")) &&
+                source.contains(QStringLiteral("牙类")) &&
+                source.contains(QStringLiteral("平面")) &&
+                source.contains(QStringLiteral("槽/型腔")) &&
+                source.contains(QStringLiteral("辅助/便捷")),
+            QStringLiteral("design navigation must expose the chapter-seven machining categories"));
+    require(source.contains(QStringLiteral("规划中")) &&
+                source.contains(QStringLiteral("setEnabled(false)")),
+            QStringLiteral("unimplemented chapter-seven commands must be visibly unavailable"));
     require(source.contains(QStringLiteral("designModelStage")),
             QStringLiteral("design workflow must expose model readiness"));
     require(source.contains(QStringLiteral("designSetupStage")),
@@ -101,6 +118,26 @@ int main(int argc, char **argv)
             QStringLiteral("irregular-pocket entry restrictions must be stated directly to the operator"));
     require(strategySource.contains(QStringLiteral("every generated segment entry")),
             QStringLiteral("irregular-pocket confirmation must disclose its repeated plunge condition"));
+    require(strategySource.contains(QStringLiteral("applyManualProcessParameters")),
+            QStringLiteral("strategy parameters must include the manual's common process settings"));
+    require(strategySource.contains(QStringLiteral("工件坐标系")) &&
+                strategySource.contains(QStringLiteral("冷却方式")) &&
+                strategySource.contains(QStringLiteral("深度模式")),
+            QStringLiteral("process settings must expose work offset, coolant, and depth mode"));
+    require(strategySource.contains(QStringLiteral("深度模式（仅支持 0绝对）")),
+            QStringLiteral("depth-mode label must not advertise unsupported incremental mode"));
+    require(strategySource.contains(QStringLiteral("螺纹旋向")) &&
+                strategySource.contains(QStringLiteral("倒角刀尖半径")) &&
+                strategySource.contains(QStringLiteral("平面走刀方向")) &&
+                strategySource.contains(QStringLiteral("型腔路径方式")) &&
+                strategySource.contains(QStringLiteral("轮廓过切量")),
+            QStringLiteral("strategy-specific parameters from the chapter-seven manual must be visible"));
+    require(parameterEditorSource.contains(QStringLiteral("key == QStringLiteral(\"workOffset\")")) &&
+                parameterEditorSource.contains(QStringLiteral("G54-G59")),
+            QStringLiteral("process settings must limit work offsets to G54-G59 before saving"));
+    require(parameterEditorSource.contains(QStringLiteral("key == QStringLiteral(\"depthMode\")")) &&
+                parameterEditorSource.contains(QStringLiteral("absolute depth mode")),
+            QStringLiteral("process settings must reject unsupported incremental depth mode"));
     require(strategyBaseSource.contains(
                 QStringLiteral("ParametricToolpathProgram parametricProgram")),
             QStringLiteral("toolpath results must expose controller-neutral routine metadata"));
