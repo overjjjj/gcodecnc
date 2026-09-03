@@ -3,7 +3,7 @@
 #include <QTreeWidget>
 #include <QLabel>
 #include <QSet>
-#include "../import/StepImporter.h"
+#include "../../../import/StepImporter.h"
 #include "FeatureDisplayFilter.h"
 
 class QToolButton;

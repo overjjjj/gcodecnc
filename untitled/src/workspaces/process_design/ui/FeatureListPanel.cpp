@@ -2,7 +2,7 @@
 #include "ContourFeatureGrouping.h"
 #include "HoleFeatureGrouping.h"
 
-#include "../core/Settings.h"
+#include "../../../core/Settings.h"
 
 #include <QAbstractItemView>
 #include <QButtonGroup>

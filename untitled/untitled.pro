@@ -39,16 +39,16 @@ SOURCES += \
     src/ui/CircleMillDialog.cpp \
     src/ui/MillingOperationDialog.cpp \
     src/ui/ToolLibraryPanel.cpp \
-    src/ui/FeatureDisplayFilter.cpp \
+    src/workspaces/process_design/ui/FeatureDisplayFilter.cpp \
     src/ui/ContourMachiningChoice.cpp \
     src/ui/ContourMachiningChoiceDialog.cpp \
     src/ui/ToolOperationCompatibility.cpp \
-    src/ui/ContourFeatureGrouping.cpp \
-    src/ui/HoleFeatureGrouping.cpp \
+    src/workspaces/process_design/ui/ContourFeatureGrouping.cpp \
+    src/workspaces/process_design/ui/HoleFeatureGrouping.cpp \
     src/ui/HoleSelectionDialog.cpp \
     src/ui/SetupOriginDialog.cpp \
     src/ui/StockDefinitionDialog.cpp \
-    src/ui/FeatureListPanel.cpp \
+    src/workspaces/process_design/ui/FeatureListPanel.cpp \
     src/ui/BottomBar.cpp \
     src/ui/GCodeEditor.cpp \
     src/ui/GCodeHighlighter.cpp \
@@ -124,16 +124,16 @@ HEADERS += \
     src/ui/CircleMillDialog.h \
     src/ui/MillingOperationDialog.h \
     src/ui/ToolLibraryPanel.h \
-    src/ui/FeatureDisplayFilter.h \
+    src/workspaces/process_design/ui/FeatureDisplayFilter.h \
     src/ui/ContourMachiningChoice.h \
     src/ui/ContourMachiningChoiceDialog.h \
     src/ui/ToolOperationCompatibility.h \
-    src/ui/ContourFeatureGrouping.h \
-    src/ui/HoleFeatureGrouping.h \
+    src/workspaces/process_design/ui/ContourFeatureGrouping.h \
+    src/workspaces/process_design/ui/HoleFeatureGrouping.h \
     src/ui/HoleSelectionDialog.h \
     src/ui/SetupOriginDialog.h \
     src/ui/StockDefinitionDialog.h \
-    src/ui/FeatureListPanel.h \
+    src/workspaces/process_design/ui/FeatureListPanel.h \
     src/ui/BottomBar.h \
     src/ui/GCodeEditor.h \
     src/ui/GCodeHighlighter.h \
