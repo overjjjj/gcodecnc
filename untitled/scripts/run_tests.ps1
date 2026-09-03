@@ -149,13 +149,13 @@ try {
 
     Invoke-TestBuild `
         -Name "operation_workflow_model_test" `
-        -Sources @("tests\operation_workflow_model_test.cpp", "src\core\FeatureIdentity.cpp", "src\core\HoleSelectionSession.cpp") `
+        -Sources @("tests\operation_workflow_model_test.cpp", "src\workspaces\process_design\selection\FeatureIdentity.cpp", "src\workspaces\process_design\selection\HoleSelectionSession.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "selection_chain_controller_test" `
-        -Sources @("tests\selection_chain_controller_test.cpp", "src\core\SelectionChainController.cpp") `
+        -Sources @("tests\selection_chain_controller_test.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 

@@ -23,9 +23,9 @@ SOURCES += \
     src/core/AppController.cpp \
     src/core/ProjectManager.cpp \
     src/core/SourceFileFingerprint.cpp \
-    src/core/FeatureIdentity.cpp \
-    src/core/HoleSelectionSession.cpp \
-    src/core/SelectionChainController.cpp \
+    src/workspaces/process_design/selection/FeatureIdentity.cpp \
+    src/workspaces/process_design/selection/HoleSelectionSession.cpp \
+    src/workspaces/process_design/selection/SelectionChainController.cpp \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
@@ -105,10 +105,10 @@ HEADERS += \
     src/core/MachineProfileValidator.h \
     src/core/ProjectManager.h \
     src/core/SourceFileFingerprint.h \
-    src/core/FeatureIdentity.h \
-    src/core/HoleSelectionSession.h \
-    src/core/OperationWorkflow.h \
-    src/core/SelectionChainController.h \
+    src/workspaces/process_design/selection/FeatureIdentity.h \
+    src/workspaces/process_design/selection/HoleSelectionSession.h \
+    src/workspaces/process_design/operations/OperationWorkflow.h \
+    src/workspaces/process_design/selection/SelectionChainController.h \
     src/workspaces/shared/WorkspaceModule.h \
     src/workspaces/shared/WorkspaceContracts.h \
     src/workspaces/shared/WorkspaceFacades.h \

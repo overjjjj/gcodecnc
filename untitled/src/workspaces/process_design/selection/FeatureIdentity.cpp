@@ -1,6 +1,6 @@
 #include "FeatureIdentity.h"
 
-#include "../import/StepImporter.h"
+#include "../../../import/StepImporter.h"
 
 #include <QCryptographicHash>
 #include <QStringList>

@@ -1,4 +1,4 @@
-#include "../src/core/SelectionChainController.h"
+#include "../src/workspaces/process_design/selection/SelectionChainController.h"
 
 #include <QCoreApplication>
 

@@ -1,5 +1,5 @@
 #include "../src/import/StepImporter.h"
-#include "../src/core/FeatureIdentity.h"
+#include "../src/workspaces/process_design/selection/FeatureIdentity.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/services/ProgramGenerationService.h"
 #include "../src/simulation/SimulationController.h"

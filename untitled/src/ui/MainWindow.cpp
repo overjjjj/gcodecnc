@@ -17,7 +17,7 @@
 #include "ToolLibraryPanel.h"
 #include "ViewportWidget.h"
 #include "../core/AppController.h"
-#include "../core/FeatureIdentity.h"
+#include "../workspaces/process_design/selection/FeatureIdentity.h"
 #include "../core/SetupOrientation.h"
 #include "../core/Settings.h"
 #include "../gcode/GCodeSafetyValidator.h"

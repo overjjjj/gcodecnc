@@ -1,5 +1,5 @@
 #include "../src/strategies/OperationProposal.h"
-#include "../src/core/FeatureIdentity.h"
+#include "../src/workspaces/process_design/selection/FeatureIdentity.h"
 
 #include <QCoreApplication>
 #include <type_traits>

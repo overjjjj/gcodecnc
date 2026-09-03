@@ -1,6 +1,6 @@
 #include "OperationProposal.h"
 
-#include "../core/FeatureIdentity.h"
+#include "../workspaces/process_design/selection/FeatureIdentity.h"
 
 #include <QUuid>
 #include <cmath>

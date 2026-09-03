@@ -1,6 +1,6 @@
 #pragma once
 #include "StrategyBase.h"
-#include "../core/SelectionChainController.h"
+#include "../workspaces/process_design/selection/SelectionChainController.h"
 #include <QVariant>
 
 enum class OperationType {

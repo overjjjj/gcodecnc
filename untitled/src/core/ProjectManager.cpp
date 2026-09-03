@@ -1,5 +1,5 @@
 #include "ProjectManager.h"
-#include "OperationWorkflow.h"
+#include "../workspaces/process_design/operations/OperationWorkflow.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QJsonDocument>
