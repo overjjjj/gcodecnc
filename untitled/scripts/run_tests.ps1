@@ -123,6 +123,11 @@ try {
         -Libs @()
 
     Invoke-TestBuild `
+        -Name "workspace_facade_contract_test" `
+        -Sources @("tests\workspace_facade_contract_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
         -Name "standalone_ui_contract_test" `
         -Sources @("tests\standalone_ui_contract_test.cpp") `
         -Libs @("-lQt5Core")

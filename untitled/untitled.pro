@@ -111,6 +111,7 @@ HEADERS += \
     src/core/SelectionChainController.h \
     src/core/WorkspaceModule.h \
     src/core/WorkspaceContracts.h \
+    src/core/WorkspaceFacades.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
