@@ -3985,6 +3985,11 @@ void MainWindow::connectSignals()
 
         QList<MachiningOperation> confirmedOperations;
         for (const OperationProposal &oneProposal : confirmedProposals) {
+            if (!ProcessDesignWorkspaceFacade::candidateCanBeConfirmed(oneProposal)) {
+                onErrorOccurred(zh ? QStringLiteral("工艺候选缺少策略或刀具，不能确认工序。")
+                                   : QStringLiteral("The process candidate has no valid strategy or tool."));
+                return;
+            }
             const OperationConfirmationResult confirmation =
                 confirmOperationProposal(
                     oneProposal, OperationConfirmationIntent::ExplicitUser);
@@ -4240,6 +4245,12 @@ void MainWindow::connectSignals()
 
         QList<MachiningOperation> confirmedOperations;
         for (const OperationProposal &oneProposal : confirmedProposals) {
+            if (!ProcessDesignWorkspaceFacade::candidateCanBeConfirmed(oneProposal)) {
+                onErrorOccurred(isChineseUi()
+                                    ? QStringLiteral("工艺候选缺少策略或刀具，不能确认工序。")
+                                    : QStringLiteral("The process candidate has no valid strategy or tool."));
+                return;
+            }
             const OperationConfirmationResult confirmation =
                 confirmOperationProposal(
                     oneProposal,
