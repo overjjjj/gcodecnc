@@ -4,6 +4,7 @@
 
 // 中文说明：将通用刀路块包装为 CQ8 程序格式；不改变刀路几何，只负责方言级
 // 程序头、块边界和收尾，具体安全约束由生成服务和校验器提前完成。
+// 将代码块包装为 CQ8 控制器可执行的程序文本。
 QString Cq8PostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                                     const PostProcessorOptions &opts) const
 {
