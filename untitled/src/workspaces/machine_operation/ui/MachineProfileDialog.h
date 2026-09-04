@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QDialog>
-#include "../../../core/MachineProfile.h"
+#include "../model/MachineProfile.h"
 
 class QLineEdit;
 class QPlainTextEdit;

@@ -29,7 +29,7 @@ SOURCES += \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
-    src/core/MachineProfileValidator.cpp \
+    src/workspaces/machine_operation/model/MachineProfileValidator.cpp \
     src/core/Settings.cpp \
     src/ui/MainWindow.cpp \
     src/ui/ViewportWidget.cpp \
@@ -95,14 +95,14 @@ SOURCES += \
     src/gcode/ProgramSnapshotStatus.cpp \
     src/workspaces/program_verification/generation/ProgramGenerationService.cpp \
     src/workspaces/program_verification/simulation/SimulationController.cpp \
-    src/communication/CncCommInterface.cpp \
+    src/workspaces/machine_operation/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
     src/tool/ToolEntry.cpp
 
 HEADERS += \
     src/core/AppController.h \
-    src/core/MachineProfile.h \
-    src/core/MachineProfileValidator.h \
+    src/workspaces/machine_operation/model/MachineProfile.h \
+    src/workspaces/machine_operation/model/MachineProfileValidator.h \
     src/core/ProjectManager.h \
     src/core/SourceFileFingerprint.h \
     src/workspaces/process_design/selection/FeatureIdentity.h \
@@ -182,7 +182,7 @@ HEADERS += \
     src/gcode/ProgramSnapshotStatus.h \
     src/workspaces/program_verification/generation/ProgramGenerationService.h \
     src/workspaces/program_verification/simulation/SimulationController.h \
-    src/communication/CncCommInterface.h \
+    src/workspaces/machine_operation/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \
     src/tool/ToolEntry.h
 

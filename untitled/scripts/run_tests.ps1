@@ -383,7 +383,7 @@ try {
 
     Invoke-TestBuild `
         -Name "machine_profile_validator_test" `
-        -Sources @("tests\machine_profile_validator_test.cpp", "src\core\MachineProfileValidator.cpp") `
+        -Sources @("tests\machine_profile_validator_test.cpp", "src\workspaces\machine_operation\model\MachineProfileValidator.cpp") `
         -Libs @("-lQt5Core")
 
     $ProjectManagerMoc = Join-Path $DebugDir "moc_ProjectManager_test.cpp"

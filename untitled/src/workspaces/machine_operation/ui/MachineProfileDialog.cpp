@@ -1,6 +1,6 @@
 #include "MachineProfileDialog.h"
 
-#include "../../../core/MachineProfileValidator.h"
+#include "../model/MachineProfileValidator.h"
 
 #include <QDialogButtonBox>
 #include <QFormLayout>

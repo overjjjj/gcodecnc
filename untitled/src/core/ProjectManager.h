@@ -7,7 +7,7 @@
 #include <QJsonObject>
 #include <QQuaternion>
 #include <QStringList>
-#include "MachineProfile.h"
+#include "../workspaces/machine_operation/model/MachineProfile.h"
 #include "SetupOrigin.h"
 #include "StockDefinition.h"
 #include "../import/StepImporter.h"
