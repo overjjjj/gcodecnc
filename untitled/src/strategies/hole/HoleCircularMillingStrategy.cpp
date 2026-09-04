@@ -9,6 +9,7 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 }
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams HoleCircularMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -24,6 +25,7 @@ StrategyParams HoleCircularMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult HoleCircularMillingStrategy::generate(const HoleFeature &feature,
                                                      const ToolEntry &tool,
                                                      const StrategyParams &params) const
@@ -31,6 +33,7 @@ ToolpathResult HoleCircularMillingStrategy::generate(const HoleFeature &feature,
     return generate(QVector<HoleFeature>{feature}, tool, params);
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult HoleCircularMillingStrategy::generate(const QVector<HoleFeature> &features,
                                                      const ToolEntry &tool,
                                                      const StrategyParams &params) const

@@ -21,11 +21,13 @@ struct HoleCycleCall {
     bool valid = false;
 };
 
+// 函数说明：formatDouble负责当前模块的核心处理。
 static QString formatDouble(double value)
 {
     return QString::number(value, 'f', 3);
 }
 
+// 函数说明：parseHoleCycle负责当前模块的核心处理。
 static HoleCycleCall parseHoleCycle(const QString &line)
 {
     HoleCycleCall call;
@@ -62,6 +64,7 @@ static HoleCycleCall parseHoleCycle(const QString &line)
     return call;
 }
 
+// 函数说明：siemensCycleCommand负责当前模块的核心处理。
 static QString siemensCycleCommand(const HoleCycleCall &call)
 {
     if (call.code == QStringLiteral("G81")) {
@@ -121,6 +124,7 @@ static QString siemensCycleCommand(const HoleCycleCall &call)
     return QString();
 }
 
+// 函数说明：cycleSignature负责当前模块的核心处理。
 static QString cycleSignature(const HoleCycleCall &call)
 {
     return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11")
@@ -139,6 +143,7 @@ static QString cycleSignature(const HoleCycleCall &call)
 
 } // namespace
 
+// 函数说明：wrapGCode负责当前模块的核心处理。
 QString SiemensPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                                          const PostProcessorOptions &opts) const
 {

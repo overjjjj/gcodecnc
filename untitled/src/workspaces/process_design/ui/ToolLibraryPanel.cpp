@@ -17,11 +17,13 @@
 
 namespace {
 
+// 函数说明：isChineseUi负责当前模块的核心处理。
 static bool isChineseUi()
 {
     return Settings::instance().language() == QStringLiteral("zh_CN");
 }
 
+// 函数说明：toolTypeLabel负责当前模块的核心处理。
 static QString toolTypeLabel(const QString &type)
 {
     const bool zh = isChineseUi();
@@ -165,12 +167,19 @@ static bool showToolDialog(QWidget *parent, ToolEntry &entry, bool isEdit)
 
 } // namespace
 
+// 函数说明：ToolLibraryPanel负责当前模块的核心处理。
 ToolLibraryPanel::ToolLibraryPanel(QWidget *parent)
+    // 函数说明：QWidget负责当前模块的核心处理。
     : QWidget(parent)
+    // 函数说明：m_titleLabel负责当前模块的核心处理。
     , m_titleLabel(new QLabel(this))
+    // 函数说明：m_list负责当前模块的核心处理。
     , m_list(new QListWidget(this))
+    // 函数说明：m_btnAdd负责当前模块的核心处理。
     , m_btnAdd(new QPushButton(this))
+    // 函数说明：m_btnEdit负责当前模块的核心处理。
     , m_btnEdit(new QPushButton(this))
+    // 函数说明：m_btnRemove负责当前模块的核心处理。
     , m_btnRemove(new QPushButton(this))
 {
     auto *btnRow = new QHBoxLayout;
@@ -195,6 +204,7 @@ ToolLibraryPanel::ToolLibraryPanel(QWidget *parent)
     refresh();
 }
 
+// 函数说明：refresh负责当前模块的核心处理。
 void ToolLibraryPanel::refresh()
 {
     const int savedRow = m_list->currentRow();
@@ -211,6 +221,7 @@ void ToolLibraryPanel::refresh()
         m_list->setCurrentRow(savedRow);
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void ToolLibraryPanel::retranslateUi()
 {
     const bool zh = isChineseUi();
@@ -221,6 +232,7 @@ void ToolLibraryPanel::retranslateUi()
     refresh();
 }
 
+// 函数说明：onSelectionChanged负责当前模块的核心处理。
 void ToolLibraryPanel::onSelectionChanged()
 {
     int row = m_list->currentRow();
@@ -230,6 +242,7 @@ void ToolLibraryPanel::onSelectionChanged()
     }
 }
 
+// 函数说明：onAdd负责当前模块的核心处理。
 void ToolLibraryPanel::onAdd()
 {
     ToolEntry entry;
@@ -247,6 +260,7 @@ void ToolLibraryPanel::onAdd()
     m_list->setCurrentRow(m_list->count() - 1);
 }
 
+// 函数说明：onEdit负责当前模块的核心处理。
 void ToolLibraryPanel::onEdit()
 {
     int row = m_list->currentRow();
@@ -268,6 +282,7 @@ void ToolLibraryPanel::onEdit()
     m_list->setCurrentRow(row);
 }
 
+// 函数说明：onRemove负责当前模块的核心处理。
 void ToolLibraryPanel::onRemove()
 {
     int row = m_list->currentRow();

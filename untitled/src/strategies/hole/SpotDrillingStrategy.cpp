@@ -3,6 +3,7 @@
 #include <QObject>
 #include <cmath>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams SpotDrillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -15,6 +16,7 @@ StrategyParams SpotDrillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult SpotDrillingStrategy::generate(const HoleFeature &feature,
                                                const ToolEntry   &tool,
                                                const StrategyParams &params) const
@@ -22,6 +24,7 @@ ToolpathResult SpotDrillingStrategy::generate(const HoleFeature &feature,
     return generate(QVector<HoleFeature>{feature}, tool, params);
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult SpotDrillingStrategy::generate(const QVector<HoleFeature> &features,
                                                const ToolEntry            &tool,
                                                const StrategyParams       &params) const

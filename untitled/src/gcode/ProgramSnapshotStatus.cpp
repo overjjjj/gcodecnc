@@ -4,6 +4,7 @@
 
 namespace {
 
+// 函数说明：hasAllSourceOperations负责当前模块的核心处理。
 static bool hasAllSourceOperations(const QList<MachiningOperation> &operations,
                                    const QStringList &sourceOperationIds)
 {
@@ -22,6 +23,7 @@ static bool hasAllSourceOperations(const QList<MachiningOperation> &operations,
     return true;
 }
 
+// 函数说明：coversAllConfirmedOperations负责当前模块的核心处理。
 static bool coversAllConfirmedOperations(const QList<MachiningOperation> &operations,
                                          const QStringList &sourceOperationIds)
 {
@@ -37,6 +39,7 @@ static bool coversAllConfirmedOperations(const QList<MachiningOperation> &operat
            QSet<QString>(sourceOperationIds.cbegin(), sourceOperationIds.cend()) == operationIds;
 }
 
+// 函数说明：preservesConfirmedOperationOrder负责当前模块的核心处理。
 static bool preservesConfirmedOperationOrder(const QList<MachiningOperation> &operations,
                                              const QStringList &sourceOperationIds)
 {
@@ -53,6 +56,7 @@ static bool preservesConfirmedOperationOrder(const QList<MachiningOperation> &op
 
 } // namespace
 
+// 函数说明：listSuffix负责当前模块的核心处理。
 QString ProgramSnapshotStatus::listSuffix() const
 {
     switch (state) {
@@ -69,6 +73,7 @@ QString ProgramSnapshotStatus::listSuffix() const
     return QString();
 }
 
+// 函数说明：evaluate负责当前模块的核心处理。
 ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOperation> &operations,
                                                        const QStringList &sourceOperationIds,
                                                        const QString &storedFingerprint,

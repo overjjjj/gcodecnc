@@ -22,11 +22,13 @@
 
 namespace {
 
+// 函数说明：isChineseUi负责当前模块的核心处理。
 static bool isChineseUi()
 {
     return Settings::instance().language() == QStringLiteral("zh_CN");
 }
 
+// 函数说明：machiningTopZ负责当前模块的核心处理。
 static double machiningTopZ(const MachiningFeature &feature)
 {
     if (feature.kind == FeatureKind::Slot && feature.depth > 0.0) {
@@ -40,6 +42,7 @@ static double machiningTopZ(const MachiningFeature &feature)
     return double(feature.center.z());
 }
 
+// 函数说明：contourMachiningDepth负责当前模块的核心处理。
 static double contourMachiningDepth(const MachiningFeature &feature)
 {
     if (feature.kind == FeatureKind::Slot &&
@@ -50,11 +53,13 @@ static double contourMachiningDepth(const MachiningFeature &feature)
     return feature.depth;
 }
 
+// 函数说明：contourSlotWidth负责当前模块的核心处理。
 static double contourSlotWidth(const MachiningFeature &feature)
 {
     return feature.width;
 }
 
+// 函数说明：toContourFeature负责当前模块的核心处理。
 static ContourFeature toContourFeature(const MachiningFeature &feature)
 {
     ContourFeature contour;
@@ -73,6 +78,7 @@ static ContourFeature toContourFeature(const MachiningFeature &feature)
     return contour;
 }
 
+// 函数说明：isSlotFeature负责当前模块的核心处理。
 static bool isSlotFeature(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::Slot ||
@@ -82,16 +88,19 @@ static bool isSlotFeature(const MachiningFeature &feature)
            feature.subType == QStringLiteral("arc_slot");
 }
 
+// 函数说明：isFlatSurfaceFeature负责当前模块的核心处理。
 static bool isFlatSurfaceFeature(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::FlatSurface;
 }
 
+// 函数说明：isPocketFeature负责当前模块的核心处理。
 static bool isPocketFeature(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::Pocket;
 }
 
+// 函数说明：isSupportedPocketFeature负责当前模块的核心处理。
 static bool isSupportedPocketFeature(const MachiningFeature &feature)
 {
     return isPocketFeature(feature)
@@ -100,6 +109,7 @@ static bool isSupportedPocketFeature(const MachiningFeature &feature)
             || feature.boundaryPoints.size() >= 3);
 }
 
+// 函数说明：preferredSlotStrategy负责当前模块的核心处理。
 static QString preferredSlotStrategy(const MachiningFeature &feature)
 {
     if (feature.region == FaceRegion::Front &&
@@ -112,6 +122,7 @@ static QString preferredSlotStrategy(const MachiningFeature &feature)
                : QStringLiteral("mill_blind_slot");
 }
 
+// 函数说明：strategyDisplayName负责当前模块的核心处理。
 static QString strategyDisplayName(const QString &strategyId, bool zh)
 {
     if (zh) {
@@ -156,6 +167,7 @@ static QString strategyDisplayName(const QString &strategyId, bool zh)
     return strategy ? strategy->displayName() : strategyId;
 }
 
+// 函数说明：formatParamValue负责当前模块的核心处理。
 static QString formatParamValue(double value)
 {
     const double rounded = std::round(value);
@@ -165,6 +177,7 @@ static QString formatParamValue(double value)
     return QString::number(value, 'f', 3);
 }
 
+// 函数说明：basicParameterKeys负责当前模块的核心处理。
 static QSet<QString> basicParameterKeys()
 {
     return {
@@ -179,6 +192,7 @@ static QSet<QString> basicParameterKeys()
     };
 }
 
+// 函数说明：nonNegativeParameterKeys负责当前模块的核心处理。
 static QSet<QString> nonNegativeParameterKeys()
 {
     return {
@@ -195,6 +209,7 @@ static QSet<QString> nonNegativeParameterKeys()
     };
 }
 
+// 函数说明：unconstrainedParameterKeys负责当前模块的核心处理。
 static QSet<QString> unconstrainedParameterKeys()
 {
     return {
@@ -204,6 +219,7 @@ static QSet<QString> unconstrainedParameterKeys()
     };
 }
 
+// 函数说明：applyManualProcessParameters负责当前模块的核心处理。
 static void applyManualProcessParameters(const QString &strategyId, StrategyParams &params)
 {
     // These values are retained with the operation as process-setting metadata.
@@ -260,12 +276,19 @@ StrategyPanel::StrategyPanel(QWidget *parent)
     , m_toolFitLabel(new QLabel(this))
     , m_paramSummaryLabel(new QLabel(this))
     , m_strategyCombo(new QComboBox(this))
+    // 函数说明：m_toolCombo负责当前模块的核心处理。
     , m_toolCombo(new QComboBox(this))
+    // 函数说明：m_entryModeCombo负责当前模块的核心处理。
     , m_entryModeCombo(new QComboBox(this))
+    // 函数说明：m_paramTable负责当前模块的核心处理。
     , m_paramTable(new QTableWidget(this))
+    // 函数说明：m_editHoleParamsBtn负责当前模块的核心处理。
     , m_editHoleParamsBtn(new QPushButton(this))
+    // 函数说明：m_confirmOperationBtn负责当前模块的核心处理。
     , m_confirmOperationBtn(new QPushButton(this))
+    // 函数说明：m_millingGroup负责当前模块的核心处理。
     , m_millingGroup(new QGroupBox(this))
+    // 函数说明：m_circleMillBtn负责当前模块的核心处理。
     , m_circleMillBtn(new QPushButton(this))
 {
     setObjectName(QStringLiteral("strategyPanel"));
@@ -355,11 +378,13 @@ StrategyPanel::StrategyPanel(QWidget *parent)
 
     connect(m_strategyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &StrategyPanel::onStrategyChanged);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_toolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() {
                 updateToolCompatibilityPreview();
                 updateProposalState();
             });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_entryModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() {
                 updateParamSummary();
@@ -376,6 +401,7 @@ StrategyPanel::StrategyPanel(QWidget *parent)
     retranslateUi();
 }
 
+// 函数说明：strategyIdsForCurrentContext负责当前模块的核心处理。
 QStringList StrategyPanel::strategyIdsForCurrentContext() const
 {
     if (m_hasContourFeature) {
@@ -423,16 +449,19 @@ QStringList StrategyPanel::strategyIdsForCurrentContext() const
     };
 }
 
+// 函数说明：displayNameForStrategy负责当前模块的核心处理。
 QString StrategyPanel::displayNameForStrategy(const QString &strategyId) const
 {
     return strategyDisplayName(strategyId, isChineseUi());
 }
 
+// 函数说明：isSlotFeatureSelected负责当前模块的核心处理。
 bool StrategyPanel::isSlotFeatureSelected() const
 {
     return m_hasContourFeature && isSlotFeature(m_contourFeature);
 }
 
+// 函数说明：populateStrategies负责当前模块的核心处理。
 void StrategyPanel::populateStrategies()
 {
     const QString previousStrategyId = m_strategyCombo->currentData().toString();
@@ -468,6 +497,7 @@ void StrategyPanel::populateStrategies()
     updateStrategyHint();
 }
 
+// 函数说明：populateTools负责当前模块的核心处理。
 void StrategyPanel::populateTools()
 {
     m_toolCombo->clear();
@@ -482,6 +512,7 @@ void StrategyPanel::populateTools()
     updateToolCompatibilityPreview();
 }
 
+// 函数说明：selectPreferredStrategyForCurrentContext负责当前模块的核心处理。
 void StrategyPanel::selectPreferredStrategyForCurrentContext()
 {
     QString preferred;
@@ -518,6 +549,7 @@ void StrategyPanel::selectPreferredStrategyForCurrentContext()
     }
 }
 
+// 函数说明：onStrategyChanged负责当前模块的核心处理。
 void StrategyPanel::onStrategyChanged(int)
 {
     cacheCurrentParams();
@@ -571,6 +603,7 @@ StrategyParams StrategyPanel::paramsForStrategy(const QString &strategyId, bool 
     return params;
 }
 
+// 函数说明：setWorkOffset负责当前模块的核心处理。
 void StrategyPanel::setWorkOffset(const QString &workOffset)
 {
     QString normalized = workOffset.trimmed().toUpper();
@@ -587,6 +620,7 @@ void StrategyPanel::setWorkOffset(const QString &workOffset)
     refreshParamTable();
 }
 
+// 函数说明：refreshParamTable负责当前模块的核心处理。
 void StrategyPanel::refreshParamTable()
 {
     m_paramTable->setRowCount(0);
@@ -614,6 +648,7 @@ void StrategyPanel::refreshParamTable()
     updateParamSummary();
 }
 
+// 函数说明：setCurrentParams负责当前模块的核心处理。
 void StrategyPanel::setCurrentParams(const StrategyParams &params)
 {
     if (m_currentStrategyId.isEmpty()) {
@@ -624,6 +659,7 @@ void StrategyPanel::setCurrentParams(const StrategyParams &params)
     refreshParamTable();
 }
 
+// 函数说明：currentParams负责当前模块的核心处理。
 StrategyParams StrategyPanel::currentParams() const
 {
     if (m_paramTable->rowCount() <= 0 &&
@@ -658,6 +694,7 @@ StrategyParams StrategyPanel::currentParams() const
     return params;
 }
 
+// 函数说明：currentContourFeature负责当前模块的核心处理。
 ContourFeature StrategyPanel::currentContourFeature() const
 {
     ContourFeature contour = toContourFeature(m_contourFeature);
@@ -678,6 +715,7 @@ ContourFeature StrategyPanel::currentContourFeature() const
     return contour;
 }
 
+// 函数说明：cacheCurrentParams负责当前模块的核心处理。
 void StrategyPanel::cacheCurrentParams()
 {
     if (m_currentStrategyId.isEmpty() || m_paramTable->rowCount() <= 0) {
@@ -687,6 +725,7 @@ void StrategyPanel::cacheCurrentParams()
     updateParamSummary();
 }
 
+// 函数说明：paramSummaryText负责当前模块的核心处理。
 QString StrategyPanel::paramSummaryText(const StrategyParams &params) const
 {
     const bool zh = isChineseUi();
@@ -741,6 +780,7 @@ QString StrategyPanel::paramSummaryText(const StrategyParams &params) const
     return QStringLiteral("%1  |  %2").arg(prefix, pieces.join(QStringLiteral("  |  ")));
 }
 
+// 函数说明：updateParamSummary负责当前模块的核心处理。
 void StrategyPanel::updateParamSummary()
 {
     if (!m_paramSummaryLabel) {
@@ -770,6 +810,7 @@ void StrategyPanel::updateParamSummary()
     updateToolCompatibilityPreview();
 }
 
+// 函数说明：seedContourParamsFromFeature负责当前模块的核心处理。
 void StrategyPanel::seedContourParamsFromFeature()
 {
     if (!m_hasContourFeature) {
@@ -808,6 +849,7 @@ void StrategyPanel::seedContourParamsFromFeature()
     }
 }
 
+// 函数说明：setContourFeature负责当前模块的核心处理。
 void StrategyPanel::setContourFeature(const MachiningFeature &feature)
 {
     m_contourFeature = feature;
@@ -819,6 +861,7 @@ void StrategyPanel::setContourFeature(const MachiningFeature &feature)
     retranslateUi();
 }
 
+// 函数说明：clearContourFeature负责当前模块的核心处理。
 void StrategyPanel::clearContourFeature()
 {
     m_hasContourFeature = false;
@@ -829,6 +872,7 @@ void StrategyPanel::clearContourFeature()
     retranslateUi();
 }
 
+// 函数说明：setFeature负责当前模块的核心处理。
 void StrategyPanel::setFeature(const HoleFeature &feature)
 {
     m_feature = feature;
@@ -839,6 +883,7 @@ void StrategyPanel::setFeature(const HoleFeature &feature)
     retranslateUi();
 }
 
+// 函数说明：clearFeature负责当前模块的核心处理。
 void StrategyPanel::clearFeature()
 {
     m_hasFeature = false;
@@ -849,6 +894,7 @@ void StrategyPanel::clearFeature()
     retranslateUi();
 }
 
+// 函数说明：setActiveRegion负责当前模块的核心处理。
 void StrategyPanel::setActiveRegion(FaceRegion region)
 {
     m_activeRegion = region;
@@ -856,6 +902,7 @@ void StrategyPanel::setActiveRegion(FaceRegion region)
     updateProposalState();
 }
 
+// 函数说明：updateProposalState负责当前模块的核心处理。
 void StrategyPanel::updateProposalState()
 {
     if (!m_proposalStateLabel) {
@@ -1018,6 +1065,7 @@ void StrategyPanel::onConfirmOperation()
     emit operationProposalConfirmed(proposal);
 }
 
+// 函数说明：onEditHoleParams负责当前模块的核心处理。
 void StrategyPanel::onEditHoleParams()
 {
     const QString strategyId = m_strategyCombo->currentData().toString();
@@ -1056,6 +1104,7 @@ void StrategyPanel::onEditHoleParams()
         updateParamSummary();
     }
 }
+// 函数说明：onCircleMillClicked负责当前模块的核心处理。
 void StrategyPanel::onCircleMillClicked()
 {
     CircleMillDialog dialog(this);
@@ -1076,6 +1125,7 @@ void StrategyPanel::onCircleMillClicked()
     emit operationProposalConfirmed(proposal);
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void StrategyPanel::retranslateUi()
 {
     const bool zh = isChineseUi();
@@ -1207,6 +1257,7 @@ void StrategyPanel::retranslateUi()
     updateProposalState();
 }
 
+// 函数说明：paramDisplayName负责当前模块的核心处理。
 QString StrategyPanel::paramDisplayName(const QString &key) const
 {
     if (!isChineseUi()) {
@@ -1261,6 +1312,7 @@ QString StrategyPanel::paramDisplayName(const QString &key) const
     return key;
 }
 
+// 函数说明：toolDisplayName负责当前模块的核心处理。
 QString StrategyPanel::toolDisplayName(const ToolEntry &tool) const
 {
     return isChineseUi()
@@ -1268,6 +1320,7 @@ QString StrategyPanel::toolDisplayName(const ToolEntry &tool) const
         : QStringLiteral("T%1 %2 D%3").arg(tool.id).arg(tool.name).arg(tool.diameter, 0, 'f', 1);
 }
 
+// 函数说明：preferredToolType负责当前模块的核心处理。
 QString StrategyPanel::preferredToolType(const QString &strategyId) const
 {
     if (strategyId == QStringLiteral("hole_spot")) {
@@ -1293,6 +1346,7 @@ QString StrategyPanel::preferredToolType(const QString &strategyId) const
     return QStringLiteral("drill");
 }
 
+// 函数说明：strategyHint负责当前模块的核心处理。
 QString StrategyPanel::strategyHint(const QString &strategyId) const
 {
     const bool zh = isChineseUi();
@@ -1371,6 +1425,7 @@ QString StrategyPanel::strategyHint(const QString &strategyId) const
     return QStringLiteral("生成前请确认刀具、深度和进给参数。");
 }
 
+// 函数说明：updateStrategyHint负责当前模块的核心处理。
 void StrategyPanel::updateStrategyHint()
 {
     if (m_hintLabel) {
@@ -1378,6 +1433,7 @@ void StrategyPanel::updateStrategyHint()
     }
 }
 
+// 函数说明：updatePocketEntryUi负责当前模块的核心处理。
 void StrategyPanel::updatePocketEntryUi()
 {
     const bool visible = m_hasContourFeature &&
@@ -1398,6 +1454,7 @@ void StrategyPanel::updatePocketEntryUi()
     m_entryModeCombo->setCurrentIndex(index >= 0 ? index : 0);
 }
 
+// 函数说明：updateToolCompatibilityPreview负责当前模块的核心处理。
 void StrategyPanel::updateToolCompatibilityPreview()
 {
     if (!m_toolFitLabel) {
@@ -1456,6 +1513,7 @@ void StrategyPanel::updateToolCompatibilityPreview()
     m_toolFitLabel->style()->polish(m_toolFitLabel);
 }
 
+// 函数说明：selectPreferredToolForFeature负责当前模块的核心处理。
 void StrategyPanel::selectPreferredToolForFeature()
 {
     if (m_toolCombo->count() <= 0) {
@@ -1512,6 +1570,7 @@ void StrategyPanel::selectPreferredToolForFeature()
     }
 }
 
+// 函数说明：currentTool负责当前模块的核心处理。
 ToolEntry StrategyPanel::currentTool() const
 {
     const int toolId = m_toolCombo->currentData().toInt();

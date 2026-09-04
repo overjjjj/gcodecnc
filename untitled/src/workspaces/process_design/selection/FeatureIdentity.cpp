@@ -9,12 +9,14 @@
 
 namespace {
 
+// 函数说明：appendNumber负责当前模块的核心处理。
 void appendNumber(QByteArray &payload, double value)
 {
     payload.append(QByteArray::number(value, 'g', 17));
     payload.append('|');
 }
 
+// 函数说明：appendVector负责当前模块的核心处理。
 void appendVector(QByteArray &payload, const QVector3D &value)
 {
     appendNumber(payload, value.x());
@@ -22,6 +24,7 @@ void appendVector(QByteArray &payload, const QVector3D &value)
     appendNumber(payload, value.z());
 }
 
+// 函数说明：pointToken负责当前模块的核心处理。
 QString pointToken(const QVector3D &point)
 {
     return QStringLiteral("%1,%2,%3")
@@ -30,6 +33,7 @@ QString pointToken(const QVector3D &point)
         .arg(double(point.z()), 0, 'g', 17);
 }
 
+// 函数说明：canonicalPath负责当前模块的核心处理。
 QString canonicalPath(const QVector<QVector3D> &points, bool closed)
 {
     if (points.isEmpty()) {
@@ -67,6 +71,7 @@ QString canonicalPath(const QVector<QVector3D> &points, bool closed)
 
 } // namespace
 
+// 函数说明：stableFeatureId负责当前模块的核心处理。
 QString stableFeatureId(const MachiningFeature &feature)
 {
     QByteArray payload;
@@ -92,6 +97,7 @@ QString stableFeatureId(const MachiningFeature &feature)
     return QStringLiteral("feature:") + QString::fromLatin1(digest.toHex());
 }
 
+// 函数说明：stableContourId负责当前模块的核心处理。
 QString stableContourId(const ContourFeature &feature)
 {
     QByteArray payload;

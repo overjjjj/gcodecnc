@@ -11,12 +11,19 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
     : QDialog(parent)
     , m_introLabel(new QLabel(this))
     , m_stateValue(new QLabel(this))
+    // 函数说明：m_directionLabel负责当前模块的核心处理。
     , m_directionLabel(new QLabel(this))
+    // 函数说明：m_startLabel负责当前模块的核心处理。
     , m_startLabel(new QLabel(this))
+    // 函数说明：m_compensationLabel负责当前模块的核心处理。
     , m_compensationLabel(new QLabel(this))
+    // 函数说明：m_directionCombo负责当前模块的核心处理。
     , m_directionCombo(new QComboBox(this))
+    // 函数说明：m_startCombo负责当前模块的核心处理。
     , m_startCombo(new QComboBox(this))
+    // 函数说明：m_compensationCombo负责当前模块的核心处理。
     , m_compensationCombo(new QComboBox(this))
+    // 函数说明：m_summaryLabel负责当前模块的核心处理。
     , m_summaryLabel(new QLabel(this))
 {
     setModal(true);
@@ -40,11 +47,13 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_directionCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() {
                 updateStartOptions();
                 updateSummary();
             });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_startCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() {
                 if (!m_closed && m_startCombo->currentIndex() >= 0) {
@@ -58,6 +67,7 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
                 }
                 updateSummary();
             });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_compensationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this]() { updateSummary(); });
 
@@ -71,12 +81,14 @@ ContourMachiningChoiceDialog::ContourMachiningChoiceDialog(QWidget *parent)
     updateText();
 }
 
+// 函数说明：setChineseUi负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::setChineseUi(bool chinese)
 {
     m_chinese = chinese;
     updateText();
 }
 
+// 函数说明：setContext负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::setContext(const QString &strategyId,
                                                const ContourFeature &feature,
                                                const StrategyParams &params)
@@ -99,6 +111,7 @@ void ContourMachiningChoiceDialog::setContext(const QString &strategyId,
     updateSummary();
 }
 
+// 函数说明：choice负责当前模块的核心处理。
 ContourMachiningChoice ContourMachiningChoiceDialog::choice() const
 {
     ContourMachiningChoice result;
@@ -109,13 +122,16 @@ ContourMachiningChoice ContourMachiningChoiceDialog::choice() const
     return result;
 }
 
+// 函数说明：setChoiceChangedCallback负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::setChoiceChangedCallback(
+    // 函数说明：void负责当前模块的核心处理。
     std::function<void(const ContourMachiningChoice &)> callback)
 {
     m_choiceChangedCallback = std::move(callback);
     updateSummary();
 }
 
+// 函数说明：updateText负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::updateText()
 {
     setWindowTitle(m_chinese ? QStringLiteral("确认轮廓加工侧与方向")
@@ -166,6 +182,7 @@ void ContourMachiningChoiceDialog::updateText()
     updateSummary();
 }
 
+// 函数说明：updateStartOptions负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::updateStartOptions()
 {
     const QSignalBlocker blocker(m_startCombo);
@@ -209,6 +226,7 @@ void ContourMachiningChoiceDialog::updateStartOptions()
     m_startCombo->setCurrentIndex(reverse ? 1 : 0);
 }
 
+// 函数说明：updateSummary负责当前模块的核心处理。
 void ContourMachiningChoiceDialog::updateSummary()
 {
     const ContourMachiningChoice current = choice();

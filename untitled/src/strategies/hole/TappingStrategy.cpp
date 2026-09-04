@@ -2,6 +2,7 @@
 #include "HoleStrategyUtils.h"
 #include <QObject>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams TappingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -14,6 +15,7 @@ StrategyParams TappingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult TappingStrategy::generate(const HoleFeature &feature,
                                           const ToolEntry   &tool,
                                           const StrategyParams &params) const
@@ -21,6 +23,7 @@ ToolpathResult TappingStrategy::generate(const HoleFeature &feature,
     return generate(QVector<HoleFeature>{feature}, tool, params);
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult TappingStrategy::generate(const QVector<HoleFeature> &features,
                                           const ToolEntry            &tool,
                                           const StrategyParams       &params) const

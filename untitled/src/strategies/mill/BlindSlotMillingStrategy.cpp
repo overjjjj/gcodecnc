@@ -7,11 +7,13 @@
 
 namespace {
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -20,6 +22,7 @@ static QString feedXY(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：feedXYZ负责当前模块的核心处理。
 static QString feedXYZ(double x, double y, double z, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
@@ -29,23 +32,27 @@ static QString feedXYZ(double x, double y, double z, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：slotLength负责当前模块的核心处理。
 static double slotLength(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotLength"),
                       feature.length > 0.0 ? feature.length : feature.radius * 2.0);
 }
 
+// 函数说明：slotWidth负责当前模块的核心处理。
 static double slotWidth(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotWidth"),
                       feature.width > 0.0 ? feature.width : feature.radius);
 }
 
+// 函数说明：slotAngleDeg负责当前模块的核心处理。
 static double slotAngleDeg(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("angle"), feature.angle);
 }
 
+// 函数说明：roughScanOffsets负责当前模块的核心处理。
 static std::vector<double> roughScanOffsets(double halfWidth, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -70,6 +77,7 @@ static std::vector<double> roughScanOffsets(double halfWidth, double stepover, d
     return offsets;
 }
 
+// 函数说明：finishScanOffsets负责当前模块的核心处理。
 static std::vector<double> finishScanOffsets(double halfWidth, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -94,6 +102,7 @@ static std::vector<double> finishScanOffsets(double halfWidth, double stepover, 
     return offsets;
 }
 
+// 函数说明：slotLayerRange负责当前模块的核心处理。
 static void slotLayerRange(double halfLength,
                            double slopeStartLength,
                            double slopeEndLength,
@@ -107,6 +116,7 @@ static void slotLayerRange(double halfLength,
     maxU =  halfLength - std::max(0.0, slopeEndLength) * clampedRatio - centerInset;
 }
 
+// 函数说明：slotLayerWidthRange负责当前模块的核心处理。
 static void slotLayerWidthRange(double halfWidth,
                                 double slopeMinWidth,
                                 double slopeMaxWidth,
@@ -120,6 +130,7 @@ static void slotLayerWidthRange(double halfWidth,
     maxV =  halfWidth - std::max(0.0, slopeMaxWidth) * clampedRatio - centerInset;
 }
 
+// 函数说明：clampSlopePair负责当前模块的核心处理。
 static void clampSlopePair(double &first, double &second, double maxTotal)
 {
     first = std::max(0.0, first);
@@ -138,6 +149,7 @@ static void clampSlopePair(double &first, double &second, double maxTotal)
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams BlindSlotMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -160,6 +172,7 @@ StrategyParams BlindSlotMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult BlindSlotMillingStrategy::generate(const HoleFeature &,
                                                   const ToolEntry &,
                                                   const StrategyParams &) const
@@ -167,6 +180,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("Blind slot milling requires a contour feature."), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                                                   const ToolEntry      &tool,
                                                   const StrategyParams &params) const

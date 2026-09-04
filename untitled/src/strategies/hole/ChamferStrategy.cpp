@@ -6,6 +6,7 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 }
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams ChamferStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -19,6 +20,7 @@ StrategyParams ChamferStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ChamferStrategy::generate(const HoleFeature &feature,
                                           const ToolEntry   &tool,
                                           const StrategyParams &params) const

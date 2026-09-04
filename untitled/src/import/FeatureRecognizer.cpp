@@ -34,16 +34,19 @@
 
 namespace {
 
+// 函数说明：dotDir负责当前模块的核心处理。
 static double dotDir(const gp_Dir &a, const gp_Dir &b)
 {
     return a.X() * b.X() + a.Y() * b.Y() + a.Z() * b.Z();
 }
 
+// 函数说明：toVector3D负责当前模块的核心处理。
 static QVector3D toVector3D(const gp_Dir &dir)
 {
     return QVector3D(float(dir.X()), float(dir.Y()), float(dir.Z()));
 }
 
+// 函数说明：pointOnAxisAtProjection负责当前模块的核心处理。
 static gp_Pnt pointOnAxisAtProjection(const gp_Ax1 &axis, double targetProj)
 {
     const gp_Pnt origin = axis.Location();
@@ -61,6 +64,7 @@ struct FaceProjection {
     double avgProj = 0.0;
 };
 
+// 函数说明：estimateFaceProjection负责当前模块的核心处理。
 static FaceProjection estimateFaceProjection(const TopoDS_Face &face, const gp_Dir &axis)
 {
     FaceProjection projection;
@@ -105,6 +109,7 @@ static FaceProjection estimateFaceProjection(const TopoDS_Face &face, const gp_D
     return projection;
 }
 
+// 函数说明：cylinderRadialNormalAlignment负责当前模块的核心处理。
 static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax1 &axis)
 {
     TopLoc_Location loc;
@@ -156,6 +161,7 @@ static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax
     return dotCount > 0 ? dotAcc / double(dotCount) : 0.0;
 }
 
+// 函数说明：coincidentCylinderFaces负责当前模块的核心处理。
 static QVector<int> coincidentCylinderFaces(const TopoGraph &graph,
                                             int seedFaceIndex,
                                             const gp_Cylinder &seedCylinder)
@@ -214,6 +220,7 @@ struct FaceBox2D {
     double angle = 0.0;  // orientation of the long axis in XY plane (degrees, 0=X axis)
 };
 
+// 函数说明：buildPlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D buildPlanarFaceBox(const QVector<QVector3D> &points, const QVector3D &normalHint)
 {
     FaceBox2D box;
@@ -299,6 +306,7 @@ static FaceBox2D buildPlanarFaceBox(const QVector<QVector3D> &points, const QVec
     return box;
 }
 
+// 函数说明：estimatePlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D estimatePlanarFaceBox(const TopoDS_Face &face, const QVector3D &normalHint)
 {
     QVector<QVector3D> points;
@@ -317,6 +325,7 @@ static FaceBox2D estimatePlanarFaceBox(const TopoDS_Face &face, const QVector3D 
     return buildPlanarFaceBox(points, normalHint);
 }
 
+// 函数说明：radialDistanceToAxis负责当前模块的核心处理。
 static double radialDistanceToAxis(const QVector3D &point, const gp_Ax1 &axis)
 {
     const gp_Pnt origin = axis.Location();
@@ -328,6 +337,7 @@ static double radialDistanceToAxis(const QVector3D &point, const gp_Ax1 &axis)
     return radial.length();
 }
 
+// 函数说明：isCompactPlanarCap负责当前模块的核心处理。
 static bool isCompactPlanarCap(const TopoGraph &graph,
                                int faceIndex,
                                const gp_Ax1 &axis,
@@ -373,6 +383,7 @@ static bool isCompactPlanarCap(const TopoGraph &graph,
     return radialDistanceToAxis(box.center, axis) <= std::max(radius * 0.35, 0.25);
 }
 
+// 函数说明：faceHasInnerWires负责当前模块的核心处理。
 static bool faceHasInnerWires(const TopoDS_Face &face)
 {
     // Inner wires (holes) have REVERSED orientation relative to the face.
@@ -388,6 +399,7 @@ static bool faceHasInnerWires(const TopoDS_Face &face)
     return false;
 }
 
+// 函数说明：appendDistinctPoint负责当前模块的核心处理。
 static void appendDistinctPoint(QVector<QVector3D> &points, const gp_Pnt &point)
 {
     const QVector3D value(float(point.X()), float(point.Y()), float(point.Z()));
@@ -396,6 +408,7 @@ static void appendDistinctPoint(QVector<QVector3D> &points, const gp_Pnt &point)
     }
 }
 
+// 函数说明：sampleBoundaryWire负责当前模块的核心处理。
 static QVector<QVector3D> sampleBoundaryWire(const TopoDS_Wire &wire)
 {
     QVector<QVector3D> points;
@@ -428,6 +441,7 @@ static QVector<QVector3D> sampleBoundaryWire(const TopoDS_Wire &wire)
     return points;
 }
 
+// 函数说明：extractPocketLoops负责当前模块的核心处理。
 static void extractPocketLoops(const TopoDS_Face &face,
                                QVector<QVector3D> &outerBoundary,
                                QVector<QVector<QVector3D>> &islandBoundaries)
@@ -453,6 +467,7 @@ static void extractPocketLoops(const TopoDS_Face &face,
 
 static QVector3D estimateFaceCentroid(const TopoDS_Face &face);
 
+// 函数说明：estimateSideFeatureSpan负责当前模块的核心处理。
 static double estimateSideFeatureSpan(const TopoGraph &graph, const QVector<int> &sideFaces)
 {
     double span = 0.0;
@@ -476,6 +491,7 @@ static double estimateSideFeatureSpan(const TopoGraph &graph, const QVector<int>
     return span;
 }
 
+// 函数说明：isSlotSideLayoutConsistent负责当前模块的核心处理。
 static bool isSlotSideLayoutConsistent(const TopoGraph &graph,
                                        const QVector<int> &sideFaces,
                                        const FaceBox2D &bottomBox)
@@ -512,6 +528,7 @@ static bool isSlotSideLayoutConsistent(const TopoGraph &graph,
     return hasPositiveMinorWall && hasNegativeMinorWall && nearMinorEdgeCount >= 2;
 }
 
+// 函数说明：collectBoundaryWallFaces负责当前模块的核心处理。
 static QVector<int> collectBoundaryWallFaces(const TopoGraph &graph,
                                              const QVector<int> &bottomFaces,
                                              const QSet<int> &candidateSideFaces)
@@ -578,6 +595,7 @@ static QVector<int> collectBoundaryWallFaces(const TopoGraph &graph,
     return wallFaces;
 }
 
+// 函数说明：selectSlotWallFaces负责当前模块的核心处理。
 static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
                                         const QVector<int> &bottomFaces,
                                         const QVector<int> &sideFaces,
@@ -622,6 +640,7 @@ static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
     return uniqueWalls;
 }
 
+// 函数说明：estimateFacesSpanAlongDirection负责当前模块的核心处理。
 static double estimateFacesSpanAlongDirection(const TopoGraph &graph,
                                               const QVector<int> &faceIndices,
                                               const QVector3D &direction)
@@ -663,6 +682,7 @@ struct ProjectionRange {
     double maxProj = 0.0;
 };
 
+// 函数说明：estimateModelProjectionRange负责当前模块的核心处理。
 static ProjectionRange estimateModelProjectionRange(const TopoGraph &graph, const QVector3D &direction)
 {
     ProjectionRange range;
@@ -699,6 +719,7 @@ static ProjectionRange estimateModelProjectionRange(const TopoGraph &graph, cons
     return range;
 }
 
+// 函数说明：estimateFacesProjectionRange负责当前模块的核心处理。
 static ProjectionRange estimateFacesProjectionRange(const TopoGraph &graph,
                                                     const QVector<int> &faceIndices,
                                                     const QVector3D &direction)
@@ -740,6 +761,7 @@ static ProjectionRange estimateFacesProjectionRange(const TopoGraph &graph,
     return range;
 }
 
+// 函数说明：slotOpeningRegionFromFaceRange负责当前模块的核心处理。
 static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
                                                  const MachiningFeature &feature,
                                                  const QVector3D &frontNormal)
@@ -773,6 +795,7 @@ static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
     return FaceRegion::Unknown;
 }
 
+// 函数说明：isNearModelBoundary负责当前模块的核心处理。
 static bool isNearModelBoundary(const TopoGraph &graph, const QVector3D &point, const QVector3D &axis)
 {
     const ProjectionRange range = estimateModelProjectionRange(graph, axis);
@@ -787,6 +810,7 @@ static bool isNearModelBoundary(const TopoGraph &graph, const QVector3D &point, 
     return (proj - range.minProj) <= tol || (range.maxProj - proj) <= tol;
 }
 
+// 函数说明：collectConcaveConnectedPlanarFaces负责当前模块的核心处理。
 static QVector<int> collectConcaveConnectedPlanarFaces(const TopoGraph &graph, int seedFaceIndex)
 {
     QVector<int> group;
@@ -833,6 +857,7 @@ static QVector<int> collectConcaveConnectedPlanarFaces(const TopoGraph &graph, i
     return uniqueGroup;
 }
 
+// 函数说明：hasPlanarBottomNeighborForWallGroup负责当前模块的核心处理。
 static bool hasPlanarBottomNeighborForWallGroup(const TopoGraph &graph,
                                                 const QVector<int> &wallFaces,
                                                 const QVector3D &openingAxis)
@@ -879,6 +904,7 @@ static bool hasPlanarBottomNeighborForWallGroup(const TopoGraph &graph,
     return false;
 }
 
+// 函数说明：isReasonableRecessBottom负责当前模块的核心处理。
 static bool isReasonableRecessBottom(const TopoGraph &graph,
                                      int bottomFace,
                                      const QVector<int> &sideFaces,
@@ -903,6 +929,7 @@ static bool isReasonableRecessBottom(const TopoGraph &graph,
     return bottomBox.length <= allowedSpan;
 }
 
+// 函数说明：uniqueIndices负责当前模块的核心处理。
 static QVector<int> uniqueIndices(const QVector<int> &indices)
 {
     QSet<int> seen;
@@ -917,6 +944,7 @@ static QVector<int> uniqueIndices(const QVector<int> &indices)
     return result;
 }
 
+// 函数说明：estimateFaceCentroid负责当前模块的核心处理。
 static QVector3D estimateFaceCentroid(const TopoDS_Face &face)
 {
     TopLoc_Location loc;
@@ -936,6 +964,7 @@ static QVector3D estimateFaceCentroid(const TopoDS_Face &face)
     return pointCount > 0 ? centerAccum / float(pointCount) : QVector3D();
 }
 
+// 函数说明：planarSurfaceSubtype负责当前模块的核心处理。
 static QString planarSurfaceSubtype(FaceRegion region, double z, double minZ, double maxZ)
 {
     constexpr double zTol = 1.0e-3;
@@ -951,6 +980,7 @@ static QString planarSurfaceSubtype(FaceRegion region, double z, double minZ, do
     return QStringLiteral("step_surface");
 }
 
+// 函数说明：regionPriority负责当前模块的核心处理。
 static int regionPriority(FaceRegion region)
 {
     switch (region) {
@@ -963,6 +993,7 @@ static int regionPriority(FaceRegion region)
     }
 }
 
+// 函数说明：regionFromAxis负责当前模块的核心处理。
 static FaceRegion regionFromAxis(const QVector3D &axis, const QVector3D &frontNormal)
 {
     const QVector3D n = axis.normalized();
@@ -986,6 +1017,7 @@ static QString sideDirectionSubtype(const QVector3D &axis)
                : QStringLiteral("side_y");
 }
 
+// 函数说明：dominantFaceRegion负责当前模块的核心处理。
 static FaceRegion dominantFaceRegion(const TopoGraph &graph, const QVector<int> &faceIndices)
 {
     int front = 0;
@@ -1017,6 +1049,7 @@ static FaceRegion dominantFaceRegion(const TopoGraph &graph, const QVector<int> 
     return FaceRegion::Side;
 }
 
+// 函数说明：graphProjectionRange负责当前模块的核心处理。
 static bool graphProjectionRange(const TopoGraph &graph,
                                  const QVector3D &direction,
                                  double &minProj,
@@ -1038,6 +1071,7 @@ static bool graphProjectionRange(const TopoGraph &graph,
     return minProj <= maxProj;
 }
 
+// 函数说明：machiningRegionForFeature负责当前模块的核心处理。
 static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
                                             const MachiningFeature &feature,
                                             const QVector3D &frontNormal)
@@ -1143,6 +1177,7 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
     return axisRegion;
 }
 
+// 函数说明：estimatePlanarDepthFromSides负责当前模块的核心处理。
 static double estimatePlanarDepthFromSides(const TopoGraph &graph,
                                            int bottomFace,
                                            const QVector<int> &sideFaces)
@@ -1180,6 +1215,7 @@ static double estimatePlanarDepthFromSides(const TopoGraph &graph,
     return maxDelta;
 }
 
+// 函数说明：areCoplanarFaces负责当前模块的核心处理。
 static bool areCoplanarFaces(const TopoGraph &graph, int a, int b)
 {
     if (a <= 0 || b <= 0 || a > graph.nodes.size() || b > graph.nodes.size()) {
@@ -1209,6 +1245,7 @@ static bool areCoplanarFaces(const TopoGraph &graph, int a, int b)
     return std::abs(da - db) <= 0.25;
 }
 
+// 函数说明：collectCoplanarFaces负责当前模块的核心处理。
 static QVector<int> collectCoplanarFaces(const TopoGraph &graph, int seedFaceIndex)
 {
     QVector<int> group;
@@ -1244,6 +1281,7 @@ static QVector<int> collectCoplanarFaces(const TopoGraph &graph, int seedFaceInd
     return uniqueIndices(group);
 }
 
+// 函数说明：estimatePlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D estimatePlanarFaceBox(const TopoGraph &graph,
                                        const QVector<int> &faceIndices,
                                        const QVector3D &normalHint)
@@ -1288,6 +1326,7 @@ static FaceBox2D estimatePlanarFaceBox(const TopoGraph &graph,
 
 } // namespace
 
+// 函数说明：mergeCounterbores负责当前模块的核心处理。
 static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> holes)
 {
     const int n = holes.size();
@@ -1386,6 +1425,7 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
     return result;
 }
 
+// 函数说明：recognize负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::recognize(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features = mergeCounterbores(findHoles(graph));
@@ -1446,6 +1486,7 @@ QVector<MachiningFeature> FeatureRecognizer::recognize(const TopoGraph &graph) c
     return features;
 }
 
+// 函数说明：reclassifyRegions负责当前模块的核心处理。
 void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
                                           QVector<MachiningFeature> &features) const
 {
@@ -1496,6 +1537,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
     }
 }
 
+// 函数说明：findHoles负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -1697,6 +1739,7 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
     return features;
 }
 
+// 函数说明：findFlatSurfaces负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findFlatSurfaces(const TopoGraph &graph,
                                                               const QSet<int> &consumedFaces) const
 {
@@ -1746,6 +1789,7 @@ QVector<MachiningFeature> FeatureRecognizer::findFlatSurfaces(const TopoGraph &g
     return features;
 }
 
+// 函数说明：findBosses负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findBosses(const TopoGraph &graph,
                                                         const QSet<int> &consumedFaces) const
 {
@@ -1811,6 +1855,7 @@ QVector<MachiningFeature> FeatureRecognizer::findBosses(const TopoGraph &graph,
     return features;
 }
 
+// 函数说明：findSlots负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -2150,6 +2195,7 @@ QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) c
 
     return features;
 }
+// 函数说明：findPockets负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findPockets(const TopoGraph &graph,
                                                          const QSet<int> &consumedBottomFaces) const
 {
@@ -2267,6 +2313,7 @@ QVector<MachiningFeature> FeatureRecognizer::findPockets(const TopoGraph &graph,
     return features;
 }
 
+// 函数说明：findChamfers负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findChamfers(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -2321,6 +2368,7 @@ QVector<MachiningFeature> FeatureRecognizer::findChamfers(const TopoGraph &graph
     return features;
 }
 
+// 函数说明：findFillets负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findFillets(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;

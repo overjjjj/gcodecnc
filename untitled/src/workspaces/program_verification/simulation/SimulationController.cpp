@@ -6,19 +6,24 @@
 #include <cmath>
 #include <limits>
 
+// 函数说明：SimulationController负责当前模块的核心处理。
 SimulationController::SimulationController(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
+    // 函数说明：m_timer负责当前模块的核心处理。
     , m_timer(new QTimer(this))
 {
     m_timer->setInterval(50); // 20 Hz tick
     connect(m_timer, &QTimer::timeout, this, &SimulationController::onTick);
 }
 
+// 函数说明：setMesh负责当前模块的核心处理。
 void SimulationController::setMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
 }
 
+// 函数说明：loadGCode负责当前模块的核心处理。
 void SimulationController::loadGCode(const QString &gcode)
 {
     m_timer->stop();
@@ -50,6 +55,7 @@ void SimulationController::loadGCode(const QString &gcode)
     }
 }
 
+// 函数说明：play负责当前模块的核心处理。
 void SimulationController::play()
 {
     if (m_moves.isEmpty()) return;
@@ -57,12 +63,14 @@ void SimulationController::play()
     m_timer->start();
 }
 
+// 函数说明：pause负责当前模块的核心处理。
 void SimulationController::pause()
 {
     m_running = false;
     m_timer->stop();
 }
 
+// 函数说明：stop负责当前模块的核心处理。
 void SimulationController::stop()
 {
     m_running = false;
@@ -79,6 +87,7 @@ void SimulationController::stop()
     }
 }
 
+// 函数说明：setSpeed负责当前模块的核心处理。
 void SimulationController::setSpeed(double multiplier)
 {
     m_speed = multiplier > 0 ? multiplier : 1.0;
@@ -87,6 +96,7 @@ void SimulationController::setSpeed(double multiplier)
     m_timer->setInterval(interval);
 }
 
+// 函数说明：seekToGCodeLine负责当前模块的核心处理。
 void SimulationController::seekToGCodeLine(int line)
 {
     if (m_moves.isEmpty() || line < 0) {
@@ -113,6 +123,7 @@ void SimulationController::seekToGCodeLine(int line)
     emit currentGCodeLineChanged(mv.sourceLine);
 }
 
+// 函数说明：onTick负责当前模块的核心处理。
 void SimulationController::onTick()
 {
     if (!m_running || m_moves.isEmpty()) return;
@@ -169,6 +180,7 @@ static QVector<double> parseCycleArgs(const QString &line)
 
 constexpr double kPi = 3.14159265358979323846;
 
+// 函数说明：normalizeSweep负责当前模块的核心处理。
 static double normalizeSweep(double sweep, bool clockwise)
 {
     if (clockwise) {
@@ -179,6 +191,7 @@ static double normalizeSweep(double sweep, bool clockwise)
     return sweep;
 }
 
+// 函数说明：addMove负责当前模块的核心处理。
 static void addMove(QVector<ToolMove> &moves, QVector3D &cur, QVector3D to,
                     bool isRapid, double toolDiameter, const QString &toolModelPath, int sourceLine)
 {
@@ -208,6 +221,7 @@ static void addFeed(QVector<ToolMove> &moves, QVector3D &cur, QVector3D to,
     addMove(moves, cur, to, false, toolDiameter, toolModelPath, sourceLine);
 }
 
+// 函数说明：addArc负责当前模块的核心处理。
 static void addArc(QVector<ToolMove> &moves, QVector3D &cur,
                    QVector3D end, double iOffset, double jOffset,
                    bool clockwise, double toolDiameter, const QString &toolModelPath, int sourceLine)

@@ -9,14 +9,17 @@ bool HoleSelectionRecord::operator==(const HoleSelectionRecord &other) const
            center == other.center && selectionOrder == other.selectionOrder;
 }
 
+// 函数说明：HoleSelectionSession负责当前模块的核心处理。
 HoleSelectionSession::HoleSelectionSession(
     const QList<HoleSelectionRecord> &initialRecords)
+    // 函数说明：m_records负责当前模块的核心处理。
     : m_records(initialRecords), m_baselineRecords(initialRecords)
 {
     renumber();
     m_baselineRecords = m_records;
 }
 
+// 函数说明：add负责当前模块的核心处理。
 bool HoleSelectionSession::add(const HoleSelectionRecord &record)
 {
     if (record.geometryId.trimmed().isEmpty()) {
@@ -37,6 +40,7 @@ bool HoleSelectionSession::add(const HoleSelectionRecord &record)
     return true;
 }
 
+// 函数说明：remove负责当前模块的核心处理。
 bool HoleSelectionSession::remove(const QString &geometryId)
 {
     const auto selected = std::find_if(
@@ -53,6 +57,7 @@ bool HoleSelectionSession::remove(const QString &geometryId)
     return true;
 }
 
+// 函数说明：sort负责当前模块的核心处理。
 bool HoleSelectionSession::sort(HoleSelectionSort strategy)
 {
     QList<HoleSelectionRecord> sorted = m_records;
@@ -126,6 +131,7 @@ bool HoleSelectionSession::sort(HoleSelectionSort strategy)
     return true;
 }
 
+// 函数说明：undo负责当前模块的核心处理。
 bool HoleSelectionSession::undo()
 {
     if (m_undoStack.isEmpty()) {
@@ -136,6 +142,7 @@ bool HoleSelectionSession::undo()
     return true;
 }
 
+// 函数说明：redo负责当前模块的核心处理。
 bool HoleSelectionSession::redo()
 {
     if (m_redoStack.isEmpty()) {
@@ -146,6 +153,7 @@ bool HoleSelectionSession::redo()
     return true;
 }
 
+// 函数说明：commit负责当前模块的核心处理。
 QList<HoleSelectionRecord> HoleSelectionSession::commit()
 {
     m_baselineRecords = m_records;
@@ -155,6 +163,7 @@ QList<HoleSelectionRecord> HoleSelectionSession::commit()
     return m_records;
 }
 
+// 函数说明：cancel负责当前模块的核心处理。
 void HoleSelectionSession::cancel()
 {
     m_records = m_baselineRecords;
@@ -163,29 +172,34 @@ void HoleSelectionSession::cancel()
     m_redoStack.clear();
 }
 
+// 函数说明：isDirty负责当前模块的核心处理。
 bool HoleSelectionSession::isDirty() const
 {
     return m_records != m_baselineRecords ||
            m_displaySerialNumbers != m_baselineDisplaySerialNumbers;
 }
 
+// 函数说明：snapshot负责当前模块的核心处理。
 HoleSelectionSession::Snapshot HoleSelectionSession::snapshot() const
 {
     return {m_records, m_displaySerialNumbers};
 }
 
+// 函数说明：restore负责当前模块的核心处理。
 void HoleSelectionSession::restore(const Snapshot &snapshot)
 {
     m_records = snapshot.records;
     m_displaySerialNumbers = snapshot.displaySerialNumbers;
 }
 
+// 函数说明：rememberForUndo负责当前模块的核心处理。
 void HoleSelectionSession::rememberForUndo()
 {
     m_undoStack.append(snapshot());
     m_redoStack.clear();
 }
 
+// 函数说明：renumber负责当前模块的核心处理。
 void HoleSelectionSession::renumber()
 {
     for (int index = 0; index < m_records.size(); ++index) {

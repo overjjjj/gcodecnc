@@ -13,6 +13,7 @@
 
 namespace {
 
+// 函数说明：preferredParamOrder负责当前模块的核心处理。
 static QStringList preferredParamOrder()
 {
     return {
@@ -58,11 +59,17 @@ static QStringList preferredParamOrder()
 
 } // namespace
 
+// 函数说明：ParameterEditorDialog负责当前模块的核心处理。
 ParameterEditorDialog::ParameterEditorDialog(QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
+    // 函数说明：m_hintLabel负责当前模块的核心处理。
     , m_hintLabel(new QLabel(this))
+    // 函数说明：m_showAdvancedCheck负责当前模块的核心处理。
     , m_showAdvancedCheck(new QCheckBox(this))
+    // 函数说明：m_table负责当前模块的核心处理。
     , m_table(new QTableWidget(this))
+    // 函数说明：m_restoreDefaultsButton负责当前模块的核心处理。
     , m_restoreDefaultsButton(new QPushButton(this))
 {
     setModal(true);
@@ -99,6 +106,7 @@ ParameterEditorDialog::ParameterEditorDialog(QWidget *parent)
     setChineseUi(false);
 }
 
+// 函数说明：setChineseUi负责当前模块的核心处理。
 void ParameterEditorDialog::setChineseUi(bool enabled)
 {
     m_chineseUi = enabled;
@@ -116,38 +124,45 @@ void ParameterEditorDialog::setChineseUi(bool enabled)
     });
 }
 
+// 函数说明：setLabelMap负责当前模块的核心处理。
 void ParameterEditorDialog::setLabelMap(const QMap<QString, QString> &labels)
 {
     m_labels = labels;
 }
 
+// 函数说明：setBasicKeys负责当前模块的核心处理。
 void ParameterEditorDialog::setBasicKeys(const QSet<QString> &keys)
 {
     m_basicKeys = keys;
     syncRowVisibility();
 }
 
+// 函数说明：setNonNegativeKeys负责当前模块的核心处理。
 void ParameterEditorDialog::setNonNegativeKeys(const QSet<QString> &keys)
 {
     m_nonNegativeKeys = keys;
 }
 
+// 函数说明：setAllowAnyValueKeys负责当前模块的核心处理。
 void ParameterEditorDialog::setAllowAnyValueKeys(const QSet<QString> &keys)
 {
     m_allowAnyValueKeys = keys;
 }
 
+// 函数说明：setDefaultParams负责当前模块的核心处理。
 void ParameterEditorDialog::setDefaultParams(const StrategyParams &params)
 {
     m_defaultParams = params;
 }
 
+// 函数说明：setParams负责当前模块的核心处理。
 void ParameterEditorDialog::setParams(const StrategyParams &params)
 {
     m_params = params;
     rebuildTable(params);
 }
 
+// 函数说明：params负责当前模块的核心处理。
 StrategyParams ParameterEditorDialog::params() const
 {
     return m_params;
@@ -178,16 +193,19 @@ void ParameterEditorDialog::onAccept()
     accept();
 }
 
+// 函数说明：onRestoreDefaults负责当前模块的核心处理。
 void ParameterEditorDialog::onRestoreDefaults()
 {
     rebuildTable(m_defaultParams.values.isEmpty() ? m_params : m_defaultParams);
 }
 
+// 函数说明：onShowAdvancedToggled负责当前模块的核心处理。
 void ParameterEditorDialog::onShowAdvancedToggled(bool)
 {
     syncRowVisibility();
 }
 
+// 函数说明：rebuildTable负责当前模块的核心处理。
 void ParameterEditorDialog::rebuildTable(const StrategyParams &params)
 {
     m_table->setRowCount(0);
@@ -212,6 +230,7 @@ void ParameterEditorDialog::rebuildTable(const StrategyParams &params)
     syncRowVisibility();
 }
 
+// 函数说明：syncRowVisibility负责当前模块的核心处理。
 void ParameterEditorDialog::syncRowVisibility()
 {
     const bool showAdvanced = m_showAdvancedCheck->isChecked();
@@ -223,6 +242,7 @@ void ParameterEditorDialog::syncRowVisibility()
     }
 }
 
+// 函数说明：labelForKey负责当前模块的核心处理。
 QString ParameterEditorDialog::labelForKey(const QString &key) const
 {
     return m_labels.value(key, key);
@@ -280,6 +300,7 @@ QString ParameterEditorDialog::validationError() const
     return QString();
 }
 
+// 函数说明：orderedKeys负责当前模块的核心处理。
 QStringList ParameterEditorDialog::orderedKeys(const StrategyParams &params) const
 {
     QStringList ordered;

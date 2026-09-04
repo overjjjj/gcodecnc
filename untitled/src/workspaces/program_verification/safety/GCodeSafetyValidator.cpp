@@ -11,6 +11,7 @@ enum class MotionMode {
     Arc
 };
 
+// 函数说明：stripComments负责当前模块的核心处理。
 static QString stripComments(QString line)
 {
     const int semicolon = line.indexOf(QLatin1Char(';'));
@@ -23,23 +24,27 @@ static QString stripComments(QString line)
     return line.toUpper().trimmed();
 }
 
+// 函数说明：containsWord负责当前模块的核心处理。
 static bool containsWord(const QString &line, const QString &word)
 {
     static const QString boundary = QStringLiteral("(^|\\s)%1(\\s|$)");
     return QRegularExpression(boundary.arg(QRegularExpression::escape(word))).match(line).hasMatch();
 }
 
+// 函数说明：containsWorkOffset负责当前模块的核心处理。
 static bool containsWorkOffset(const QString &line)
 {
     static const QRegularExpression workOffset(QStringLiteral("(^|\\s)G5[4-9](\\s|$)"));
     return workOffset.match(line).hasMatch();
 }
 
+// 函数说明：containsAxis负责当前模块的核心处理。
 static bool containsAxis(const QString &line, QChar axis)
 {
     return QRegularExpression(QStringLiteral("(^|\\s)%1[-+]?\\d").arg(axis)).match(line).hasMatch();
 }
 
+// 函数说明：readAxisValue负责当前模块的核心处理。
 static bool readAxisValue(const QString &line, QChar axis, double &value)
 {
     const QRegularExpression re(QStringLiteral("(^|\\s)%1([-+]?\\d+(?:\\.\\d+)?)").arg(axis));
@@ -57,12 +62,14 @@ static bool readAxisValue(const QString &line, QChar axis, double &value)
     return true;
 }
 
+// 函数说明：addError负责当前模块的核心处理。
 static void addError(GCodeSafetyReport &report, const QString &message)
 {
     report.ok = false;
     report.messages.append(message);
 }
 
+// 函数说明：startsFixedCycle负责当前模块的核心处理。
 static bool startsFixedCycle(const QString &line)
 {
     return containsWord(line, QStringLiteral("G81")) ||
@@ -76,6 +83,7 @@ static bool startsFixedCycle(const QString &line)
            containsWord(line, QStringLiteral("G89"));
 }
 
+// 函数说明：unsupportedFixedCycleCode负责当前模块的核心处理。
 static QString unsupportedFixedCycleCode(const QString &line)
 {
     for (const QString &code : {QStringLiteral("G86"), QStringLiteral("G87"),

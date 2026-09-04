@@ -19,6 +19,7 @@
 
 namespace {
 
+// 函数说明：isSlotMillingStrategy负责当前模块的核心处理。
 bool isSlotMillingStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_slot") ||
@@ -26,6 +27,7 @@ bool isSlotMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
+// 函数说明：isPocketMillingStrategy负责当前模块的核心处理。
 bool isPocketMillingStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -33,6 +35,7 @@ bool isPocketMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_pocket_floor_finish");
 }
 
+// 函数说明：requiresClosedSelection负责当前模块的核心处理。
 bool requiresClosedSelection(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -43,6 +46,7 @@ bool requiresClosedSelection(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
+// 函数说明：expectedHoleToolType负责当前模块的核心处理。
 QString expectedHoleToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
@@ -59,6 +63,7 @@ QString expectedHoleToolType(const QString &strategyId)
     return QString();
 }
 
+// 函数说明：holeToolError负责当前模块的核心处理。
 QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     const QString expectedToolType = expectedHoleToolType(operation.strategyId);
@@ -118,6 +123,7 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
+// 函数说明：slotToolError负责当前模块的核心处理。
 QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     if (tool.type != QStringLiteral("end_mill")) {
@@ -146,6 +152,7 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
+// 函数说明：pocketToolError负责当前模块的核心处理。
 QString pocketToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     if (tool.type != QStringLiteral("end_mill")) {
@@ -175,6 +182,7 @@ QString pocketToolError(const MachiningOperation &operation, const ToolEntry &to
     return QString();
 }
 
+// 函数说明：generationParams负责当前模块的核心处理。
 StrategyParams generationParams(const MachiningOperation &operation)
 {
     StrategyParams params = operation.params;
@@ -187,6 +195,7 @@ StrategyParams generationParams(const MachiningOperation &operation)
     return params;
 }
 
+// 函数说明：holeKey负责当前模块的核心处理。
 QString holeKey(const HoleFeature &hole)
 {
     return QStringLiteral("%1|%2|%3")
@@ -195,6 +204,7 @@ QString holeKey(const HoleFeature &hole)
         .arg(hole.center.z(), 0, 'f', 3);
 }
 
+// 函数说明：holeBatchKey负责当前模块的核心处理。
 QString holeBatchKey(const HoleFeature &hole)
 {
     const QVector3D axis = hole.axis.normalized();
@@ -212,6 +222,7 @@ QString holeBatchKey(const HoleFeature &hole)
         .arg(hole.center.z(), 0, 'f', 4);
 }
 
+// 函数说明：sharesHoleBatch负责当前模块的核心处理。
 bool sharesHoleBatch(const MachiningOperation &first,
                      const MachiningOperation &candidate)
 {
@@ -221,6 +232,7 @@ bool sharesHoleBatch(const MachiningOperation &first,
     return holeBatchKey(first.holeFeature) == holeBatchKey(candidate.holeFeature);
 }
 
+// 函数说明：operationSummary负责当前模块的核心处理。
 QString operationSummary(const MachiningOperation &operation)
 {
     if (operation.opType == OperationType::Hole) {
@@ -236,6 +248,7 @@ QString operationSummary(const MachiningOperation &operation)
         .arg(operation.toolId);
 }
 
+// 函数说明：operationBlock负责当前模块的核心处理。
 QString operationBlock(int operationNumber,
                        const MachiningOperation &operation,
                        const QStringList &sourceOperationIds,
@@ -258,6 +271,7 @@ QString operationBlock(int operationNumber,
     return lines.join(QLatin1Char('\n'));
 }
 
+// 函数说明：internalHoleCycleError负责当前模块的核心处理。
 QString internalHoleCycleError(const QString &gcode)
 {
     static const QRegularExpression codePattern(
@@ -291,6 +305,7 @@ QString internalHoleCycleError(const QString &gcode)
     return QString();
 }
 
+// 函数说明：expandParametricProgram负责当前模块的核心处理。
 QString expandParametricProgram(const ParametricToolpathProgram &program)
 {
     QStringList lines = program.prefixLines;
@@ -307,6 +322,7 @@ QString expandParametricProgram(const ParametricToolpathProgram &program)
     return lines.join(QLatin1Char('\n'));
 }
 
+// 函数说明：sha256负责当前模块的核心处理。
 QString sha256(const QString &content)
 {
     return QString::fromLatin1(
@@ -316,9 +332,12 @@ QString sha256(const QString &content)
 
 } // namespace
 
+// 函数说明：ProgramGenerationService负责当前模块的核心处理。
 ProgramGenerationService::ProgramGenerationService(StrategyLookup strategyLookup,
                                                    ToolLookup toolLookup)
+    // 函数说明：m_strategyLookup负责当前模块的核心处理。
     : m_strategyLookup(std::move(strategyLookup)),
+      // 函数说明：m_toolLookup负责当前模块的核心处理。
       m_toolLookup(std::move(toolLookup))
 {
 }

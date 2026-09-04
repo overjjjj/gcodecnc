@@ -9,11 +9,15 @@
 
 #include <QFileInfo>
 
+// 函数说明：AppController负责当前模块的核心处理。
 AppController::AppController(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
+    // 函数说明：m_projectManager负责当前模块的核心处理。
     , m_projectManager(new ProjectManager(this))
 {}
 
+// 函数说明：instance负责当前模块的核心处理。
 AppController &AppController::instance()
 {
     static AppController s_instance;
@@ -69,6 +73,7 @@ void AppController::importStep(const QString &filePath)
 }
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：reclassifyFeatures负责当前模块的核心处理。
 void AppController::reclassifyFeatures(const QVector3D &frontNormal)
 {
     FeatureRecognizer recognizer;
@@ -81,6 +86,7 @@ void AppController::reclassifyFeatures(const QVector3D &frontNormal)
     emit featuresReclassified();
 }
 
+// 函数说明：reloadStepWithSetupRotation负责当前模块的核心处理。
 bool AppController::reloadStepWithSetupRotation(const QQuaternion &rotation, QString *error)
 {
     const QString sourcePath = m_projectManager->sourceFilePath();
@@ -122,9 +128,11 @@ void AppController::generateGCode()
     emit statusMessage(tr("正在生成 G 代码..."));
 }
 
+// 函数说明：saveProject负责当前模块的核心处理。
 bool AppController::saveProject(const QString &path)
 {
     if (m_projectManager->sourceFileFingerprint().isEmpty()
+        // 函数说明：sourceFilePath负责当前模块的核心处理。
         && !m_projectManager->sourceFilePath().isEmpty()) {
         QString fingerprintError;
         const QString fingerprint =
@@ -144,6 +152,7 @@ bool AppController::saveProject(const QString &path)
     return true;
 }
 
+// 函数说明：loadProject负责当前模块的核心处理。
 bool AppController::loadProject(const QString &path, const QString &replacementSourcePath)
 {
     m_lastProjectLoadIssue = ProjectLoadIssue::None;

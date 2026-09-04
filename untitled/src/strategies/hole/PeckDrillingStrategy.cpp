@@ -3,6 +3,7 @@
 #include <QObject>
 #include <cmath>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PeckDrillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -16,6 +17,7 @@ StrategyParams PeckDrillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PeckDrillingStrategy::generate(const HoleFeature &feature,
                                                const ToolEntry   &tool,
                                                const StrategyParams &params) const
@@ -23,6 +25,7 @@ ToolpathResult PeckDrillingStrategy::generate(const HoleFeature &feature,
     return generate(QVector<HoleFeature>{feature}, tool, params);
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PeckDrillingStrategy::generate(const QVector<HoleFeature> &features,
                                                const ToolEntry            &tool,
                                                const StrategyParams       &params) const

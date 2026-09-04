@@ -21,32 +21,38 @@
 
 #include <utility>
 
+// 函数说明：StrategyFactory负责当前模块的核心处理。
 StrategyFactory::StrategyFactory()
 {
     registerDefaults();
 }
 
+// 函数说明：instance负责当前模块的核心处理。
 StrategyFactory &StrategyFactory::instance()
 {
     static StrategyFactory s;
     return s;
 }
 
+// 函数说明：registerStrategy负责当前模块的核心处理。
 void StrategyFactory::registerStrategy(std::shared_ptr<StrategyBase> strategy)
 {
     m_strategies[strategy->id()] = std::move(strategy);
 }
 
+// 函数说明：strategy负责当前模块的核心处理。
 std::shared_ptr<StrategyBase> StrategyFactory::strategy(const QString &id) const
 {
     return m_strategies.value(id, nullptr);
 }
 
+// 函数说明：availableIds负责当前模块的核心处理。
 QStringList StrategyFactory::availableIds() const
 {
     return m_strategies.keys();
 }
 
+// 函数说明：registerDefaults负责当前模块的核心处理。
 void StrategyFactory::registerDefaults()
 {
     registerStrategy(std::make_shared<SpotDrillingStrategy>());

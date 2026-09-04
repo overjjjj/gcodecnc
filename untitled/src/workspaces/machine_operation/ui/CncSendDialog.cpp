@@ -15,8 +15,11 @@
 #include <QSerialPortInfo>
 #endif
 
+// 函数说明：CncSendDialog负责当前模块的核心处理。
 CncSendDialog::CncSendDialog(const QString &gcode, QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
+    // 函数说明：m_gcode负责当前模块的核心处理。
     , m_gcode(gcode)
 {
     setWindowTitle(tr("发送到机床"));
@@ -80,6 +83,7 @@ CncSendDialog::CncSendDialog(const QString &gcode, QWidget *parent)
     root->addLayout(bottomRow);
 }
 
+// 函数说明：CncSendDialog负责当前模块的核心处理。
 CncSendDialog::~CncSendDialog()
 {
     if (m_comm && m_comm->isConnected()) {
@@ -87,6 +91,7 @@ CncSendDialog::~CncSendDialog()
     }
 }
 
+// 函数说明：onConnectToggle负责当前模块的核心处理。
 void CncSendDialog::onConnectToggle()
 {
     if (m_connected) {
@@ -98,6 +103,7 @@ void CncSendDialog::onConnectToggle()
     }
 }
 
+// 函数说明：onSend负责当前模块的核心处理。
 void CncSendDialog::onSend()
 {
     if (!m_gcode.isEmpty()) {
@@ -106,16 +112,19 @@ void CncSendDialog::onSend()
     }
 }
 
+// 函数说明：onResponse负责当前模块的核心处理。
 void CncSendDialog::onResponse(const QString &data)
 {
     m_log->append(tr("[响应] ") + data.trimmed());
 }
 
+// 函数说明：onCommError负责当前模块的核心处理。
 void CncSendDialog::onCommError(const QString &msg)
 {
     m_log->append(tr("[错误] ") + msg);
 }
 
+// 函数说明：onConnected负责当前模块的核心处理。
 void CncSendDialog::onConnected()
 {
     m_connected = true;
@@ -123,6 +132,7 @@ void CncSendDialog::onConnected()
     m_log->append(tr("[已连接] %1 @ %2").arg(m_portCombo->currentText()).arg(m_baudSpin->value()));
 }
 
+// 函数说明：onDisconnected负责当前模块的核心处理。
 void CncSendDialog::onDisconnected()
 {
     m_connected = false;
@@ -130,6 +140,7 @@ void CncSendDialog::onDisconnected()
     m_log->append(tr("[已断开]"));
 }
 
+// 函数说明：updateUi负责当前模块的核心处理。
 void CncSendDialog::updateUi()
 {
     m_btnConnect->setText(m_connected ? tr("断开") : tr("连接"));

@@ -29,6 +29,7 @@ static QDoubleSpinBox *makeDoubleSpin(double minValue,
     return spin;
 }
 
+// 函数说明：isMillingStrategy负责当前模块的核心处理。
 static bool isMillingStrategy(const QString &id)
 {
     return id == QStringLiteral("mill_face")
@@ -44,6 +45,7 @@ static bool isMillingStrategy(const QString &id)
         || id == QStringLiteral("mill_tapered_slot");
 }
 
+// 函数说明：featureSubTypeForStrategy负责当前模块的核心处理。
 static QString featureSubTypeForStrategy(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("mill_face")) {
@@ -75,6 +77,7 @@ static QString featureSubTypeForStrategy(const QString &strategyId)
     return QStringLiteral("circle");
 }
 
+// 函数说明：machiningTopZ负责当前模块的核心处理。
 static double machiningTopZ(const MachiningFeature &feature)
 {
     if (feature.kind == FeatureKind::Slot && feature.depth > 0.0) {
@@ -88,12 +91,19 @@ static double machiningTopZ(const MachiningFeature &feature)
 MillingOperationDialog::MillingOperationDialog(QWidget *parent)
     : QDialog(parent)
     , m_strategyCombo(new QComboBox(this))
+    // 函数说明：m_toolCombo负责当前模块的核心处理。
     , m_toolCombo(new QComboBox(this))
+    // 函数说明：m_centerX负责当前模块的核心处理。
     , m_centerX(makeDoubleSpin(-100000.0, 100000.0, 0.0))
+    // 函数说明：m_centerY负责当前模块的核心处理。
     , m_centerY(makeDoubleSpin(-100000.0, 100000.0, 0.0))
+    // 函数说明：m_centerZ负责当前模块的核心处理。
     , m_centerZ(makeDoubleSpin(-100000.0, 100000.0, 0.0))
+    // 函数说明：m_radius负责当前模块的核心处理。
     , m_radius(makeDoubleSpin(0.001, 100000.0, 20.0))
+    // 函数说明：m_depth负责当前模块的核心处理。
     , m_depth(makeDoubleSpin(0.001, 100000.0, 2.0))
+    // 函数说明：m_paramTable负责当前模块的核心处理。
     , m_paramTable(new QTableWidget(this))
 {
     setWindowTitle(QStringLiteral("添加铣削工序"));
@@ -136,16 +146,19 @@ MillingOperationDialog::MillingOperationDialog(QWidget *parent)
     refreshParamTable();
 }
 
+// 函数说明：strategyId负责当前模块的核心处理。
 QString MillingOperationDialog::strategyId() const
 {
     return m_strategyCombo->currentData().toString();
 }
 
+// 函数说明：tool负责当前模块的核心处理。
 ToolEntry MillingOperationDialog::tool() const
 {
     return ToolLibrary::instance().tool(m_toolCombo->currentData().toInt());
 }
 
+// 函数说明：feature负责当前模块的核心处理。
 ContourFeature MillingOperationDialog::feature() const
 {
     ContourFeature f;
@@ -175,6 +188,7 @@ ContourFeature MillingOperationDialog::feature() const
     return f;
 }
 
+// 函数说明：params负责当前模块的核心处理。
 StrategyParams MillingOperationDialog::params() const
 {
     StrategyParams p;
@@ -189,11 +203,13 @@ StrategyParams MillingOperationDialog::params() const
     return p;
 }
 
+// 函数说明：onStrategyChanged负责当前模块的核心处理。
 void MillingOperationDialog::onStrategyChanged(int)
 {
     refreshParamTable();
 }
 
+// 函数说明：populateStrategies负责当前模块的核心处理。
 void MillingOperationDialog::populateStrategies()
 {
     m_strategyCombo->clear();
@@ -218,6 +234,7 @@ void MillingOperationDialog::populateStrategies()
     }
 }
 
+// 函数说明：populateTools负责当前模块的核心处理。
 void MillingOperationDialog::populateTools()
 {
     m_toolCombo->clear();
@@ -237,6 +254,7 @@ void MillingOperationDialog::populateTools()
     }
 }
 
+// 函数说明：refreshParamTable负责当前模块的核心处理。
 void MillingOperationDialog::refreshParamTable()
 {
     m_paramTable->setRowCount(0);
@@ -260,6 +278,7 @@ void MillingOperationDialog::refreshParamTable()
     }
 }
 
+// 函数说明：setFeature负责当前模块的核心处理。
 void MillingOperationDialog::setFeature(const MachiningFeature &feature)
 {
     // Pre-fill center and depth from recognized feature geometry.
@@ -315,6 +334,7 @@ void MillingOperationDialog::setFeature(const MachiningFeature &feature)
     }
 }
 
+// 函数说明：paramDisplayName负责当前模块的核心处理。
 QString MillingOperationDialog::paramDisplayName(const QString &key) const
 {
     if (key == QStringLiteral("safeHeight")) return QStringLiteral("安全高度");

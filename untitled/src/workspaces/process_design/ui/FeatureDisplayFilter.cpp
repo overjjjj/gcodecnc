@@ -1,5 +1,6 @@
 #include "FeatureDisplayFilter.h"
 
+// 函数说明：matchesFeatureDisplayFilter负责当前模块的核心处理。
 bool matchesFeatureDisplayFilter(FeatureKind kind, FeatureDisplayFilter filter)
 {
     switch (filter) {
@@ -21,6 +22,7 @@ bool matchesFeatureDisplayFilter(FeatureKind kind, FeatureDisplayFilter filter)
     return true;
 }
 
+// 函数说明：filteredFeatureIndices负责当前模块的核心处理。
 QVector<int> filteredFeatureIndices(const QVector<MachiningFeature> &features,
                                     FeatureDisplayFilter filter)
 {

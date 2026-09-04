@@ -10,10 +10,13 @@
 #include <QVector3D>
 #include <QVariant>
 
+// 函数说明：ProjectManager负责当前模块的核心处理。
 ProjectManager::ProjectManager(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {}
 
+// 函数说明：containsProgramId负责当前模块的核心处理。
 static bool containsProgramId(const QList<ProgramEntry> &programs, const QString &programId)
 {
     if (programId.trimmed().isEmpty()) {
@@ -27,6 +30,7 @@ static bool containsProgramId(const QList<ProgramEntry> &programs, const QString
     return false;
 }
 
+// 函数说明：ensureOperationIds负责当前模块的核心处理。
 static void ensureOperationIds(QList<MachiningOperation> &operations)
 {
     for (MachiningOperation &op : operations) {
@@ -36,6 +40,7 @@ static void ensureOperationIds(QList<MachiningOperation> &operations)
     }
 }
 
+// 函数说明：normalizedMachineProfile负责当前模块的核心处理。
 static MachineProfile normalizedMachineProfile(MachineProfile profile)
 {
     const MachineProfile defaults;
@@ -46,6 +51,7 @@ static MachineProfile normalizedMachineProfile(MachineProfile profile)
     return profile;
 }
 
+// 函数说明：setMesh负责当前模块的核心处理。
 void ProjectManager::setMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
@@ -53,12 +59,14 @@ void ProjectManager::setMesh(const MeshData &mesh)
     emit projectChanged();
 }
 
+// 函数说明：setLoadedMesh负责当前模块的核心处理。
 void ProjectManager::setLoadedMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
     emit projectChanged();
 }
 
+// 函数说明：featureKindId负责当前模块的核心处理。
 static QString featureKindId(FeatureKind kind)
 {
     switch (kind) {
@@ -74,6 +82,7 @@ static QString featureKindId(FeatureKind kind)
     return QStringLiteral("hole");
 }
 
+// 函数说明：featureKindFromId负责当前模块的核心处理。
 static FeatureKind featureKindFromId(const QString &id)
 {
     if (id == QStringLiteral("slot")) return FeatureKind::Slot;
@@ -86,6 +95,7 @@ static FeatureKind featureKindFromId(const QString &id)
     return FeatureKind::Hole;
 }
 
+// 函数说明：faceRegionFromId负责当前模块的核心处理。
 static FaceRegion faceRegionFromId(const QString &id)
 {
     if (id == QStringLiteral("front")) return FaceRegion::Front;
@@ -94,6 +104,7 @@ static FaceRegion faceRegionFromId(const QString &id)
     return FaceRegion::Unknown;
 }
 
+// 函数说明：setFeatures负责当前模块的核心处理。
 void ProjectManager::setFeatures(const QVector<MachiningFeature> &features)
 {
     m_features = features;
@@ -101,6 +112,7 @@ void ProjectManager::setFeatures(const QVector<MachiningFeature> &features)
     emit projectChanged();
 }
 
+// 函数说明：setOperations负责当前模块的核心处理。
 void ProjectManager::setOperations(const QList<MachiningOperation> &operations)
 {
     m_operations = operations;
@@ -109,6 +121,7 @@ void ProjectManager::setOperations(const QList<MachiningOperation> &operations)
     emit operationsChanged();
 }
 
+// 函数说明：setPrograms负责当前模块的核心处理。
 void ProjectManager::setPrograms(const QList<ProgramEntry> &programs)
 {
     m_programs = programs;
@@ -121,6 +134,7 @@ void ProjectManager::setPrograms(const QList<ProgramEntry> &programs)
     emit programsChanged();
 }
 
+// 函数说明：setCurrentProgramId负责当前模块的核心处理。
 void ProjectManager::setCurrentProgramId(const QString &programId)
 {
     QString normalizedId = programId.trimmed();
@@ -134,18 +148,21 @@ void ProjectManager::setCurrentProgramId(const QString &programId)
     m_modified = true;
 }
 
+// 函数说明：setSourceFilePath负责当前模块的核心处理。
 void ProjectManager::setSourceFilePath(const QString &path)
 {
     m_sourceFilePath = path;
     m_modified = true;
 }
 
+// 函数说明：setSourceFileFingerprint负责当前模块的核心处理。
 void ProjectManager::setSourceFileFingerprint(const QString &fingerprint)
 {
     m_sourceFileFingerprint = fingerprint;
     m_modified = true;
 }
 
+// 函数说明：setSetupRotation负责当前模块的核心处理。
 void ProjectManager::setSetupRotation(const QQuaternion &rotation)
 {
     const QQuaternion normalized = rotation.isNull() ? QQuaternion() : rotation.normalized();
@@ -157,12 +174,14 @@ void ProjectManager::setSetupRotation(const QQuaternion &rotation)
     m_modified = true;
 }
 
+// 函数说明：setActiveRegion负责当前模块的核心处理。
 void ProjectManager::setActiveRegion(FaceRegion region)
 {
     m_activeRegion = region;
     m_modified = true;
 }
 
+// 函数说明：setWorkOffset负责当前模块的核心处理。
 void ProjectManager::setWorkOffset(const QString &workOffset)
 {
     const QString normalized = workOffset.trimmed().toUpper();
@@ -179,6 +198,7 @@ void ProjectManager::setWorkOffset(const QString &workOffset)
     m_modified = true;
 }
 
+// 函数说明：setSetupOrigin负责当前模块的核心处理。
 void ProjectManager::setSetupOrigin(const SetupOrigin &origin)
 {
     const QString previous = m_setupOrigin.fingerprint(m_workOffset);
@@ -190,6 +210,7 @@ void ProjectManager::setSetupOrigin(const SetupOrigin &origin)
     emit projectChanged();
 }
 
+// 函数说明：setStockDefinition负责当前模块的核心处理。
 void ProjectManager::setStockDefinition(const StockDefinition &stock)
 {
     const QString previous = m_stockDefinition.fingerprint();
@@ -213,6 +234,7 @@ void ProjectManager::invalidateOperations(const QString &reason)
     emit operationsChanged();
 }
 
+// 函数说明：setupFingerprint负责当前模块的核心处理。
 QString ProjectManager::setupFingerprint() const
 {
     const QString originFingerprint = m_setupOrigin.fingerprint(m_workOffset);
@@ -246,12 +268,14 @@ void ProjectManager::replaceChangedSource(const MeshData &mesh,
     emit programsChanged();
 }
 
+// 函数说明：setMachineProfile负责当前模块的核心处理。
 void ProjectManager::setMachineProfile(const MachineProfile &profile)
 {
     m_machineProfile = normalizedMachineProfile(profile);
     m_modified = true;
 }
 
+// 函数说明：upsertProgram负责当前模块的核心处理。
 QString ProjectManager::upsertProgram(ProgramEntry program)
 {
     if (program.id.trimmed().isEmpty()) {
@@ -292,6 +316,7 @@ QString ProjectManager::upsertProgram(ProgramEntry program)
     return program.id;
 }
 
+// 函数说明：programById负责当前模块的核心处理。
 ProgramEntry ProjectManager::programById(const QString &id) const
 {
     for (const ProgramEntry &program : m_programs) {
@@ -304,6 +329,7 @@ ProgramEntry ProjectManager::programById(const QString &id) const
 
 // ---------- serialization helpers ----------
 
+// 函数说明：serializePointLoop负责当前模块的核心处理。
 static QJsonArray serializePointLoop(const QVector<QVector3D> &points)
 {
     QJsonArray array;
@@ -317,6 +343,7 @@ static QJsonArray serializePointLoop(const QVector<QVector3D> &points)
     return array;
 }
 
+// 函数说明：deserializePointLoop负责当前模块的核心处理。
 static QVector<QVector3D> deserializePointLoop(const QJsonArray &array)
 {
     QVector<QVector3D> points;
@@ -330,6 +357,7 @@ static QVector<QVector3D> deserializePointLoop(const QJsonArray &array)
     return points;
 }
 
+// 函数说明：serializePointLoops负责当前模块的核心处理。
 static QJsonArray serializePointLoops(const QVector<QVector<QVector3D>> &loops)
 {
     QJsonArray array;
@@ -339,6 +367,7 @@ static QJsonArray serializePointLoops(const QVector<QVector<QVector3D>> &loops)
     return array;
 }
 
+// 函数说明：deserializePointLoops负责当前模块的核心处理。
 static QVector<QVector<QVector3D>> deserializePointLoops(const QJsonArray &array)
 {
     QVector<QVector<QVector3D>> loops;
@@ -349,6 +378,7 @@ static QVector<QVector<QVector3D>> deserializePointLoops(const QJsonArray &array
     return loops;
 }
 
+// 函数说明：serializeHoleFeature负责当前模块的核心处理。
 static QJsonObject serializeHoleFeature(const HoleFeature &f)
 {
     QJsonObject o;
@@ -377,6 +407,7 @@ static QJsonObject serializeHoleFeature(const HoleFeature &f)
     return o;
 }
 
+// 函数说明：deserializeHoleFeature负责当前模块的核心处理。
 static HoleFeature deserializeHoleFeature(const QJsonObject &o)
 {
     HoleFeature f;
@@ -401,6 +432,7 @@ static HoleFeature deserializeHoleFeature(const QJsonObject &o)
     return f;
 }
 
+// 函数说明：serializeContourFeature负责当前模块的核心处理。
 static QJsonObject serializeContourFeature(const ContourFeature &f)
 {
     QJsonObject o;
@@ -427,6 +459,7 @@ static QJsonObject serializeContourFeature(const ContourFeature &f)
     return o;
 }
 
+// 函数说明：deserializeContourFeature负责当前模块的核心处理。
 static ContourFeature deserializeContourFeature(const QJsonObject &o)
 {
     ContourFeature f;
@@ -451,6 +484,7 @@ static ContourFeature deserializeContourFeature(const QJsonObject &o)
     return f;
 }
 
+// 函数说明：operationTypeName负责当前模块的核心处理。
 static QString operationTypeName(OperationType t)
 {
     switch (t) {
@@ -463,6 +497,7 @@ static QString operationTypeName(OperationType t)
     return QStringLiteral("hole");
 }
 
+// 函数说明：operationTypeFromName负责当前模块的核心处理。
 static OperationType operationTypeFromName(const QString &s)
 {
     if (s == QStringLiteral("roughing"))    return OperationType::Roughing;
@@ -472,6 +507,7 @@ static OperationType operationTypeFromName(const QString &s)
     return OperationType::Hole;
 }
 
+// 函数说明：operationStageName负责当前模块的核心处理。
 static QString operationStageName(OperationStage stage)
 {
     switch (stage) {
@@ -484,6 +520,7 @@ static QString operationStageName(OperationStage stage)
     return QStringLiteral("rough_cut");
 }
 
+// 函数说明：operationStageFromName负责当前模块的核心处理。
 static OperationStage operationStageFromName(const QString &s)
 {
     if (s == QStringLiteral("setup"))      return OperationStage::Setup;
@@ -493,6 +530,7 @@ static OperationStage operationStageFromName(const QString &s)
     return OperationStage::RoughCut;
 }
 
+// 函数说明：toolpathStateName负责当前模块的核心处理。
 static QString toolpathStateName(ToolpathState state)
 {
     switch (state) {
@@ -505,6 +543,7 @@ static QString toolpathStateName(ToolpathState state)
     return QStringLiteral("empty");
 }
 
+// 函数说明：toolpathStateFromName负责当前模块的核心处理。
 static ToolpathState toolpathStateFromName(const QString &name)
 {
     if (name == QStringLiteral("calculating")) return ToolpathState::Calculating;
@@ -514,6 +553,7 @@ static ToolpathState toolpathStateFromName(const QString &name)
     return ToolpathState::Empty;
 }
 
+// 函数说明：serializeStringList负责当前模块的核心处理。
 static QJsonArray serializeStringList(const QStringList &values)
 {
     QJsonArray array;
@@ -523,6 +563,7 @@ static QJsonArray serializeStringList(const QStringList &values)
     return array;
 }
 
+// 函数说明：deserializeStringList负责当前模块的核心处理。
 static QStringList deserializeStringList(const QJsonArray &array)
 {
     QStringList values;
@@ -532,6 +573,7 @@ static QStringList deserializeStringList(const QJsonArray &array)
     return values;
 }
 
+// 函数说明：selectionVector负责当前模块的核心处理。
 static QJsonArray selectionVector(const QVector3D &value)
 {
     return QJsonArray{value.x(), value.y(), value.z()};
@@ -547,6 +589,7 @@ static QVector3D selectionVector(const QJsonArray &value,
         : fallback;
 }
 
+// 函数说明：serializeSelectionChain负责当前模块的核心处理。
 static QJsonObject serializeSelectionChain(const SelectionChain &selection)
 {
     QJsonObject object;
@@ -572,6 +615,7 @@ static QJsonObject serializeSelectionChain(const SelectionChain &selection)
     return object;
 }
 
+// 函数说明：deserializeSelectionChain负责当前模块的核心处理。
 static SelectionChain deserializeSelectionChain(const QJsonObject &object)
 {
     SelectionChain selection;
@@ -597,6 +641,7 @@ static SelectionChain deserializeSelectionChain(const QJsonObject &object)
     return selection;
 }
 
+// 函数说明：serializeParametricProgram负责当前模块的核心处理。
 static QJsonObject serializeParametricProgram(
     const ParametricToolpathProgram &program)
 {
@@ -621,6 +666,7 @@ static QJsonObject serializeParametricProgram(
     return obj;
 }
 
+// 函数说明：deserializeParametricProgram负责当前模块的核心处理。
 static ParametricToolpathProgram deserializeParametricProgram(
     const QJsonObject &obj)
 {
@@ -644,6 +690,7 @@ static ParametricToolpathProgram deserializeParametricProgram(
     return program;
 }
 
+// 函数说明：serializeProgramEntry负责当前模块的核心处理。
 static QJsonObject serializeProgramEntry(const ProgramEntry &program)
 {
     QJsonObject obj;
@@ -695,6 +742,7 @@ static QJsonObject serializeProgramEntry(const ProgramEntry &program)
     return obj;
 }
 
+// 函数说明：deserializeProgramEntry负责当前模块的核心处理。
 static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
 {
     ProgramEntry program;
@@ -736,6 +784,7 @@ static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
     return program;
 }
 
+// 函数说明：hasValidProjectStructure负责当前模块的核心处理。
 static bool hasValidProjectStructure(const QJsonObject &root)
 {
     return root.value(QStringLiteral("version")).isString()
@@ -745,6 +794,7 @@ static bool hasValidProjectStructure(const QJsonObject &root)
         && root.value(QStringLiteral("programs")).isArray();
 }
 
+// 函数说明：saveToFile负责当前模块的核心处理。
 bool ProjectManager::saveToFile(const QString &path)
 {
     QJsonObject root;
@@ -862,6 +912,7 @@ bool ProjectManager::saveToFile(const QString &path)
     return true;
 }
 
+// 函数说明：loadFromFile负责当前模块的核心处理。
 bool ProjectManager::loadFromFile(const QString &path)
 {
     QFile file(path);

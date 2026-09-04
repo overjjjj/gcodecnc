@@ -4,6 +4,7 @@
 
 namespace {
 
+// 函数说明：boundedStartIndex负责当前模块的核心处理。
 int boundedStartIndex(int index, int pointCount)
 {
     return pointCount > 0 ? std::max(0, std::min(index, pointCount - 1)) : 0;
@@ -11,17 +12,20 @@ int boundedStartIndex(int index, int pointCount)
 
 } // namespace
 
+// 函数说明：isManualContourChoiceStrategy负责当前模块的核心处理。
 bool isManualContourChoiceStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_closed_contour")
         || strategyId == QStringLiteral("mill_open_contour");
 }
 
+// 函数说明：canReverseContourDirection负责当前模块的核心处理。
 bool canReverseContourDirection(const ContourFeature &feature)
 {
     return feature.points.size() >= 2;
 }
 
+// 函数说明：contourPreviewPoints负责当前模块的核心处理。
 QVector<QVector3D> contourPreviewPoints(const ContourFeature &feature)
 {
     if (feature.points.size() >= 2) {
@@ -41,6 +45,7 @@ QVector<QVector3D> contourPreviewPoints(const ContourFeature &feature)
     };
 }
 
+// 函数说明：applyContourMachiningChoice负责当前模块的核心处理。
 void applyContourMachiningChoice(ContourFeature &feature,
                                  StrategyParams &params,
                                  const ContourMachiningChoice &choice)

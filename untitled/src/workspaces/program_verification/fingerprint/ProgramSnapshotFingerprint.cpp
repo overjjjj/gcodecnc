@@ -7,6 +7,7 @@
 
 namespace {
 
+// 函数说明：operationTypeId负责当前模块的核心处理。
 static QString operationTypeId(OperationType type)
 {
     switch (type) {
@@ -19,6 +20,7 @@ static QString operationTypeId(OperationType type)
     return QStringLiteral("hole");
 }
 
+// 函数说明：operationStageId负责当前模块的核心处理。
 static QString operationStageId(OperationStage stage)
 {
     switch (stage) {
@@ -31,6 +33,7 @@ static QString operationStageId(OperationStage stage)
     return QStringLiteral("rough_cut");
 }
 
+// 函数说明：faceRegionId负责当前模块的核心处理。
 static QString faceRegionId(FaceRegion region)
 {
     switch (region) {
@@ -42,11 +45,13 @@ static QString faceRegionId(FaceRegion region)
     return QStringLiteral("unknown");
 }
 
+// 函数说明：pointArray负责当前模块的核心处理。
 static QJsonArray pointArray(const QVector3D &point)
 {
     return QJsonArray{point.x(), point.y(), point.z()};
 }
 
+// 函数说明：pointLoopArray负责当前模块的核心处理。
 static QJsonArray pointLoopArray(const QVector<QVector3D> &loop)
 {
     QJsonArray array;
@@ -56,6 +61,7 @@ static QJsonArray pointLoopArray(const QVector<QVector3D> &loop)
     return array;
 }
 
+// 函数说明：pointLoopsArray负责当前模块的核心处理。
 static QJsonArray pointLoopsArray(const QVector<QVector<QVector3D>> &loops)
 {
     QJsonArray array;
@@ -65,6 +71,7 @@ static QJsonArray pointLoopsArray(const QVector<QVector<QVector3D>> &loops)
     return array;
 }
 
+// 函数说明：serializeFeature负责当前模块的核心处理。
 static QJsonObject serializeFeature(const MachiningFeature &feature)
 {
     QJsonObject obj;
@@ -85,6 +92,7 @@ static QJsonObject serializeFeature(const MachiningFeature &feature)
     return obj;
 }
 
+// 函数说明：serializeContourFeature负责当前模块的核心处理。
 static QJsonObject serializeContourFeature(const ContourFeature &feature)
 {
     QJsonObject obj;
@@ -112,6 +120,7 @@ static QJsonObject serializeContourFeature(const ContourFeature &feature)
     return obj;
 }
 
+// 函数说明：serializeOperation负责当前模块的核心处理。
 static QJsonObject serializeOperation(const MachiningOperation *operation,
                                       const QString &sourceOperationId)
 {
@@ -163,6 +172,7 @@ static QJsonObject serializeOperation(const MachiningOperation *operation,
     return obj;
 }
 
+// 函数说明：findOperation负责当前模块的核心处理。
 static const MachiningOperation *findOperation(const QList<MachiningOperation> &operations,
                                                const QString &operationId)
 {
@@ -176,6 +186,7 @@ static const MachiningOperation *findOperation(const QList<MachiningOperation> &
 
 } // namespace
 
+// 函数说明：calculate负责当前模块的核心处理。
 QString ProgramSnapshotFingerprint::calculate(const QList<MachiningOperation> &operations,
                                                const QStringList &sourceOperationIds)
 {

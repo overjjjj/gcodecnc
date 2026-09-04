@@ -9,6 +9,7 @@
 
 // 创建刀具库并追加内置默认刀具。
 ToolLibrary::ToolLibrary(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {
     loadDefaults();
@@ -47,6 +48,7 @@ void ToolLibrary::updateTool(const ToolEntry &t)
 // 移除所有匹配刀号的条目，并发出刀具库变更信号。
 void ToolLibrary::removeTool(int id)
 {
+    // 函数说明：erase负责当前模块的核心处理。
     m_tools.erase(std::remove_if(m_tools.begin(), m_tools.end(),
         [id](const ToolEntry &e) { return e.id == id; }), m_tools.end());
     emit toolLibraryChanged();

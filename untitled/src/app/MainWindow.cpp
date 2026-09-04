@@ -70,16 +70,19 @@
 
 namespace {
 
+// 函数说明：isHoleFeature负责当前模块的核心处理。
 static bool isHoleFeature(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::Hole || feature.kind == FeatureKind::Thread;
 }
 
+// 函数说明：isSlotFeature负责当前模块的核心处理。
 static bool isSlotFeature(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::Slot;
 }
 
+// 函数说明：showFeatureInStrategyPanel负责当前模块的核心处理。
 static void showFeatureInStrategyPanel(StrategyPanel *panel, const MachiningFeature &feature)
 {
     if (!panel) {
@@ -92,6 +95,7 @@ static void showFeatureInStrategyPanel(StrategyPanel *panel, const MachiningFeat
     }
 }
 
+// 函数说明：clearStrategyPanelSelection负责当前模块的核心处理。
 static void clearStrategyPanelSelection(StrategyPanel *panel)
 {
     if (!panel) {
@@ -113,6 +117,7 @@ static QVector3D normalizedOr(const QVector3D &vector,
     return normalized;
 }
 
+// 函数说明：averageFaceNormal负责当前模块的核心处理。
 static QVector3D averageFaceNormal(const MeshData &mesh, int faceIndex)
 {
     QVector3D normal;
@@ -125,6 +130,7 @@ static QVector3D averageFaceNormal(const MeshData &mesh, int faceIndex)
 }
 
 #ifndef CNEXT_ENABLE_OCC
+// 函数说明：regionFromSetupAxis负责当前模块的核心处理。
 static FaceRegion regionFromSetupAxis(const QVector3D &axis)
 {
     const QVector3D n = normalizedOr(axis, QVector3D());
@@ -138,6 +144,7 @@ static FaceRegion regionFromSetupAxis(const QVector3D &axis)
     return FaceRegion::Side;
 }
 
+// 函数说明：regionPriority负责当前模块的核心处理。
 static int regionPriority(FaceRegion region)
 {
     switch (region) {
@@ -150,6 +157,7 @@ static int regionPriority(FaceRegion region)
     }
 }
 
+// 函数说明：rotateMesh负责当前模块的核心处理。
 static MeshData rotateMesh(const MeshData &mesh, const QQuaternion &rotation)
 {
     MeshData rotated = mesh;
@@ -182,6 +190,7 @@ static MeshData rotateMesh(const MeshData &mesh, const QQuaternion &rotation)
     return rotated;
 }
 
+// 函数说明：dominantFaceRegionFromMesh负责当前模块的核心处理。
 static FaceRegion dominantFaceRegionFromMesh(const MeshData &mesh, const QVector<int> &faceIndices)
 {
     if (faceIndices.isEmpty()) {
@@ -224,6 +233,7 @@ static FaceRegion dominantFaceRegionFromMesh(const MeshData &mesh, const QVector
     return FaceRegion::Side;
 }
 
+// 函数说明：planarSurfaceSubtype负责当前模块的核心处理。
 static QString planarSurfaceSubtype(FaceRegion region, double z, double minZ, double maxZ)
 {
     constexpr double zTol = 1.0e-3;
@@ -245,6 +255,7 @@ struct MeshZRange {
     double maxZ = 0.0;
 };
 
+// 函数说明：featureFaceZRange负责当前模块的核心处理。
 static MeshZRange featureFaceZRange(const MeshData &mesh, const QVector<int> &faceIndices)
 {
     MeshZRange range;
@@ -285,6 +296,7 @@ static MeshZRange featureFaceZRange(const MeshData &mesh, const QVector<int> &fa
     return range;
 }
 
+// 函数说明：slotRegionForCurrentSetup负责当前模块的核心处理。
 static FaceRegion slotRegionForCurrentSetup(const MeshData &mesh,
                                             const MachiningFeature &feature,
                                             FaceRegion axisRegion,
@@ -327,6 +339,7 @@ static FaceRegion slotRegionForCurrentSetup(const MeshData &mesh,
     return faceRegion != FaceRegion::Unknown ? faceRegion : axisRegion;
 }
 
+// 函数说明：reclassifyFeaturesForSetup负责当前模块的核心处理。
 static void reclassifyFeaturesForSetup(const MeshData &mesh, QVector<MachiningFeature> &features)
 {
     double minFlatZ =  1.0e100;
@@ -381,6 +394,7 @@ static void reclassifyFeaturesForSetup(const MeshData &mesh, QVector<MachiningFe
     }
 }
 
+// 函数说明：rotateFeatures负责当前模块的核心处理。
 static QVector<MachiningFeature> rotateFeatures(const QVector<MachiningFeature> &features,
                                                 const MeshData &rotatedMesh,
                                                 const QQuaternion &rotation)
@@ -407,6 +421,7 @@ static QVector<MachiningFeature> rotateFeatures(const QVector<MachiningFeature> 
 }
 #endif
 
+// 函数说明：distanceToMeshBoundaryXY负责当前模块的核心处理。
 static double distanceToMeshBoundaryXY(const MeshData &mesh, const QVector3D &point)
 {
     if (mesh.isEmpty()) {
@@ -419,6 +434,7 @@ static double distanceToMeshBoundaryXY(const MeshData &mesh, const QVector3D &po
     return std::min(std::min(dxMin, dxMax), std::min(dyMin, dyMax));
 }
 
+// 函数说明：detectOpenSlotSide负责当前模块的核心处理。
 static double detectOpenSlotSide(const MeshData &mesh, const MachiningFeature &feature)
 {
     if (feature.kind != FeatureKind::Slot || feature.length <= 0.0) {
@@ -498,6 +514,7 @@ static double detectOpenSlotSide(const MeshData &mesh, const MachiningFeature &f
     return plusDistance <= minusDistance ? 1.0 : -1.0;
 }
 
+// 函数说明：machiningTopZ负责当前模块的核心处理。
 static double machiningTopZ(const MachiningFeature &feature)
 {
     if (feature.kind == FeatureKind::Slot && feature.depth > 0.0) {
@@ -511,6 +528,7 @@ static double machiningTopZ(const MachiningFeature &feature)
     return double(feature.center.z());
 }
 
+// 函数说明：isFrontReachableSlot负责当前模块的核心处理。
 static bool isFrontReachableSlot(const MeshData &mesh, const MachiningFeature &feature)
 {
     if (feature.kind != FeatureKind::Slot || mesh.isEmpty() || feature.depth <= 0.0) {
@@ -526,6 +544,7 @@ static bool nearlyEqual(double a, double b, double tolerance = 1.0e-6)
     return std::abs(a - b) <= tolerance;
 }
 
+// 函数说明：activeRegionOrder负责当前模块的核心处理。
 static int activeRegionOrder(FaceRegion featureRegion, FaceRegion activeRegion)
 {
     if (activeRegion == FaceRegion::Unknown) {
@@ -534,6 +553,7 @@ static int activeRegionOrder(FaceRegion featureRegion, FaceRegion activeRegion)
     return featureRegion == activeRegion ? 0 : 1;
 }
 
+// 函数说明：prioritizeFeatureIndicesByActiveRegion负责当前模块的核心处理。
 static QVector<int> prioritizeFeatureIndicesByActiveRegion(QVector<int> indices,
                                                            const QVector<MachiningFeature> &features,
                                                            FaceRegion activeRegion)
@@ -556,6 +576,7 @@ static QVector<int> prioritizeFeatureIndicesByActiveRegion(QVector<int> indices,
     return indices;
 }
 
+// 函数说明：sortHolesByActiveRegionThenNearest负责当前模块的核心处理。
 static QVector<HoleFeature> sortHolesByActiveRegionThenNearest(QVector<HoleFeature> holes,
                                                                FaceRegion activeRegion)
 {
@@ -579,6 +600,7 @@ static QVector<HoleFeature> sortHolesByActiveRegionThenNearest(QVector<HoleFeatu
     return active;
 }
 
+// 函数说明：adaptSideTaggedSlotForBlindFrontMilling负责当前模块的核心处理。
 static ContourFeature adaptSideTaggedSlotForBlindFrontMilling(ContourFeature feature,
                                                               const QString &strategyId)
 {
@@ -593,6 +615,7 @@ static ContourFeature adaptSideTaggedSlotForBlindFrontMilling(ContourFeature fea
     return feature;
 }
 
+// 函数说明：sideSlotFrontDepthLimit负责当前模块的核心处理。
 static double sideSlotFrontDepthLimit(const MachiningFeature &feature)
 {
     if (feature.kind == FeatureKind::Slot &&
@@ -603,6 +626,7 @@ static double sideSlotFrontDepthLimit(const MachiningFeature &feature)
     return feature.depth;
 }
 
+// 函数说明：refineSideTaggedSlotProjection负责当前模块的核心处理。
 static bool refineSideTaggedSlotProjection(const MachiningFeature &source,
                                            const MeshData &mesh,
                                            ContourFeature &contour)
@@ -815,6 +839,7 @@ static bool refineSideTaggedSlotProjection(const MachiningFeature &source,
     return false;
 }
 
+// 函数说明：refineSlotContourFromMesh负责当前模块的核心处理。
 static void refineSlotContourFromMesh(const MachiningFeature &source,
                                       const MeshData &mesh,
                                       ContourFeature &contour)
@@ -843,6 +868,7 @@ static QVector<FrontSlotLocalSample> collectFrontSlotLocalSamples(const Machinin
                                                                   double *bottomMinVOut = nullptr,
                                                                   double *bottomMaxVOut = nullptr);
 
+// 函数说明：refineFrontStraightSlotFromLocalSamples负责当前模块的核心处理。
 static bool refineFrontStraightSlotFromLocalSamples(const MachiningFeature &source,
                                                     const MeshData &mesh,
                                                     ContourFeature &contour)
@@ -960,6 +986,7 @@ static bool refineFrontStraightSlotFromLocalSamples(const MachiningFeature &sour
     return true;
 }
 
+// 函数说明：refineSlotSlopesFromMesh负责当前模块的核心处理。
 static bool refineSlotSlopesFromMesh(const MachiningFeature &source,
                                      const MeshData &mesh,
                                      ContourFeature &contour)
@@ -1144,6 +1171,7 @@ static bool refineSlotSlopesFromMesh(const MachiningFeature &source,
     return applied;
 }
 
+// 函数说明：collectFrontSlotLocalSamples负责当前模块的核心处理。
 static QVector<FrontSlotLocalSample> collectFrontSlotLocalSamples(const MachiningFeature &source,
                                                                   const MeshData &mesh,
                                                                   const ContourFeature &contour,
@@ -1242,6 +1270,7 @@ static QVector<FrontSlotLocalSample> collectFrontSlotLocalSamples(const Machinin
     return result;
 }
 
+// 函数说明：applyFrontReachableSlotMachiningGeometry负责当前模块的核心处理。
 static bool applyFrontReachableSlotMachiningGeometry(const MachiningFeature &source,
                                                      const MeshData &mesh,
                                                      ContourFeature &contour)
@@ -1523,6 +1552,7 @@ static bool applyFrontReachableSlotMachiningGeometry(const MachiningFeature &sou
     return true;
 }
 
+// 函数说明：isFrontEdgeOnlySlotGeometry负责当前模块的核心处理。
 static bool isFrontEdgeOnlySlotGeometry(const MachiningFeature &source,
                                         const MeshData &mesh,
                                         const ContourFeature &contour)
@@ -1611,6 +1641,7 @@ static bool isFrontEdgeOnlySlotGeometry(const MachiningFeature &source,
             (topSpanV <= minWidthSpan && topSpanU >= lengthThreshold));
 }
 
+// 函数说明：refineFrontSlotCenterFromMesh负责当前模块的核心处理。
 static bool refineFrontSlotCenterFromMesh(const MachiningFeature &source,
                                           const MeshData &mesh,
                                           ContourFeature &contour)
@@ -1816,6 +1847,7 @@ static ContourFeature toContourFeature(const MachiningFeature &feature, const Me
     return contour;
 }
 
+// 函数说明：applyContourOverrides负责当前模块的核心处理。
 static ContourFeature applyContourOverrides(ContourFeature feature, const StrategyParams &params)
 {
     if (params.values.contains(QStringLiteral("depth"))) {
@@ -1835,6 +1867,7 @@ static ContourFeature applyContourOverrides(ContourFeature feature, const Strate
     return feature;
 }
 
+// 函数说明：applySlotOverridesFromParams负责当前模块的核心处理。
 static ContourFeature applySlotOverridesFromParams(ContourFeature feature,
                                                    const MachiningFeature &baseFeature,
                                                    const StrategyParams &params)
@@ -1878,6 +1911,7 @@ static ContourFeature applySlotOverridesFromParams(ContourFeature feature,
     return feature;
 }
 
+// 函数说明：slotMachiningParamsWithoutGeometry负责当前模块的核心处理。
 static StrategyParams slotMachiningParamsWithoutGeometry(StrategyParams params)
 {
     params.values.remove(QStringLiteral("depth"));
@@ -1887,6 +1921,7 @@ static StrategyParams slotMachiningParamsWithoutGeometry(StrategyParams params)
     return params;
 }
 
+// 函数说明：logSlotContourFeature负责当前模块的核心处理。
 static void logSlotContourFeature(const char *label,
                                   const ContourFeature &feature,
                                   const StrategyParams &params)
@@ -1910,6 +1945,7 @@ static void logSlotContourFeature(const char *label,
               .arg(params.get(QStringLiteral("angle"), -1000.0), 0, 'f', 3);
 }
 
+// 函数说明：findNearestHoleFeature负责当前模块的核心处理。
 static int findNearestHoleFeature(const QVector<MachiningFeature> &features,
                                   const QVector3D &point,
                                   FaceRegion region)
@@ -1946,6 +1982,7 @@ static int findNearestHoleFeature(const QVector<MachiningFeature> &features,
     return bestIndex;
 }
 
+// 函数说明：holeSetupRestrictionMessage负责当前模块的核心处理。
 static QString holeSetupRestrictionMessage(const HoleFeature &feature, bool zh)
 {
     if (feature.faceIndices.isEmpty() || feature.radius <= 0.0) {
@@ -1966,6 +2003,7 @@ static QString holeSetupRestrictionMessage(const HoleFeature &feature, bool zh)
     return QString();
 }
 
+// 函数说明：isSlotMillingStrategy负责当前模块的核心处理。
 static bool isSlotMillingStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_slot") ||
@@ -1973,6 +2011,7 @@ static bool isSlotMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
+// 函数说明：slotSetupRestrictionMessage负责当前模块的核心处理。
 static QString slotSetupRestrictionMessage(const ContourFeature &feature,
                                            const QString &strategyId,
                                            const ToolEntry &tool,
@@ -2037,12 +2076,19 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_viewport(new ViewportWidget(this))
     , m_simViewport(new ViewportWidget(this))
+    // 函数说明：m_gcodeEditor负责当前模块的核心处理。
     , m_gcodeEditor(new GCodeEditor(this))
+    // 函数说明：m_featurePanel负责当前模块的核心处理。
     , m_featurePanel(new FeatureListPanel(this))
+    // 函数说明：m_strategyPanel负责当前模块的核心处理。
     , m_strategyPanel(new StrategyPanel(this))
+    // 函数说明：m_toolPanel负责当前模块的核心处理。
     , m_toolPanel(new ToolLibraryPanel(this))
+    // 函数说明：m_operationPanel负责当前模块的核心处理。
     , m_operationPanel(new OperationListPanel(this))
+    // 函数说明：m_bottomBar负责当前模块的核心处理。
     , m_bottomBar(new BottomBar(this))
+    // 函数说明：m_simCtrl负责当前模块的核心处理。
     , m_simCtrl(new SimulationController(this))
 {
     setMinimumSize(1200, 750);
@@ -2121,11 +2167,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_toolPanel->refresh();
 }
 
+// 函数说明：isChineseUi负责当前模块的核心处理。
 bool MainWindow::isChineseUi() const
 {
     return Settings::instance().language() == QStringLiteral("zh_CN");
 }
 
+// 函数说明：currentWorkOffset负责当前模块的核心处理。
 QString MainWindow::currentWorkOffset() const
 {
     if (!m_wcsCombo) {
@@ -2135,6 +2183,7 @@ QString MainWindow::currentWorkOffset() const
     return value.isEmpty() ? QStringLiteral("G54") : value;
 }
 
+// 函数说明：toolCompatibilityIssueText负责当前模块的核心处理。
 static QString toolCompatibilityIssueText(const ToolCompatibilityReport &report)
 {
     QStringList lines;
@@ -2144,6 +2193,7 @@ static QString toolCompatibilityIssueText(const ToolCompatibilityReport &report)
     return lines.join(QLatin1Char('\n'));
 }
 
+// 函数说明：confirmToolCompatibility负责当前模块的核心处理。
 static bool confirmToolCompatibility(QWidget *parent,
                                      const ToolCompatibilityReport &report,
                                      bool chinese)
@@ -2175,6 +2225,7 @@ static bool confirmToolCompatibility(QWidget *parent,
     return answer == QMessageBox::Yes;
 }
 
+// 函数说明：validateSetupForProposals负责当前模块的核心处理。
 bool MainWindow::validateSetupForProposals(
     const QList<OperationProposal> &proposals)
 {
@@ -2234,6 +2285,7 @@ bool MainWindow::validateSetupForProposals(
     return false;
 }
 
+// 函数说明：setDesignWorkflowStage负责当前模块的核心处理。
 void MainWindow::setDesignWorkflowStage(QToolButton *stage,
                                         const QString &text,
                                         const QString &state,
@@ -2250,6 +2302,7 @@ void MainWindow::setDesignWorkflowStage(QToolButton *stage,
     stage->update();
 }
 
+// 函数说明：updateDesignWorkflowSummary负责当前模块的核心处理。
 void MainWindow::updateDesignWorkflowSummary()
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -2348,6 +2401,7 @@ void MainWindow::updateDesignWorkflowSummary()
     }
 }
 
+// 函数说明：updateProgramActionAvailability负责当前模块的核心处理。
 void MainWindow::updateProgramActionAvailability()
 {
     const bool hasProgram = m_gcodeEditor &&
@@ -2396,6 +2450,7 @@ void MainWindow::updateProgramActionAvailability()
     updateProgramReviewSummary();
 }
 
+// 函数说明：setProgramReviewBadge负责当前模块的核心处理。
 void MainWindow::setProgramReviewBadge(QLabel *badge,
                                        const QString &text,
                                        const QString &state)
@@ -2410,6 +2465,7 @@ void MainWindow::setProgramReviewBadge(QLabel *badge,
     badge->update();
 }
 
+// 函数说明：updateProgramReviewSummary负责当前模块的核心处理。
 void MainWindow::updateProgramReviewSummary()
 {
     const bool zh = isChineseUi();
@@ -2509,6 +2565,7 @@ void MainWindow::updateProgramReviewSummary()
                     : outputReady ? QStringLiteral("ready") : QStringLiteral("blocked"));
 }
 
+// 函数说明：syncProgramList负责当前模块的核心处理。
 void MainWindow::syncProgramList()
 {
     if (!m_programList) {
@@ -2581,6 +2638,7 @@ void MainWindow::syncProgramList()
     updateProgramReviewSummary();
 }
 
+// 函数说明：programSourceTooltip负责当前模块的核心处理。
 QString MainWindow::programSourceTooltip(const ProgramEntry &program) const
 {
     QStringList lines;
@@ -2620,6 +2678,7 @@ QString MainWindow::programSourceTooltip(const ProgramEntry &program) const
     return lines.join(QLatin1Char('\n'));
 }
 
+// 函数说明：syncCurrentProgramSnapshot负责当前模块的核心处理。
 void MainWindow::syncCurrentProgramSnapshot()
 {
     if (m_currentProgramId.trimmed().isEmpty() || !m_gcodeEditor) {
@@ -2656,6 +2715,7 @@ void MainWindow::syncCurrentProgramSnapshot()
     project->setCurrentProgramId(program.id);
 }
 
+// 函数说明：findProgramIdForOperation负责当前模块的核心处理。
 QString MainWindow::findProgramIdForOperation(const QString &operationId) const
 {
     if (operationId.trimmed().isEmpty()) {
@@ -2676,6 +2736,7 @@ QString MainWindow::findProgramIdForOperation(const QString &operationId) const
     return QString();
 }
 
+// 函数说明：findOperationLine负责当前模块的核心处理。
 int MainWindow::findOperationLine(const QString &gcode,
                                   const QString &operationId,
                                   int operationNumber) const
@@ -2698,6 +2759,7 @@ int MainWindow::findOperationLine(const QString &gcode,
     return lines.isEmpty() ? -1 : 0;
 }
 
+// 函数说明：loadProgramById负责当前模块的核心处理。
 void MainWindow::loadProgramById(const QString &programId, bool syncSelection)
 {
     if (programId.trimmed().isEmpty()) {
@@ -2750,6 +2812,7 @@ void MainWindow::loadProgramById(const QString &programId, bool syncSelection)
     }
 }
 
+// 函数说明：appendProgramSnapshot负责当前模块的核心处理。
 QString MainWindow::appendProgramSnapshot(const QString &baseName,
                                           const QString &gcode,
                                           const QString &sourceSummary,
@@ -2777,6 +2840,7 @@ QString MainWindow::appendProgramSnapshot(const QString &baseName,
     return programId;
 }
 
+// 函数说明：validateCurrentGCodeForOutput负责当前模块的核心处理。
 bool MainWindow::validateCurrentGCodeForOutput(const QString &actionName)
 {
     if (!m_gcodeEditor) {
@@ -2827,6 +2891,7 @@ bool MainWindow::validateCurrentGCodeForOutput(const QString &actionName)
     return false;
 }
 
+// 函数说明：createMenus负责当前模块的核心处理。
 void MainWindow::createMenus()
 {
     m_actImportStep = new QAction(this);
@@ -2878,6 +2943,7 @@ void MainWindow::createMenus()
     m_helpMenu->addAction(m_actAbout);
 }
 
+// 函数说明：createToolBar负责当前模块的核心处理。
 void MainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar(QString());
@@ -2909,6 +2975,7 @@ void MainWindow::createToolBar()
     const int idx = m_ppCombo->findData(currentId);
     if (idx >= 0)
         m_ppCombo->setCurrentIndex(idx);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_ppCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int index) {
         const QString id = m_ppCombo->itemData(index).toString();
@@ -2929,6 +2996,7 @@ void MainWindow::createToolBar()
     }
     m_wcsCombo->setToolTip(QStringLiteral("Work coordinate system"));
     m_mainToolBar->addWidget(m_wcsCombo);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_wcsCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int) {
         ProjectManager *project = AppController::instance().projectManager();
@@ -2941,6 +3009,7 @@ void MainWindow::createToolBar()
     m_actMachineProfile = m_mainToolBar->addAction(tr("Machine Profile"));
 }
 
+// 函数说明：createPages负责当前模块的核心处理。
 void MainWindow::createPages()
 {
     auto *central = new QWidget(this);
@@ -3119,9 +3188,11 @@ void MainWindow::createPages()
             }
         }
     }
+    // 函数说明：connect负责当前模块的核心处理。
     connect(reviewTools, &QAction::triggered, this, [this]() {
         if (m_toolPanel) m_toolPanel->setFocus();
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(reviewSimulation, &QAction::triggered, this, [this]() {
         if (m_pageNav) m_pageNav->setCurrentRow(1);
     });
@@ -3152,6 +3223,7 @@ void MainWindow::createPages()
 
     connect(m_designModelStage, &QToolButton::clicked,
             m_actImportStep, &QAction::trigger);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_designSetupStage, &QToolButton::clicked, this, [this]() {
         if (m_activeRegion == FaceRegion::Unknown) {
             m_actSetFrontFace->trigger();
@@ -3161,14 +3233,17 @@ void MainWindow::createPages()
             onEditStockDefinition();
         }
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_designFeatureStage, &QToolButton::clicked, this, [this]() {
         if (m_featureDock) m_featureDock->raise();
         if (m_featurePanel) m_featurePanel->setFocus();
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_designOperationStage, &QToolButton::clicked, this, [this]() {
         if (m_operationDock) m_operationDock->raise();
         if (m_operationPanel) m_operationPanel->setFocus();
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_designProgramStage, &QToolButton::clicked, this, [this]() {
         if (m_pageNav) m_pageNav->setCurrentRow(1);
     });
@@ -3413,6 +3488,7 @@ void MainWindow::createPages()
 
     connect(m_pageNav, &QListWidget::currentRowChanged,
             m_pageStack, &QStackedWidget::setCurrentIndex);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_pageNav, &QListWidget::currentRowChanged, this, [this](int row) {
         if (!m_workspaceTitleLabel || !m_pageNav || row < 0 || row >= m_pageNav->count()) {
             return;
@@ -3422,13 +3498,16 @@ void MainWindow::createPages()
     m_pageNav->setCurrentRow(0);
 }
 
+// 函数说明：createStatusBar负责当前模块的核心处理。
 void MainWindow::createStatusBar()
 {
     statusBar()->addPermanentWidget(m_bottomBar, 1);
 }
 
+// 函数说明：connectSignals负责当前模块的核心处理。
 void MainWindow::connectSignals()
 {
+    // 函数说明：connect负责当前模块的核心处理。
     connect(&ToolLibrary::instance(), &ToolLibrary::toolLibraryChanged, this, [this]() {
         const QString toolsPath = QCoreApplication::applicationDirPath() + QStringLiteral("/tools.json");
         ToolLibrary::instance().saveToFile(toolsPath);
@@ -3462,6 +3541,7 @@ void MainWindow::connectSignals()
             m_strategyPanel, &StrategyPanel::setActiveRegion);
     connect(this, &MainWindow::activeRegionChanged,
             m_operationPanel, &OperationListPanel::setActiveRegion);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(this, &MainWindow::activeRegionChanged, this,
             [this](FaceRegion) { updateDesignWorkflowSummary(); });
 
@@ -3477,12 +3557,14 @@ void MainWindow::connectSignals()
             m_bottomBar, &BottomBar::setProgress);
     connect(m_simCtrl, &SimulationController::currentGCodeLineChanged,
             m_gcodeEditor, &GCodeEditor::setCurrentExecutionLine);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_simCtrl, &SimulationController::collisionChecked, this,
             [this](bool hasCollision, const QString &message) {
         if (hasCollision) {
             m_bottomBar->setStatus(message);
         }
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_gcodeEditor, &GCodeEditor::lineSelected, this, [this](int line) {
         if (m_simCtrl->isRunning()) {
             return;
@@ -3498,6 +3580,7 @@ void MainWindow::connectSignals()
     });
     connect(m_operationPanel, &OperationListPanel::currentOperationChanged,
             this, &MainWindow::jumpToGeneratedOperation);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_operationPanel, &OperationListPanel::operationsEdited,
             this, [this](const QList<MachiningOperation> &operations) {
         ProjectManager *project = AppController::instance().projectManager();
@@ -3509,6 +3592,7 @@ void MainWindow::connectSignals()
     });
     connect(m_bottomBar, &BottomBar::simulationSpeedChanged,
             m_simCtrl, &SimulationController::setSpeed);
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_simCtrl, &SimulationController::simulationFinished, this, [this]() {
         m_simulationReviewState = SimulationReviewState::Completed;
         updateProgramReviewSummary();
@@ -3522,6 +3606,7 @@ void MainWindow::connectSignals()
     connect(&ctrl, &AppController::statusMessage, this, &MainWindow::onStatusMessage);
     connect(&ctrl, &AppController::errorOccurred, this, &MainWindow::onErrorOccurred);
 #ifdef CNEXT_ENABLE_OCC
+    // 函数说明：connect负责当前模块的核心处理。
     connect(&ctrl, &AppController::featuresReclassified, this, [this]() {
         ProjectManager *project = AppController::instance().projectManager();
         if (project) {
@@ -3568,6 +3653,7 @@ void MainWindow::connectSignals()
         });
     }
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_gcodeEditor, &QPlainTextEdit::textChanged, this, [this]() {
         m_simulationReviewState = m_gcodeEditor->toPlainText().trimmed().isEmpty()
             ? SimulationReviewState::Unavailable
@@ -3577,6 +3663,7 @@ void MainWindow::connectSignals()
     updateProgramActionAvailability();
     updateDesignWorkflowSummary();
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_featurePanel, &FeatureListPanel::featureSelected, this, [this](int idx) {
         ProjectManager *project = AppController::instance().projectManager();
         if (!project) {
@@ -3592,6 +3679,7 @@ void MainWindow::connectSignals()
         }
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_featurePanel, &FeatureListPanel::featureGroupSelected, this, [this](const QVector<int> &indices) {
         ProjectManager *project = AppController::instance().projectManager();
         if (!project) {
@@ -3619,6 +3707,7 @@ void MainWindow::connectSignals()
         }
         m_viewport->setHighlightedFaces(faces);
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_featurePanel, &FeatureListPanel::checkedFeaturesChanged, this, [this](const QVector<int> &indices) {
         ProjectManager *project = AppController::instance().projectManager();
         if (!project) {
@@ -3677,6 +3766,7 @@ void MainWindow::connectSignals()
         }
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_viewport, &ViewportWidget::facePointPicked, this, [this](int faceIndex, const QVector3D &hitPoint) {
         if (m_settingFrontFace) {
             ProjectManager *project = AppController::instance().projectManager();
@@ -3792,6 +3882,7 @@ void MainWindow::connectSignals()
         m_viewport->setHighlightedFaces(QVector<int>{faceIndex});
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_strategyPanel, &StrategyPanel::operationProposalConfirmed,
             this, [this](const OperationProposal &proposal) {
         if (proposal.kind != OperationProposalKind::Hole) {
@@ -4025,6 +4116,7 @@ void MainWindow::connectSignals()
                      .arg(addedIds.size()));
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_strategyPanel, &StrategyPanel::operationProposalConfirmed,
             this, [this](const OperationProposal &proposal) {
         if (proposal.kind != OperationProposalKind::Contour) {
@@ -4288,6 +4380,7 @@ void MainWindow::connectSignals()
                      .arg(addedIds.size()));
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_operationPanel, &OperationListPanel::generateProgramRequested,
             this, [this](const QList<MachiningOperation> &operations) {
         const bool zh = isChineseUi();
@@ -4395,6 +4488,7 @@ void MainWindow::connectSignals()
                      .arg(operations.size()));
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_operationPanel, &OperationListPanel::recalculateRequested,
             this, [this](const QList<MachiningOperation> &operations) {
         const bool zh = isChineseUi();
@@ -4442,6 +4536,7 @@ void MainWindow::connectSignals()
                      .arg(failed));
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_operationPanel, &OperationListPanel::applyCurrentToolRequested,
             this, [this]() {
         const ToolEntry tool = m_strategyPanel->currentTool();
@@ -4455,6 +4550,7 @@ void MainWindow::connectSignals()
     });
 }
 
+// 函数说明：onImportStep负责当前模块的核心处理。
 void MainWindow::onImportStep()
 {
     const QString path = QFileDialog::getOpenFileName(
@@ -4469,6 +4565,7 @@ void MainWindow::onImportStep()
     AppController::instance().importStep(path);
 }
 
+// 函数说明：onSaveProject负责当前模块的核心处理。
 void MainWindow::onSaveProject()
 {
     const QString path = QFileDialog::getSaveFileName(
@@ -4489,6 +4586,7 @@ void MainWindow::onSaveProject()
     AppController::instance().saveProject(path);
 }
 
+// 函数说明：onOpenProject负责当前模块的核心处理。
 void MainWindow::onOpenProject()
 {
     const QString path = QFileDialog::getOpenFileName(
@@ -4627,12 +4725,14 @@ void MainWindow::onSendToMachine()
     dlg.exec();
 }
 
+// 函数说明：onResetCamera负责当前模块的核心处理。
 void MainWindow::onResetCamera()
 {
     m_viewport->resetCamera();
     m_simViewport->resetCamera();
 }
 
+// 函数说明：onSimPlay负责当前模块的核心处理。
 void MainWindow::onSimPlay()
 {
     const QString gcode = m_gcodeEditor->toPlainText();
@@ -4646,6 +4746,7 @@ void MainWindow::onSimPlay()
     m_bottomBar->setStatus(tr("Simulation playing."));
 }
 
+// 函数说明：onSimPause负责当前模块的核心处理。
 void MainWindow::onSimPause()
 {
     m_simCtrl->pause();
@@ -4654,6 +4755,7 @@ void MainWindow::onSimPause()
     m_bottomBar->setStatus(tr("Simulation paused."));
 }
 
+// 函数说明：onSimStop负责当前模块的核心处理。
 void MainWindow::onSimStop()
 {
     m_simCtrl->stop();
@@ -4684,6 +4786,7 @@ void MainWindow::onSetFrontFace(bool checked)
     }
 }
 
+// 函数说明：onEditSetupOrigin负责当前模块的核心处理。
 void MainWindow::onEditSetupOrigin()
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -4744,6 +4847,7 @@ void MainWindow::onEditSetupOrigin()
                      : QString()));
 }
 
+// 函数说明：onSetOriginFromSelectedHole负责当前模块的核心处理。
 void MainWindow::onSetOriginFromSelectedHole()
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -4760,6 +4864,7 @@ void MainWindow::onSetOriginFromSelectedHole()
     }
     const MachiningFeature &hole = project->features()[featureIndex];
     if (m_activeRegion == FaceRegion::Unknown
+        // 函数说明：requiresActiveRegionConfirmation负责当前模块的核心处理。
         || SetupOrientation::requiresActiveRegionConfirmation(m_activeRegion, hole.region)) {
         QMessageBox::warning(
             this,
@@ -4812,6 +4917,7 @@ void MainWindow::onSetOriginFromSelectedHole()
                      : QString()));
 }
 
+// 函数说明：onEditStockDefinition负责当前模块的核心处理。
 void MainWindow::onEditStockDefinition()
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -4862,6 +4968,7 @@ void MainWindow::onEditStockDefinition()
                      : QString()));
 }
 
+// 函数说明：onEditMachineProfile负责当前模块的核心处理。
 void MainWindow::onEditMachineProfile()
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -4879,16 +4986,19 @@ void MainWindow::onEditMachineProfile()
     m_bottomBar->setStatus(tr("Machine Profile updated."));
 }
 
+// 函数说明：onLanguageChinese负责当前模块的核心处理。
 void MainWindow::onLanguageChinese()
 {
     switchLanguage(QStringLiteral("zh_CN"));
 }
 
+// 函数说明：onLanguageEnglish负责当前模块的核心处理。
 void MainWindow::onLanguageEnglish()
 {
     switchLanguage(QStringLiteral("en_US"));
 }
 
+// 函数说明：onAbout负责当前模块的核心处理。
 void MainWindow::onAbout()
 {
     QMessageBox::about(
@@ -4900,6 +5010,7 @@ void MainWindow::onAbout()
            "Qt %1").arg(QT_VERSION_STR));
 }
 
+// 函数说明：onStepImported负责当前模块的核心处理。
 void MainWindow::onStepImported(const QString &filePath)
 {
     ProjectManager *project = AppController::instance().projectManager();
@@ -4926,6 +5037,7 @@ void MainWindow::onStepImported(const QString &filePath)
     m_bottomBar->setStatus(tr("Imported STEP: %1").arg(filePath));
 }
 
+// 函数说明：jumpToGeneratedOperation负责当前模块的核心处理。
 void MainWindow::jumpToGeneratedOperation(int operationNumber)
 {
     if (operationNumber <= 0 || !m_gcodeEditor || !m_operationPanel) {
@@ -4950,6 +5062,7 @@ void MainWindow::jumpToGeneratedOperation(int operationNumber)
     m_gcodeEditor->setCurrentExecutionLine(line);
 }
 
+// 函数说明：onGCodeReady负责当前模块的核心处理。
 void MainWindow::onGCodeReady(const QString &gcode)
 {
     appendProgramSnapshot(tr("Program"), gcode, QStringLiteral("external"));
@@ -4957,17 +5070,20 @@ void MainWindow::onGCodeReady(const QString &gcode)
     m_bottomBar->setStatus(tr("G-code loaded."));
 }
 
+// 函数说明：onStatusMessage负责当前模块的核心处理。
 void MainWindow::onStatusMessage(const QString &msg)
 {
     m_bottomBar->setStatus(msg);
 }
 
+// 函数说明：onErrorOccurred负责当前模块的核心处理。
 void MainWindow::onErrorOccurred(const QString &msg)
 {
     m_bottomBar->setStatus(tr("Error: %1").arg(msg));
     QMessageBox::warning(this, tr("Error"), msg);
 }
 
+// 函数说明：switchLanguage负责当前模块的核心处理。
 void MainWindow::switchLanguage(const QString &lang)
 {
     Settings::instance().setLanguage(lang);
@@ -4977,10 +5093,12 @@ void MainWindow::switchLanguage(const QString &lang)
     qApp->removeTranslator(&m_qtTranslator);
 
     if (m_qtTranslator.load(QStringLiteral("qt_") + lang,
+                            // 函数说明：location负责当前模块的核心处理。
                             QLibraryInfo::location(QLibraryInfo::TranslationsPath))) {
         qApp->installTranslator(&m_qtTranslator);
     }
     if (m_appTranslator.load(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("translations/") + lang)) ||
+        // 函数说明：load负责当前模块的核心处理。
         m_appTranslator.load(QDir(QCoreApplication::applicationDirPath()).filePath(lang)) ||
         m_appTranslator.load(QStringLiteral(":/translations/") + lang)) {
         qApp->installTranslator(&m_appTranslator);
@@ -4989,6 +5107,7 @@ void MainWindow::switchLanguage(const QString &lang)
     retranslateUi();
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void MainWindow::retranslateUi()
 {
     const bool zh = isChineseUi();

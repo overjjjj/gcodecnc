@@ -16,11 +16,13 @@
 
 namespace {
 
+// 函数说明：isChineseUi负责当前模块的核心处理。
 static bool isChineseUi()
 {
     return Settings::instance().language() == QStringLiteral("zh_CN");
 }
 
+// 函数说明：strategyTypeText负责当前模块的核心处理。
 static QString strategyTypeText(const QString &strategyId, bool zh)
 {
     if (strategyId == QStringLiteral("mill_face")) {
@@ -56,6 +58,7 @@ static QString strategyTypeText(const QString &strategyId, bool zh)
     return QString();
 }
 
+// 函数说明：operationTypeText负责当前模块的核心处理。
 static QString operationTypeText(const MachiningOperation &op, bool zh)
 {
     const QString byStrategy = strategyTypeText(op.strategyId, zh);
@@ -78,6 +81,7 @@ static QString operationTypeText(const MachiningOperation &op, bool zh)
     return zh ? QStringLiteral("工序") : QStringLiteral("Operation");
 }
 
+// 函数说明：stageOrder负责当前模块的核心处理。
 static int stageOrder(OperationStage stage)
 {
     switch (stage) {
@@ -90,6 +94,7 @@ static int stageOrder(OperationStage stage)
     return 1;
 }
 
+// 函数说明：operationStageText负责当前模块的核心处理。
 static QString operationStageText(OperationStage stage, bool zh)
 {
     switch (stage) {
@@ -107,6 +112,7 @@ static QString operationStageText(OperationStage stage, bool zh)
     return zh ? QStringLiteral("粗切") : QStringLiteral("Rough");
 }
 
+// 函数说明：toolpathStateText负责当前模块的核心处理。
 static QString toolpathStateText(ToolpathState state, bool zh)
 {
     switch (state) {
@@ -124,6 +130,7 @@ static QString toolpathStateText(ToolpathState state, bool zh)
     return zh ? QStringLiteral("未生成") : QStringLiteral("Empty");
 }
 
+// 函数说明：operationRegion负责当前模块的核心处理。
 static FaceRegion operationRegion(const MachiningOperation &op)
 {
     return op.opType == OperationType::Hole
@@ -131,6 +138,7 @@ static FaceRegion operationRegion(const MachiningOperation &op)
         : op.contourFeature.region;
 }
 
+// 函数说明：activeRegionOrder负责当前模块的核心处理。
 static int activeRegionOrder(const MachiningOperation &op, FaceRegion activeRegion)
 {
     if (activeRegion == FaceRegion::Unknown) {
@@ -146,12 +154,19 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     , m_titleLabel(new QLabel(this))
     , m_summaryLabel(new QLabel(this))
     , m_table(new QTableWidget(this))
+    // 函数说明：m_btnUp负责当前模块的核心处理。
     , m_btnUp(new QToolButton(this))
+    // 函数说明：m_btnDown负责当前模块的核心处理。
     , m_btnDown(new QToolButton(this))
+    // 函数说明：m_btnDelete负责当前模块的核心处理。
     , m_btnDelete(new QToolButton(this))
+    // 函数说明：m_btnApplyTool负责当前模块的核心处理。
     , m_btnApplyTool(new QToolButton(this))
+    // 函数说明：m_btnSortStage负责当前模块的核心处理。
     , m_btnSortStage(new QToolButton(this))
+    // 函数说明：m_btnRecalculate负责当前模块的核心处理。
     , m_btnRecalculate(new QToolButton(this))
+    // 函数说明：m_btnGenerateProgram负责当前模块的核心处理。
     , m_btnGenerateProgram(new QPushButton(this))
 {
     setObjectName(QStringLiteral("operationListPanel"));
@@ -219,6 +234,7 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     onSelectionChanged();
 }
 
+// 函数说明：setOperations负责当前模块的核心处理。
 void OperationListPanel::setOperations(const QList<MachiningOperation> &operations)
 {
     m_operations = operations;
@@ -230,12 +246,14 @@ void OperationListPanel::setOperations(const QList<MachiningOperation> &operatio
     refreshTable();
 }
 
+// 函数说明：currentOperationNumber负责当前模块的核心处理。
 int OperationListPanel::currentOperationNumber() const
 {
     const int row = m_table->currentRow();
     return row >= 0 ? row + 1 : -1;
 }
 
+// 函数说明：currentOperationId负责当前模块的核心处理。
 QString OperationListPanel::currentOperationId() const
 {
     const int row = m_table->currentRow();
@@ -245,6 +263,7 @@ QString OperationListPanel::currentOperationId() const
     return m_operations[row].id;
 }
 
+// 函数说明：selectOperationById负责当前模块的核心处理。
 bool OperationListPanel::selectOperationById(const QString &operationId)
 {
     if (operationId.trimmed().isEmpty()) {
@@ -310,6 +329,7 @@ QStringList OperationListPanel::addConfirmedOperations(
     return addedIds;
 }
 
+// 函数说明：applyToolToSelection负责当前模块的核心处理。
 bool OperationListPanel::applyToolToSelection(int toolId)
 {
     if (toolId <= 0 || m_operations.isEmpty()) {
@@ -340,6 +360,7 @@ bool OperationListPanel::applyToolToSelection(int toolId)
     return true;
 }
 
+// 函数说明：setToolpathResult负责当前模块的核心处理。
 bool OperationListPanel::setToolpathResult(const QString &operationId,
                                            bool success,
                                            const QString &message)
@@ -360,11 +381,13 @@ bool OperationListPanel::setToolpathResult(const QString &operationId,
     return false;
 }
 
+// 函数说明：setActiveRegion负责当前模块的核心处理。
 void OperationListPanel::setActiveRegion(FaceRegion region)
 {
     m_activeRegion = region;
 }
 
+// 函数说明：refreshTable负责当前模块的核心处理。
 void OperationListPanel::refreshTable()
 {
     const QSignalBlocker blocker(m_table);
@@ -395,6 +418,7 @@ void OperationListPanel::refreshTable()
     onSelectionChanged();
 }
 
+// 函数说明：updateSummary负责当前模块的核心处理。
 void OperationListPanel::updateSummary()
 {
     if (!m_summaryLabel) {
@@ -407,6 +431,7 @@ void OperationListPanel::updateSummary()
            : QStringLiteral("%1/%2 enabled").arg(enabledCount).arg(m_operations.size()));
 }
 
+// 函数说明：operationLabel负责当前模块的核心处理。
 QString OperationListPanel::operationLabel(const MachiningOperation &op) const
 {
     if (op.opType == OperationType::Hole) {
@@ -436,6 +461,7 @@ QString OperationListPanel::operationLabel(const MachiningOperation &op) const
     return op.strategyId;
 }
 
+// 函数说明：onMoveUp负责当前模块的核心处理。
 void OperationListPanel::onMoveUp()
 {
     const int row = m_table->currentRow();
@@ -448,6 +474,7 @@ void OperationListPanel::onMoveUp()
     emit operationsEdited(m_operations);
 }
 
+// 函数说明：onMoveDown负责当前模块的核心处理。
 void OperationListPanel::onMoveDown()
 {
     const int row = m_table->currentRow();
@@ -460,6 +487,7 @@ void OperationListPanel::onMoveDown()
     emit operationsEdited(m_operations);
 }
 
+// 函数说明：onDelete负责当前模块的核心处理。
 void OperationListPanel::onDelete()
 {
     const int row = m_table->currentRow();
@@ -485,8 +513,10 @@ void OperationListPanel::onDelete()
     emit operationsEdited(m_operations);
 }
 
+// 函数说明：onSortByStage负责当前模块的核心处理。
 void OperationListPanel::onSortByStage()
 {
+    // 函数说明：stable_sort负责当前模块的核心处理。
     std::stable_sort(m_operations.begin(), m_operations.end(),
                      [this](const MachiningOperation &a, const MachiningOperation &b) {
         const int activeA = activeRegionOrder(a, m_activeRegion);
@@ -500,6 +530,7 @@ void OperationListPanel::onSortByStage()
     emit operationsEdited(m_operations);
 }
 
+// 函数说明：onRecalculate负责当前模块的核心处理。
 void OperationListPanel::onRecalculate()
 {
     QList<MachiningOperation> selected;
@@ -529,6 +560,7 @@ void OperationListPanel::onGenerateProgram()
     }
 }
 
+// 函数说明：onItemChanged负责当前模块的核心处理。
 void OperationListPanel::onItemChanged(QTableWidgetItem *item)
 {
     if (!item || item->column() != 0 ||
@@ -545,6 +577,7 @@ void OperationListPanel::onItemChanged(QTableWidgetItem *item)
     emit operationsEdited(m_operations);
 }
 
+// 函数说明：onSelectionChanged负责当前模块的核心处理。
 void OperationListPanel::onSelectionChanged()
 {
     const int row = m_table->currentRow();
@@ -559,6 +592,7 @@ void OperationListPanel::onSelectionChanged()
     emit currentOperationChanged(hasSelection ? row + 1 : -1);
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void OperationListPanel::retranslateUi()
 {
     const bool zh = isChineseUi();

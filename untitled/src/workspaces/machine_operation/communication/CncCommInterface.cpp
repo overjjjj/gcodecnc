@@ -5,15 +5,20 @@
 #include <QSerialPort>
 #endif
 
+// 函数说明：CncCommInterface负责当前模块的核心处理。
 CncCommInterface::CncCommInterface(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
     m_serial = new QSerialPort(this);
+    // 函数说明：connect负责当前模块的核心处理。
     QObject::connect(m_serial, &QSerialPort::readyRead, this, [this]() {
         emit responseReceived(QString::fromLocal8Bit(m_serial->readAll()));
     });
+    // 函数说明：connect负责当前模块的核心处理。
     QObject::connect(m_serial,
+                     // 函数说明：of负责当前模块的核心处理。
                      QOverload<QSerialPort::SerialPortError>::of(&QSerialPort::errorOccurred),
                      this,
                      [this](QSerialPort::SerialPortError error) {
@@ -25,6 +30,7 @@ CncCommInterface::CncCommInterface(QObject *parent)
 #endif
 }
 
+// 函数说明：connect负责当前模块的核心处理。
 bool CncCommInterface::connect(const QString &portName, int baudRate)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
@@ -59,6 +65,7 @@ bool CncCommInterface::connect(const QString &portName, int baudRate)
 #endif
 }
 
+// 函数说明：disconnect负责当前模块的核心处理。
 void CncCommInterface::disconnect()
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
@@ -73,11 +80,13 @@ void CncCommInterface::disconnect()
     emit disconnected();
 }
 
+// 函数说明：isConnected负责当前模块的核心处理。
 bool CncCommInterface::isConnected() const
 {
     return m_connected;
 }
 
+// 函数说明：sendGCode负责当前模块的核心处理。
 bool CncCommInterface::sendGCode(const QString &gcode)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT

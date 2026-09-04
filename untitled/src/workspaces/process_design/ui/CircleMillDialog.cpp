@@ -24,6 +24,7 @@ static QDoubleSpinBox *makeDoubleSpin(double minValue,
     return spin;
 }
 
+// 函数说明：makeIntSpin负责当前模块的核心处理。
 static QSpinBox *makeIntSpin(int minValue, int maxValue, int defaultValue, const QString &suffix)
 {
     auto *spin = new QSpinBox;
@@ -36,7 +37,9 @@ static QSpinBox *makeIntSpin(int minValue, int maxValue, int defaultValue, const
 
 } // namespace
 
+// 函数说明：CircleMillDialog负责当前模块的核心处理。
 CircleMillDialog::CircleMillDialog(QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
 {
     setWindowTitle(QStringLiteral("铣边(封闭圆)"));
@@ -79,6 +82,7 @@ CircleMillDialog::CircleMillDialog(QWidget *parent)
     layout->addWidget(buttons);
 }
 
+// 函数说明：feature负责当前模块的核心处理。
 ContourFeature CircleMillDialog::feature() const
 {
     ContourFeature f;
@@ -92,6 +96,7 @@ ContourFeature CircleMillDialog::feature() const
     return f;
 }
 
+// 函数说明：params负责当前模块的核心处理。
 StrategyParams CircleMillDialog::params() const
 {
     StrategyParams p;

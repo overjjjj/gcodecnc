@@ -17,11 +17,13 @@
 
 namespace {
 
+// 函数说明：isChineseUi负责当前模块的核心处理。
 static bool isChineseUi()
 {
     return Settings::instance().language() == QStringLiteral("zh_CN");
 }
 
+// 函数说明：featureKindLabel负责当前模块的核心处理。
 static QString featureKindLabel(FeatureKind kind)
 {
     const bool zh = isChineseUi();
@@ -38,6 +40,7 @@ static QString featureKindLabel(FeatureKind kind)
     return zh ? QStringLiteral("未知") : QStringLiteral("Unknown");
 }
 
+// 函数说明：regionLabel负责当前模块的核心处理。
 static QString regionLabel(FaceRegion region)
 {
     const bool zh = isChineseUi();
@@ -51,6 +54,7 @@ static QString regionLabel(FaceRegion region)
     }
 }
 
+// 函数说明：featureSubTypeLabel负责当前模块的核心处理。
 static QString featureSubTypeLabel(const MachiningFeature &feature)
 {
     const bool zh = isChineseUi();
@@ -80,6 +84,7 @@ static QString featureSubTypeLabel(const MachiningFeature &feature)
     return feature.subType;
 }
 
+// 函数说明：featureSummary负责当前模块的核心处理。
 static QString featureSummary(const MachiningFeature &feature, int index)
 {
     const bool zh = isChineseUi();
@@ -130,6 +135,7 @@ static QString featureSummary(const MachiningFeature &feature, int index)
     return label;
 }
 
+// 函数说明：findFeatureItem负责当前模块的核心处理。
 static QTreeWidgetItem *findFeatureItem(QTreeWidgetItem *item, int index)
 {
     if (!item) {
@@ -146,6 +152,7 @@ static QTreeWidgetItem *findFeatureItem(QTreeWidgetItem *item, int index)
     return nullptr;
 }
 
+// 函数说明：indexListToStrings负责当前模块的核心处理。
 static QStringList indexListToStrings(const QVector<int> &indices)
 {
     QStringList values;
@@ -156,6 +163,7 @@ static QStringList indexListToStrings(const QVector<int> &indices)
     return values;
 }
 
+// 函数说明：stringsToIndexList负责当前模块的核心处理。
 static QVector<int> stringsToIndexList(const QStringList &values)
 {
     QVector<int> indices;
@@ -172,9 +180,13 @@ static QVector<int> stringsToIndexList(const QStringList &values)
 
 } // namespace
 
+// 函数说明：FeatureListPanel负责当前模块的核心处理。
 FeatureListPanel::FeatureListPanel(QWidget *parent)
+    // 函数说明：QWidget负责当前模块的核心处理。
     : QWidget(parent)
+    // 函数说明：m_titleLabel负责当前模块的核心处理。
     , m_titleLabel(new QLabel(this))
+    // 函数说明：m_tree负责当前模块的核心处理。
     , m_tree(new QTreeWidget(this))
 {
     auto *layout = new QVBoxLayout(this);
@@ -218,17 +230,23 @@ FeatureListPanel::FeatureListPanel(QWidget *parent)
     m_tree->setUniformRowHeights(true);
     m_tree->header()->setStretchLastSection(true);
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_filterAllButton, &QToolButton::clicked, this,
             [this]() { setFeatureFilter(FeatureDisplayFilter::All); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_filterHoleButton, &QToolButton::clicked, this,
             [this]() { setFeatureFilter(FeatureDisplayFilter::Hole); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_filterSlotButton, &QToolButton::clicked, this,
             [this]() { setFeatureFilter(FeatureDisplayFilter::SlotPocket); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_filterPlaneButton, &QToolButton::clicked, this,
             [this]() { setFeatureFilter(FeatureDisplayFilter::Plane); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_filterContourButton, &QToolButton::clicked, this,
             [this]() { setFeatureFilter(FeatureDisplayFilter::ContourOther); });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_tree, &QTreeWidget::currentItemChanged,
             this, [this](QTreeWidgetItem *current, QTreeWidgetItem *) {
         if (!current) {
@@ -246,6 +264,7 @@ FeatureListPanel::FeatureListPanel(QWidget *parent)
         }
     });
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_tree, &QTreeWidget::itemChanged,
             this, [this](QTreeWidgetItem *item, int column) {
         if (m_updatingTree || !item || column != 0) {
@@ -291,6 +310,7 @@ FeatureListPanel::FeatureListPanel(QWidget *parent)
     retranslateUi();
 }
 
+// 函数说明：setFeatures负责当前模块的核心处理。
 void FeatureListPanel::setFeatures(const QVector<MachiningFeature> &features)
 {
     m_features = features;
@@ -384,6 +404,7 @@ void FeatureListPanel::setFeatures(const QVector<MachiningFeature> &features)
     updateFilterLabels();
 }
 
+// 函数说明：setFeatureFilter负责当前模块的核心处理。
 void FeatureListPanel::setFeatureFilter(FeatureDisplayFilter filter)
 {
     m_featureFilter = filter;
@@ -395,11 +416,13 @@ void FeatureListPanel::setFeatureFilter(FeatureDisplayFilter filter)
     setFeatures(m_features);
 }
 
+// 函数说明：visibleFeatureIndices负责当前模块的核心处理。
 QVector<int> FeatureListPanel::visibleFeatureIndices() const
 {
     return filteredFeatureIndices(m_features, m_featureFilter);
 }
 
+// 函数说明：updateFilterLabels负责当前模块的核心处理。
 void FeatureListPanel::updateFilterLabels()
 {
     const bool zh = isChineseUi();
@@ -434,12 +457,14 @@ void FeatureListPanel::updateFilterLabels()
     }
 }
 
+// 函数说明：onActiveRegionChanged负责当前模块的核心处理。
 void FeatureListPanel::onActiveRegionChanged(FaceRegion region)
 {
     m_activeRegion = region;
     applyActiveRegionExpansion();
 }
 
+// 函数说明：applyActiveRegionExpansion负责当前模块的核心处理。
 void FeatureListPanel::applyActiveRegionExpansion()
 {
     if (!m_tree || m_activeRegion == FaceRegion::Unknown) {
@@ -466,6 +491,7 @@ void FeatureListPanel::applyActiveRegionExpansion()
     }
 }
 
+// 函数说明：selectFeature负责当前模块的核心处理。
 void FeatureListPanel::selectFeature(int index)
 {
     if (index < 0) {
@@ -488,6 +514,7 @@ void FeatureListPanel::selectFeature(int index)
     }
 }
 
+// 函数说明：currentFeatureIndex负责当前模块的核心处理。
 int FeatureListPanel::currentFeatureIndex() const
 {
     QTreeWidgetItem *item = m_tree->currentItem();
@@ -497,6 +524,7 @@ int FeatureListPanel::currentFeatureIndex() const
     return item->data(0, Qt::UserRole).toInt();
 }
 
+// 函数说明：checkedFeatureIndices负责当前模块的核心处理。
 QVector<int> FeatureListPanel::checkedFeatureIndices() const
 {
     QVector<int> indices = m_checkedFeatureIndices.values().toVector();
@@ -504,6 +532,7 @@ QVector<int> FeatureListPanel::checkedFeatureIndices() const
     return indices;
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void FeatureListPanel::retranslateUi()
 {
     m_titleLabel->setText(isChineseUi()

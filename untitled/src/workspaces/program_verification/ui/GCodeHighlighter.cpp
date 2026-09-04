@@ -5,7 +5,9 @@
 #include <QFont>
 #include <QRegularExpression>
 
+// 函数说明：GCodeHighlighter负责当前模块的核心处理。
 GCodeHighlighter::GCodeHighlighter(QTextDocument *parent)
+    // 函数说明：QSyntaxHighlighter负责当前模块的核心处理。
     : QSyntaxHighlighter(parent)
 {
     QTextCharFormat addressFormat;
@@ -37,6 +39,7 @@ GCodeHighlighter::GCodeHighlighter(QTextDocument *parent)
     m_rules.append({QRegularExpression(QStringLiteral("#\\d+\\b")), macroFormat});
 }
 
+// 函数说明：highlightBlock负责当前模块的核心处理。
 void GCodeHighlighter::highlightBlock(const QString &text)
 {
     for (const HighlightRule &rule : m_rules) {

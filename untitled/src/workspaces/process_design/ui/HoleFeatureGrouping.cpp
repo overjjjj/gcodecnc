@@ -2,11 +2,13 @@
 
 namespace {
 
+// 函数说明：isHole负责当前模块的核心处理。
 bool isHole(const MachiningFeature &feature)
 {
     return feature.kind == FeatureKind::Hole || feature.kind == FeatureKind::Thread;
 }
 
+// 函数说明：typeLabel负责当前模块的核心处理。
 QString typeLabel(const MachiningFeature &feature, bool chinese)
 {
     if (feature.subType == QStringLiteral("through_hole"))
@@ -24,6 +26,7 @@ QString typeLabel(const MachiningFeature &feature, bool chinese)
 
 } // namespace
 
+// 函数说明：holeFeatureGroupId负责当前模块的核心处理。
 QString holeFeatureGroupId(const MachiningFeature &feature)
 {
     if (!isHole(feature)) {
@@ -37,6 +40,7 @@ QString holeFeatureGroupId(const MachiningFeature &feature)
         .arg(feature.pitch, 0, 'f', 4);
 }
 
+// 函数说明：holeFeatureGroupLabel负责当前模块的核心处理。
 QString holeFeatureGroupLabel(const MachiningFeature &feature, bool chinese)
 {
     if (!isHole(feature)) {
@@ -61,6 +65,7 @@ QString holeFeatureGroupLabel(const MachiningFeature &feature, bool chinese)
     return label;
 }
 
+// 函数说明：holeFeaturesShareGroup负责当前模块的核心处理。
 bool holeFeaturesShareGroup(const QVector<MachiningFeature> &features)
 {
     QString groupId;

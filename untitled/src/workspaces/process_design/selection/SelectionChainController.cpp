@@ -29,7 +29,9 @@ bool SelectionChainController::GeometryRecord::operator==(
            selectionOrder == other.selectionOrder;
 }
 
+// 函数说明：SelectionChainController负责当前模块的核心处理。
 SelectionChainController::SelectionChainController(const SelectionChain &initial)
+    // 函数说明：m_chain负责当前模块的核心处理。
     : m_chain(initial), m_baselineChain(initial)
 {
     for (int index = 0; index < initial.orderedGeometryIds.size(); ++index) {
@@ -42,6 +44,7 @@ SelectionChainController::SelectionChainController(const SelectionChain &initial
     }
 }
 
+// 函数说明：begin负责当前模块的核心处理。
 void SelectionChainController::begin()
 {
     m_state = SelectionChainState::Picking;
@@ -49,6 +52,7 @@ void SelectionChainController::begin()
     m_redoStack.clear();
 }
 
+// 函数说明：addGeometry负责当前模块的核心处理。
 bool SelectionChainController::addGeometry(const QString &geometryId,
                                            const QVector3D &referencePoint)
 {
@@ -75,6 +79,7 @@ bool SelectionChainController::addGeometry(const QString &geometryId,
     return true;
 }
 
+// 函数说明：removeGeometry负责当前模块的核心处理。
 bool SelectionChainController::removeGeometry(const QString &geometryId)
 {
     const auto selected = std::find_if(
@@ -92,6 +97,7 @@ bool SelectionChainController::removeGeometry(const QString &geometryId)
     return true;
 }
 
+// 函数说明：geometryIds负责当前模块的核心处理。
 QStringList SelectionChainController::geometryIds() const
 {
     QStringList ids;
@@ -102,6 +108,7 @@ QStringList SelectionChainController::geometryIds() const
     return ids;
 }
 
+// 函数说明：finishChain负责当前模块的核心处理。
 bool SelectionChainController::finishChain()
 {
     if (m_records.isEmpty()) {
@@ -114,6 +121,7 @@ bool SelectionChainController::finishChain()
     return true;
 }
 
+// 函数说明：reverse负责当前模块的核心处理。
 bool SelectionChainController::reverse()
 {
     if (m_records.size() < 2) {
@@ -127,6 +135,7 @@ bool SelectionChainController::reverse()
     return true;
 }
 
+// 函数说明：sort负责当前模块的核心处理。
 bool SelectionChainController::sort(ChainSortStrategy strategy)
 {
     QList<GeometryRecord> sorted = m_records;
@@ -224,6 +233,7 @@ bool SelectionChainController::sort(ChainSortStrategy strategy)
     return true;
 }
 
+// 函数说明：setGeometrySource负责当前模块的核心处理。
 void SelectionChainController::setGeometrySource(ChainGeometrySource source)
 {
     if (m_chain.geometrySource == source) {
@@ -233,6 +243,7 @@ void SelectionChainController::setGeometrySource(ChainGeometrySource source)
     m_chain.geometrySource = source;
 }
 
+// 函数说明：setSelectionMode负责当前模块的核心处理。
 void SelectionChainController::setSelectionMode(ChainSelectionMode mode)
 {
     if (m_chain.selectionMode == mode) {
@@ -242,6 +253,7 @@ void SelectionChainController::setSelectionMode(ChainSelectionMode mode)
     m_chain.selectionMode = mode;
 }
 
+// 函数说明：setMachiningSide负责当前模块的核心处理。
 void SelectionChainController::setMachiningSide(ChainMachiningSide side)
 {
     if (m_chain.machiningSide == side) {
@@ -251,6 +263,7 @@ void SelectionChainController::setMachiningSide(ChainMachiningSide side)
     m_chain.machiningSide = side;
 }
 
+// 函数说明：setCoordinateSystemId负责当前模块的核心处理。
 void SelectionChainController::setCoordinateSystemId(const QString &coordinateSystemId)
 {
     const QString accepted = coordinateSystemId.trimmed();
@@ -261,6 +274,7 @@ void SelectionChainController::setCoordinateSystemId(const QString &coordinateSy
     m_chain.coordinateSystemId = accepted;
 }
 
+// 函数说明：setSourceContext负责当前模块的核心处理。
 void SelectionChainController::setSourceContext(const QString &sourceFingerprint,
                                                 const QString &setupFingerprint)
 {
@@ -273,6 +287,7 @@ void SelectionChainController::setSourceContext(const QString &sourceFingerprint
     m_chain.setupFingerprint = setupFingerprint;
 }
 
+// 函数说明：setSelectedSurfaceNormal负责当前模块的核心处理。
 void SelectionChainController::setSelectedSurfaceNormal(const QVector3D &normal)
 {
     const QVector3D accepted = normal.lengthSquared() <= 1.0e-8f
@@ -285,6 +300,7 @@ void SelectionChainController::setSelectedSurfaceNormal(const QVector3D &normal)
     m_chain.selectedSurfaceNormal = accepted;
 }
 
+// 函数说明：setToolAxis负责当前模块的核心处理。
 void SelectionChainController::setToolAxis(const QVector3D &axis)
 {
     const QVector3D accepted = axis.lengthSquared() <= 1.0e-8f
@@ -297,6 +313,7 @@ void SelectionChainController::setToolAxis(const QVector3D &axis)
     m_chain.toolAxis = accepted;
 }
 
+// 函数说明：setTopologyEvidence负责当前模块的核心处理。
 void SelectionChainController::setTopologyEvidence(int outerLoopPointCount,
                                                    int islandCount,
                                                    int freeEndCount)
@@ -315,6 +332,7 @@ void SelectionChainController::setTopologyEvidence(int outerLoopPointCount,
     m_chain.freeEndCount = freeEndCount;
 }
 
+// 函数说明：setClosed负责当前模块的核心处理。
 void SelectionChainController::setClosed(bool closed)
 {
     if (m_chain.closed == closed) {
@@ -324,6 +342,7 @@ void SelectionChainController::setClosed(bool closed)
     m_chain.closed = closed;
 }
 
+// 函数说明：setStartPoint负责当前模块的核心处理。
 void SelectionChainController::setStartPoint(const QVector3D &point)
 {
     if (m_chain.hasStartPoint && m_chain.startPoint == point) {
@@ -334,6 +353,7 @@ void SelectionChainController::setStartPoint(const QVector3D &point)
     m_chain.hasStartPoint = true;
 }
 
+// 函数说明：setBranchChoices负责当前模块的核心处理。
 void SelectionChainController::setBranchChoices(const QStringList &geometryIds,
                                                 int currentIndex)
 {
@@ -346,21 +366,25 @@ void SelectionChainController::setBranchChoices(const QStringList &geometryIds,
     m_branchIndex = std::max(0, std::min(currentIndex, m_branchChoices.size() - 1));
 }
 
+// 函数说明：previousBranch负责当前模块的核心处理。
 QString SelectionChainController::previousBranch()
 {
     return navigateBranch(-1);
 }
 
+// 函数说明：switchBranch负责当前模块的核心处理。
 QString SelectionChainController::switchBranch()
 {
     return navigateBranch(1);
 }
 
+// 函数说明：nextBranch负责当前模块的核心处理。
 QString SelectionChainController::nextBranch()
 {
     return navigateBranch(1);
 }
 
+// 函数说明：currentBranch负责当前模块的核心处理。
 QString SelectionChainController::currentBranch() const
 {
     return m_branchIndex >= 0 && m_branchIndex < m_branchChoices.size()
@@ -368,6 +392,7 @@ QString SelectionChainController::currentBranch() const
         : QString();
 }
 
+// 函数说明：undo负责当前模块的核心处理。
 bool SelectionChainController::undo()
 {
     if (m_undoStack.isEmpty()) {
@@ -378,6 +403,7 @@ bool SelectionChainController::undo()
     return true;
 }
 
+// 函数说明：redo负责当前模块的核心处理。
 bool SelectionChainController::redo()
 {
     if (m_redoStack.isEmpty()) {
@@ -388,6 +414,7 @@ bool SelectionChainController::redo()
     return true;
 }
 
+// 函数说明：commit负责当前模块的核心处理。
 SelectionChain SelectionChainController::commit()
 {
     if (m_records.isEmpty()) {
@@ -430,6 +457,7 @@ SelectionChain SelectionChainController::commit()
     return m_chain;
 }
 
+// 函数说明：cancel负责当前模块的核心处理。
 void SelectionChainController::cancel()
 {
     m_chain = m_baselineChain;
@@ -439,16 +467,19 @@ void SelectionChainController::cancel()
     m_redoStack.clear();
 }
 
+// 函数说明：isDirty负责当前模块的核心处理。
 bool SelectionChainController::isDirty() const
 {
     return !(m_chain == m_baselineChain) || m_records != m_baselineRecords;
 }
 
+// 函数说明：snapshot负责当前模块的核心处理。
 SelectionChainController::Snapshot SelectionChainController::snapshot() const
 {
     return {m_chain, m_records, m_state};
 }
 
+// 函数说明：restore负责当前模块的核心处理。
 void SelectionChainController::restore(const Snapshot &snapshot)
 {
     m_chain = snapshot.chain;
@@ -456,17 +487,20 @@ void SelectionChainController::restore(const Snapshot &snapshot)
     m_state = snapshot.state;
 }
 
+// 函数说明：rememberForUndo负责当前模块的核心处理。
 void SelectionChainController::rememberForUndo()
 {
     m_undoStack.append(snapshot());
     m_redoStack.clear();
 }
 
+// 函数说明：syncGeometryIds负责当前模块的核心处理。
 void SelectionChainController::syncGeometryIds()
 {
     m_chain.orderedGeometryIds = geometryIds();
 }
 
+// 函数说明：navigateBranch负责当前模块的核心处理。
 QString SelectionChainController::navigateBranch(int offset)
 {
     if (m_branchChoices.isEmpty()) {
@@ -479,6 +513,7 @@ QString SelectionChainController::navigateBranch(int offset)
     return currentBranch();
 }
 
+// 函数说明：pointLessX负责当前模块的核心处理。
 bool SelectionChainController::pointLessX(const GeometryRecord &left,
                                           const GeometryRecord &right)
 {
@@ -491,6 +526,7 @@ bool SelectionChainController::pointLessX(const GeometryRecord &left,
     return left.id < right.id;
 }
 
+// 函数说明：pointLessY负责当前模块的核心处理。
 bool SelectionChainController::pointLessY(const GeometryRecord &left,
                                           const GeometryRecord &right)
 {

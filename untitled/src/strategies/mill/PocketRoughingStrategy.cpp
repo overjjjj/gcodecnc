@@ -21,12 +21,14 @@ struct ScanChain {
     QVector<ScanLine> rows;
 };
 
+// 函数说明：cross2D负责当前模块的核心处理。
 static double cross2D(const QVector3D &a, const QVector3D &b, const QVector3D &c)
 {
     return (double(b.x()) - a.x()) * (double(c.y()) - a.y())
         - (double(b.y()) - a.y()) * (double(c.x()) - a.x());
 }
 
+// 函数说明：pointOnSegment负责当前模块的核心处理。
 static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector3D &point)
 {
     if (std::abs(cross2D(a, b, point)) > 1.0e-7) {
@@ -38,6 +40,7 @@ static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector
         && point.y() <= std::max(a.y(), b.y()) + 1.0e-7f;
 }
 
+// 函数说明：segmentsIntersect负责当前模块的核心处理。
 static bool segmentsIntersect(const QVector3D &a,
                               const QVector3D &b,
                               const QVector3D &c,
@@ -57,6 +60,7 @@ static bool segmentsIntersect(const QVector3D &a,
         || (std::abs(cdB) <= 1.0e-7 && pointOnSegment(c, d, b));
 }
 
+// 函数说明：isSimplePolygon负责当前模块的核心处理。
 static bool isSimplePolygon(const QVector<QVector3D> &polygon)
 {
     if (polygon.size() < 3) {
@@ -92,6 +96,7 @@ static bool isSimplePolygon(const QVector<QVector3D> &polygon)
     return true;
 }
 
+// 函数说明：pointInsidePolygon负责当前模块的核心处理。
 static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3D &point)
 {
     bool inside = false;
@@ -113,6 +118,7 @@ static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3
     return inside;
 }
 
+// 函数说明：polygonStrictlyContains负责当前模块的核心处理。
 static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
                                     const QVector<QVector3D> &inner)
 {
@@ -135,6 +141,7 @@ static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
     return true;
 }
 
+// 函数说明：cutMove负责当前模块的核心处理。
 static QString cutMove(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -143,6 +150,7 @@ static QString cutMove(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：distance2D负责当前模块的核心处理。
 static double distance2D(double x0, double y0, double x1, double y1)
 {
     const double dx = x1 - x0;
@@ -150,6 +158,7 @@ static double distance2D(double x0, double y0, double x1, double y1)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+// 函数说明：mergedIntervals负责当前模块的核心处理。
 static QVector<Interval> mergedIntervals(QVector<Interval> intervals)
 {
     std::sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b) {
@@ -169,6 +178,7 @@ static QVector<Interval> mergedIntervals(QVector<Interval> intervals)
     return merged;
 }
 
+// 函数说明：polygonIntervalsAtY负责当前模块的核心处理。
 static QVector<Interval> polygonIntervalsAtY(const QVector<QVector3D> &polygon, double y)
 {
     QVector<double> intersections;
@@ -190,6 +200,7 @@ static QVector<Interval> polygonIntervalsAtY(const QVector<QVector3D> &polygon, 
     return intervals;
 }
 
+// 函数说明：subtractIntervals负责当前模块的核心处理。
 static QVector<Interval> subtractIntervals(const QVector<Interval> &source,
                                            const QVector<Interval> &removed)
 {
@@ -213,6 +224,7 @@ static QVector<Interval> subtractIntervals(const QVector<Interval> &source,
     return result;
 }
 
+// 函数说明：appendCircleInterval负责当前模块的核心处理。
 static void appendCircleInterval(QVector<Interval> &intervals,
                                  const QVector3D &center,
                                  double y,
@@ -226,6 +238,7 @@ static void appendCircleInterval(QVector<Interval> &intervals,
     intervals.push_back({center.x() - span, center.x() + span});
 }
 
+// 函数说明：boundaryClearanceIntervals负责当前模块的核心处理。
 static QVector<Interval> boundaryClearanceIntervals(const QVector<QVector3D> &polygon,
                                                     double y,
                                                     double clearance)
@@ -256,6 +269,7 @@ static QVector<Interval> boundaryClearanceIntervals(const QVector<QVector3D> &po
     return mergedIntervals(forbidden);
 }
 
+// 函数说明：safeIntervalsAtY负责当前模块的核心处理。
 static QVector<Interval> safeIntervalsAtY(
     const QVector<QVector3D> &outer,
     const QVector<QVector<QVector3D>> &islands,
@@ -271,6 +285,7 @@ static QVector<Interval> safeIntervalsAtY(
     return subtractIntervals(allowed, removed);
 }
 
+// 函数说明：hasTopologyVertexBetween负责当前模块的核心处理。
 static bool hasTopologyVertexBetween(
     const QVector<QVector3D> &outer,
     const QVector<QVector<QVector3D>> &islands,
@@ -298,6 +313,7 @@ static bool hasTopologyVertexBetween(
     return false;
 }
 
+// 函数说明：safeScanChains负责当前模块的核心处理。
 static QVector<ScanChain> safeScanChains(
     const QVector<ScanLine> &rows,
     const QVector<QVector3D> &outer,
@@ -330,6 +346,7 @@ static QVector<ScanChain> safeScanChains(
     return chains;
 }
 
+// 函数说明：expandParametricProgram负责当前模块的核心处理。
 static QString expandParametricProgram(const ParametricToolpathProgram &program)
 {
     QStringList lines = program.prefixLines;
@@ -345,6 +362,7 @@ static QString expandParametricProgram(const ParametricToolpathProgram &program)
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }
 
+// 函数说明：generateIrregularPocket负责当前模块的核心处理。
 static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
                                               const ToolEntry &tool,
                                               const StrategyParams &params)
@@ -497,6 +515,7 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
     return res;
 }
 
+// 函数说明：isCircularPocket负责当前模块的核心处理。
 static bool isCircularPocket(const ContourFeature &feature)
 {
     const QString sub = feature.subType.toLower();
@@ -504,6 +523,7 @@ static bool isCircularPocket(const ContourFeature &feature)
         || sub.contains(QStringLiteral("circular"));
 }
 
+// 函数说明：appendRectangularRows负责当前模块的核心处理。
 static void appendRectangularRows(QVector<ScanLine> &rows,
                                   double cx,
                                   double cy,
@@ -521,6 +541,7 @@ static void appendRectangularRows(QVector<ScanLine> &rows,
     }
 }
 
+// 函数说明：appendCircularRows负责当前模块的核心处理。
 static void appendCircularRows(QVector<ScanLine> &rows,
                                double cx,
                                double cy,
@@ -541,6 +562,7 @@ static void appendCircularRows(QVector<ScanLine> &rows,
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PocketRoughingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -557,6 +579,7 @@ StrategyParams PocketRoughingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketRoughingStrategy::generate(const HoleFeature &,
                                                  const ToolEntry &,
                                                  const StrategyParams &) const
@@ -564,6 +587,7 @@ ToolpathResult PocketRoughingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("型腔开粗策略需要轮廓或区域特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
                                                  const ToolEntry      &tool,
                                                  const StrategyParams &params) const

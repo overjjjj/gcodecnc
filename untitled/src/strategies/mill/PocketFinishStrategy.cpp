@@ -3,6 +3,7 @@
 #include <QObject>
 #include <cmath>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PocketFinishStrategy::defaultParams() const
 {
     StrategyParams params;
@@ -17,6 +18,7 @@ StrategyParams PocketFinishStrategy::defaultParams() const
     return params;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFinishStrategy::generate(const HoleFeature &,
                                                const ToolEntry &,
                                                const StrategyParams &) const
@@ -26,6 +28,7 @@ ToolpathResult PocketFinishStrategy::generate(const HoleFeature &,
     return result;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
                                                const ToolEntry &tool,
                                                const StrategyParams &params) const

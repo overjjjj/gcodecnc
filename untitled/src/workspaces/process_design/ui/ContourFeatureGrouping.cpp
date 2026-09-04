@@ -4,6 +4,7 @@
 
 namespace {
 
+// 函数说明：loopKey负责当前模块的核心处理。
 QString loopKey(const QVector<QVector3D> &loop)
 {
     QStringList values;
@@ -17,6 +18,7 @@ QString loopKey(const QVector<QVector3D> &loop)
     return values.join(QLatin1Char(';'));
 }
 
+// 函数说明：topologyKey负责当前模块的核心处理。
 QString topologyKey(const MachiningFeature &feature)
 {
     QStringList values{loopKey(feature.boundaryPoints)};
@@ -26,11 +28,13 @@ QString topologyKey(const MachiningFeature &feature)
     return values.join(QLatin1Char('|'));
 }
 
+// 函数说明：isContourFeature负责当前模块的核心处理。
 bool isContourFeature(const MachiningFeature &feature)
 {
     return feature.kind != FeatureKind::Hole && feature.kind != FeatureKind::Thread;
 }
 
+// 函数说明：typeLabel负责当前模块的核心处理。
 QString typeLabel(const MachiningFeature &feature, bool chinese)
 {
     if (feature.subType == QStringLiteral("straight_slot"))
@@ -54,6 +58,7 @@ QString typeLabel(const MachiningFeature &feature, bool chinese)
 
 } // namespace
 
+// 函数说明：contourFeatureGroupId负责当前模块的核心处理。
 QString contourFeatureGroupId(const MachiningFeature &feature)
 {
     if (!isContourFeature(feature)) {
@@ -71,6 +76,7 @@ QString contourFeatureGroupId(const MachiningFeature &feature)
         .arg(topologyKey(feature));
 }
 
+// 函数说明：contourFeatureGroupLabel负责当前模块的核心处理。
 QString contourFeatureGroupLabel(const MachiningFeature &feature, bool chinese)
 {
     if (!isContourFeature(feature)) {
@@ -93,6 +99,7 @@ QString contourFeatureGroupLabel(const MachiningFeature &feature, bool chinese)
     return label;
 }
 
+// 函数说明：contourFeaturesShareGroup负责当前模块的核心处理。
 bool contourFeaturesShareGroup(const QVector<MachiningFeature> &features)
 {
     QString groupId;

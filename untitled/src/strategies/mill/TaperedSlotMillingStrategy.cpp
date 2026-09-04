@@ -6,11 +6,13 @@
 
 namespace {
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：cutXY负责当前模块的核心处理。
 static QString cutXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -19,6 +21,7 @@ static QString cutXY(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：cutXYZ负责当前模块的核心处理。
 static QString cutXYZ(double x, double y, double z, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
@@ -28,28 +31,33 @@ static QString cutXYZ(double x, double y, double z, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：slotLength负责当前模块的核心处理。
 static double slotLength(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotLength"),
                       feature.length > 0.0 ? feature.length : feature.radius * 2.0);
 }
 
+// 函数说明：slotWidth负责当前模块的核心处理。
 static double slotWidth(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotWidth"),
                       feature.width > 0.0 ? feature.width : feature.radius);
 }
 
+// 函数说明：slotAngleDeg负责当前模块的核心处理。
 static double slotAngleDeg(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("angle"), feature.angle);
 }
 
+// 函数说明：useLengthSlopeProfile负责当前模块的核心处理。
 static bool useLengthSlopeProfile(const ContourFeature &feature)
 {
     return feature.slopeStartLength > 1.0e-6 || feature.slopeEndLength > 1.0e-6;
 }
 
+// 函数说明：laneOffsets负责当前模块的核心处理。
 static QVector<double> laneOffsets(double halfWidth, double stepover, double toolDiameter)
 {
     QVector<double> offsets;
@@ -74,6 +82,7 @@ static QVector<double> laneOffsets(double halfWidth, double stepover, double too
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams TaperedSlotMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -94,6 +103,7 @@ StrategyParams TaperedSlotMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult TaperedSlotMillingStrategy::generate(const HoleFeature &,
                                                     const ToolEntry &,
                                                     const StrategyParams &) const
@@ -101,6 +111,7 @@ ToolpathResult TaperedSlotMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("Tapered slot milling requires a contour feature."), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult TaperedSlotMillingStrategy::generate(const ContourFeature &feature,
                                                     const ToolEntry &tool,
                                                     const StrategyParams &params) const

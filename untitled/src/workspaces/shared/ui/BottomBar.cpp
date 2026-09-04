@@ -3,11 +3,17 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 
+// 函数说明：BottomBar负责当前模块的核心处理。
 BottomBar::BottomBar(QWidget *parent)
+    // 函数说明：QWidget负责当前模块的核心处理。
     : QWidget(parent)
+    // 函数说明：m_label负责当前模块的核心处理。
     , m_label(new QLabel(QStringLiteral("就绪"), this))
+    // 函数说明：m_progress负责当前模块的核心处理。
     , m_progress(new QProgressBar(this))
+    // 函数说明：m_speedLabel负责当前模块的核心处理。
     , m_speedLabel(new QLabel(QStringLiteral("仿真速度"), this))
+    // 函数说明：m_speedCombo负责当前模块的核心处理。
     , m_speedCombo(new QComboBox(this))
 {
     auto *layout = new QHBoxLayout(this);
@@ -29,22 +35,26 @@ BottomBar::BottomBar(QWidget *parent)
     layout->addWidget(m_speedCombo);
     setFixedHeight(28);
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_speedCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int index) {
         emit simulationSpeedChanged(m_speedCombo->itemData(index).toDouble());
     });
 }
 
+// 函数说明：setStatus负责当前模块的核心处理。
 void BottomBar::setStatus(const QString &msg)
 {
     m_label->setText(msg);
 }
 
+// 函数说明：setProgress负责当前模块的核心处理。
 void BottomBar::setProgress(double fraction)
 {
     m_progress->setValue(static_cast<int>(fraction * 1000));
 }
 
+// 函数说明：showProgress负责当前模块的核心处理。
 void BottomBar::showProgress(bool visible)
 {
     m_progress->setVisible(visible);

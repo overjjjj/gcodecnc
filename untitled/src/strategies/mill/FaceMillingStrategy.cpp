@@ -5,6 +5,7 @@
 
 namespace {
 
+// 函数说明：planarSpan负责当前模块的核心处理。
 static double planarSpan(double explicitValue, double fallbackRadius, double fallbackToolDiameter)
 {
     if (explicitValue > 0.0) {
@@ -18,6 +19,7 @@ static double planarSpan(double explicitValue, double fallbackRadius, double fal
 
 }
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams FaceMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -31,6 +33,7 @@ StrategyParams FaceMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult FaceMillingStrategy::generate(const HoleFeature &,
                                               const ToolEntry &,
                                               const StrategyParams &) const
@@ -38,6 +41,7 @@ ToolpathResult FaceMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("铣平面策略需要轮廓特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult FaceMillingStrategy::generate(const ContourFeature &feature,
                                               const ToolEntry      &tool,
                                               const StrategyParams &params) const

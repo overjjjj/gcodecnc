@@ -6,6 +6,7 @@
 
 namespace {
 
+// 函数说明：linearMove负责当前模块的核心处理。
 static QString linearMove(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -14,6 +15,7 @@ static QString linearMove(double x, double y, double feed)
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PocketFloorFinishStrategy::defaultParams() const
 {
     StrategyParams params;
@@ -28,6 +30,7 @@ StrategyParams PocketFloorFinishStrategy::defaultParams() const
     return params;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFloorFinishStrategy::generate(const HoleFeature &,
                                                     const ToolEntry &,
                                                     const StrategyParams &) const
@@ -37,6 +40,7 @@ ToolpathResult PocketFloorFinishStrategy::generate(const HoleFeature &,
     return result;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFloorFinishStrategy::generate(const ContourFeature &feature,
                                                     const ToolEntry &tool,
                                                     const StrategyParams &params) const

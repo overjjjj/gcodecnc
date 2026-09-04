@@ -2,6 +2,7 @@
 
 #include <QSet>
 
+// 函数说明：validate负责当前模块的核心处理。
 MachineProfileValidationResult MachineProfileValidator::validate(const MachineProfile &profile)
 {
     MachineProfileValidationResult result;

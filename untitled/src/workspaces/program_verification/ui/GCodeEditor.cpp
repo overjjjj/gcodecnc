@@ -6,7 +6,9 @@
 #include <QFont>
 #include <QTextBlock>
 
+// 函数说明：GCodeEditor负责当前模块的核心处理。
 GCodeEditor::GCodeEditor(QWidget *parent)
+    // 函数说明：QPlainTextEdit负责当前模块的核心处理。
     : QPlainTextEdit(parent)
 {
     QFont font("Courier New", 10);
@@ -20,6 +22,7 @@ GCodeEditor::GCodeEditor(QWidget *parent)
             this, &GCodeEditor::onCursorPositionChanged);
 }
 
+// 函数说明：setGCode负责当前模块的核心处理。
 void GCodeEditor::setGCode(const QString &gcode)
 {
     m_updatingExecutionLine = true;
@@ -28,6 +31,7 @@ void GCodeEditor::setGCode(const QString &gcode)
     clearCurrentExecutionLine();
 }
 
+// 函数说明：setCurrentExecutionLine负责当前模块的核心处理。
 void GCodeEditor::setCurrentExecutionLine(int line)
 {
     if (line < 0 || line >= document()->blockCount()) {
@@ -47,12 +51,14 @@ void GCodeEditor::setCurrentExecutionLine(int line)
     updateCurrentLineSelection();
 }
 
+// 函数说明：clearCurrentExecutionLine负责当前模块的核心处理。
 void GCodeEditor::clearCurrentExecutionLine()
 {
     m_executionLine = -1;
     updateCurrentLineSelection();
 }
 
+// 函数说明：onCursorPositionChanged负责当前模块的核心处理。
 void GCodeEditor::onCursorPositionChanged()
 {
     if (m_updatingExecutionLine) {
@@ -61,6 +67,7 @@ void GCodeEditor::onCursorPositionChanged()
     emit lineSelected(textCursor().blockNumber());
 }
 
+// 函数说明：updateCurrentLineSelection负责当前模块的核心处理。
 void GCodeEditor::updateCurrentLineSelection()
 {
     QList<QTextEdit::ExtraSelection> selections;

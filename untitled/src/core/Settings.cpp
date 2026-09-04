@@ -2,6 +2,7 @@
 
 // 初始化应用设置存储，并加载已保存的用户偏好。
 Settings::Settings()
+    // 函数说明：m_qs负责当前模块的核心处理。
     : m_qs("JIANGJUREN", "CNEXT-CAM")
 {
     load();

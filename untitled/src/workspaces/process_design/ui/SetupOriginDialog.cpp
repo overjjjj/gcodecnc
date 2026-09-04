@@ -9,8 +9,11 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+// 函数说明：SetupOriginDialog负责当前模块的核心处理。
 SetupOriginDialog::SetupOriginDialog(bool chinese, QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
+    // 函数说明：m_chinese负责当前模块的核心处理。
     , m_chinese(chinese)
 {
     const auto ui = [chinese](const char *zh, const char *en) {
@@ -97,6 +100,7 @@ SetupOriginDialog::SetupOriginDialog(bool chinese, QWidget *parent)
     updateResolvedPoint();
 }
 
+// 函数说明：createCoordinateSpinBox负责当前模块的核心处理。
 QDoubleSpinBox *SetupOriginDialog::createCoordinateSpinBox()
 {
     auto *spin = new QDoubleSpinBox(this);
@@ -107,6 +111,7 @@ QDoubleSpinBox *SetupOriginDialog::createCoordinateSpinBox()
     return spin;
 }
 
+// 函数说明：setModelBounds负责当前模块的核心处理。
 void SetupOriginDialog::setModelBounds(const QVector3D &minimum, const QVector3D &maximum)
 {
     m_bbMin = minimum;
@@ -114,6 +119,7 @@ void SetupOriginDialog::setModelBounds(const QVector3D &minimum, const QVector3D
     updateResolvedPoint();
 }
 
+// 函数说明：setOrigin负责当前模块的核心处理。
 void SetupOriginDialog::setOrigin(const SetupOrigin &origin)
 {
     const int index = m_anchorCombo->findData(setupOriginAnchorId(origin.anchor));
@@ -127,6 +133,7 @@ void SetupOriginDialog::setOrigin(const SetupOrigin &origin)
     updateResolvedPoint();
 }
 
+// 函数说明：origin负责当前模块的核心处理。
 SetupOrigin SetupOriginDialog::origin() const
 {
     SetupOrigin value;
@@ -141,17 +148,20 @@ SetupOrigin SetupOriginDialog::origin() const
     return value;
 }
 
+// 函数说明：setWorkOffset负责当前模块的核心处理。
 void SetupOriginDialog::setWorkOffset(const QString &workOffset)
 {
     const int index = m_workOffsetCombo->findData(workOffset.trimmed().toUpper());
     m_workOffsetCombo->setCurrentIndex(index >= 0 ? index : 0);
 }
 
+// 函数说明：workOffset负责当前模块的核心处理。
 QString SetupOriginDialog::workOffset() const
 {
     return m_workOffsetCombo->currentData().toString();
 }
 
+// 函数说明：updateResolvedPoint负责当前模块的核心处理。
 void SetupOriginDialog::updateResolvedPoint()
 {
     const bool custom = setupOriginAnchorFromId(m_anchorCombo->currentData().toString())
@@ -168,6 +178,7 @@ void SetupOriginDialog::updateResolvedPoint()
         .arg(double(point.z()), 0, 'f', 3));
 }
 
+// 函数说明：accept负责当前模块的核心处理。
 void SetupOriginDialog::accept()
 {
     QDialog::accept();

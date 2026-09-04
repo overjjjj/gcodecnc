@@ -4,6 +4,7 @@
 
 namespace {
 
+// 函数说明：motionCode负责当前模块的核心处理。
 QString motionCode(const QString &token)
 {
     static const QRegularExpression expression(QStringLiteral("^G0?([0-3])$"),
@@ -12,6 +13,7 @@ QString motionCode(const QString &token)
     return match.hasMatch() ? QStringLiteral("G%1").arg(match.captured(1)) : QString();
 }
 
+// 函数说明：isProtectedLine负责当前模块的核心处理。
 bool isProtectedLine(const QStringList &tokens)
 {
     for (const QString &token : tokens) {
@@ -26,6 +28,7 @@ bool isProtectedLine(const QStringList &tokens)
     return false;
 }
 
+// 函数说明：wordValue负责当前模块的核心处理。
 QString wordValue(const QString &token, QChar word)
 {
     if (token.size() <= 1 || token.at(0).toUpper() != word) {
@@ -38,6 +41,7 @@ QString wordValue(const QString &token, QChar word)
 
 } // namespace
 
+// 函数说明：optimize负责当前模块的核心处理。
 QString GCodeModalOptimizer::optimize(const QString &gcode)
 {
     QStringList output;

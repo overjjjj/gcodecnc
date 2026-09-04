@@ -29,6 +29,7 @@
 
 #include <cmath>
 
+// 函数说明：featureKindName负责当前模块的核心处理。
 QString featureKindName(FeatureKind kind)
 {
     switch (kind) {
@@ -44,6 +45,7 @@ QString featureKindName(FeatureKind kind)
     return QStringLiteral("Unknown");
 }
 
+// 函数说明：faceRegionName负责当前模块的核心处理。
 QString faceRegionName(FaceRegion region)
 {
     switch (region) {
@@ -57,18 +59,21 @@ QString faceRegionName(FaceRegion region)
 }
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：occFailureText负责当前模块的核心处理。
 static QString occFailureText(const Standard_Failure &failure, const QString &fallback)
 {
     const char *msg = failure.GetMessageString();
     return (msg && *msg) ? QString::fromLocal8Bit(msg) : fallback;
 }
 
+// 函数说明：readStepWithEncodedPath负责当前模块的核心处理。
 static IFSelect_ReturnStatus readStepWithEncodedPath(STEPControl_Reader &reader, const QString &path)
 {
     const QByteArray encoded = QFile::encodeName(QDir::toNativeSeparators(path));
     return reader.ReadFile(encoded.constData());
 }
 
+// 函数说明：loadStepShape负责当前模块的核心处理。
 static bool loadStepShape(const QString &filePath, TopoDS_Shape &outShape, QString &outError)
 {
     outShape.Nullify();
@@ -114,6 +119,7 @@ static bool loadStepShape(const QString &filePath, TopoDS_Shape &outShape, QStri
     return true;
 }
 
+// 函数说明：rotatedShape负责当前模块的核心处理。
 static TopoDS_Shape rotatedShape(const TopoDS_Shape &shape, const QQuaternion &rotation)
 {
     if (rotation.isIdentity()) {
@@ -129,11 +135,13 @@ static TopoDS_Shape rotatedShape(const TopoDS_Shape &shape, const QQuaternion &r
 }
 #endif
 
+// 函数说明：load负责当前模块的核心处理。
 bool StepImporter::load(const QString &filePath)
 {
     return loadWithRotation(filePath, QQuaternion());
 }
 
+// 函数说明：loadWithRotation负责当前模块的核心处理。
 bool StepImporter::loadWithRotation(const QString &filePath, const QQuaternion &rotation)
 {
     m_mesh = MeshData{};
@@ -176,6 +184,7 @@ bool StepImporter::loadWithRotation(const QString &filePath, const QQuaternion &
 }
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：buildMesh负责当前模块的核心处理。
 void StepImporter::buildMesh(const TopoDS_Shape &shape)
 {
     BRepMesh_IncrementalMesh mesher(shape, 0.5, false, 0.5, true);
@@ -246,6 +255,7 @@ void StepImporter::buildMesh(const TopoDS_Shape &shape)
     m_mesh.bbMax = QVector3D(bbMax.x(), bbMax.y(), 0.0f);
 }
 
+// 函数说明：recognizeFeatures负责当前模块的核心处理。
 void StepImporter::recognizeFeatures(const TopoDS_Shape &shape)
 {
     m_topoGraph = TopoAnalyzer().analyze(shape);

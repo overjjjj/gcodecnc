@@ -10,7 +10,9 @@
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
 
+// 函数说明：MachineProfileDialog负责当前模块的核心处理。
 MachineProfileDialog::MachineProfileDialog(QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
 {
     setWindowTitle(tr("Machine Profile"));
@@ -39,6 +41,7 @@ MachineProfileDialog::MachineProfileDialog(QWidget *parent)
     layout->addWidget(buttons);
 }
 
+// 函数说明：setProfile负责当前模块的核心处理。
 void MachineProfileDialog::setProfile(const MachineProfile &profile)
 {
     m_profile = profile;
@@ -48,6 +51,7 @@ void MachineProfileDialog::setProfile(const MachineProfile &profile)
     m_safeStartEdit->setPlainText(profile.safeStartBlocks.join(QLatin1Char('\n')));
 }
 
+// 函数说明：accept负责当前模块的核心处理。
 void MachineProfileDialog::accept()
 {
     MachineProfile candidate;

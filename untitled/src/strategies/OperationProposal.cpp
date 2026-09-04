@@ -7,6 +7,7 @@
 
 namespace {
 
+// 函数说明：operationTypeForProposal负责当前模块的核心处理。
 OperationType operationTypeForProposal(const OperationProposal &proposal)
 {
     if (proposal.kind == OperationProposalKind::Hole) {
@@ -26,6 +27,7 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
     return OperationType::Contour;
 }
 
+// 函数说明：operationStageForProposal负责当前模块的核心处理。
 OperationStage operationStageForProposal(const OperationProposal &proposal,
                                           OperationType operationType)
 {
@@ -53,6 +55,7 @@ OperationStage operationStageForProposal(const OperationProposal &proposal,
     return OperationStage::RoughCut;
 }
 
+// 函数说明：hasUsableContourGeometry负责当前模块的核心处理。
 bool hasUsableContourGeometry(const ContourFeature &feature)
 {
     return feature.radius > 0.0 ||
@@ -60,6 +63,7 @@ bool hasUsableContourGeometry(const ContourFeature &feature)
            !feature.points.isEmpty();
 }
 
+// 函数说明：requiresClosedSelection负责当前模块的核心处理。
 bool requiresClosedSelection(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -72,6 +76,7 @@ bool requiresClosedSelection(const QString &strategyId)
 
 } // namespace
 
+// 函数说明：featureRegion负责当前模块的核心处理。
 FaceRegion OperationProposal::featureRegion() const
 {
     return kind == OperationProposalKind::Hole
@@ -79,6 +84,7 @@ FaceRegion OperationProposal::featureRegion() const
         : contourFeature.region;
 }
 
+// 函数说明：confirmOperationProposal负责当前模块的核心处理。
 OperationConfirmationResult confirmOperationProposal(
     const OperationProposal &proposal,
     OperationConfirmationIntent confirmationIntent,
@@ -87,6 +93,7 @@ OperationConfirmationResult confirmOperationProposal(
     return OperationFactory::confirm(proposal, confirmationIntent, context);
 }
 
+// 函数说明：confirm负责当前模块的核心处理。
 OperationConfirmationResult OperationFactory::confirm(
     const OperationProposal &proposal,
     OperationConfirmationIntent confirmationIntent,

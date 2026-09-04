@@ -11,6 +11,7 @@
 
 namespace {
 
+// 函数说明：sha256负责当前模块的核心处理。
 static QString sha256(const QString &content)
 {
     return QString::fromLatin1(
@@ -19,6 +20,7 @@ static QString sha256(const QString &content)
             .toUpper());
 }
 
+// 函数说明：isSafeFileName负责当前模块的核心处理。
 static bool isSafeFileName(const QString &fileName)
 {
     return !fileName.trimmed().isEmpty() &&
@@ -29,6 +31,7 @@ static bool isSafeFileName(const QString &fileName)
            fileName != QStringLiteral("..");
 }
 
+// 函数说明：cq8MacroReferenceError负责当前模块的核心处理。
 static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
 {
     const ProgramFileEntry *mainFile = nullptr;
@@ -169,6 +172,7 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
 
 } // namespace
 
+// 函数说明：exportFiles负责当前模块的核心处理。
 ProgramPackageExportReport ProgramPackageExporter::exportFiles(
     const QString &targetDirectory,
     const QString &mainProgramFileName,

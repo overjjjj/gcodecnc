@@ -6,6 +6,7 @@
 
 namespace {
 
+// 函数说明：dist2D负责当前模块的核心处理。
 static double dist2D(double x0, double y0, double x1, double y1)
 {
     const double dx = x1 - x0;
@@ -24,11 +25,13 @@ static QVector3D dir2D(const QVector3D &a, const QVector3D &b, const QVector3D &
     return QVector3D(float(dx / len), float(dy / len), 0.0f);
 }
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -89,6 +92,7 @@ static QVector<QVector3D> offsetPolygon2D(const QVector<QVector3D> &pts, double 
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams ClosedContourMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -104,6 +108,7 @@ StrategyParams ClosedContourMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ClosedContourMillingStrategy::generate(const HoleFeature &,
                                                        const ToolEntry &,
                                                        const StrategyParams &) const
@@ -111,6 +116,7 @@ ToolpathResult ClosedContourMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("封闭轮廓铣边策略需要轮廓特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ClosedContourMillingStrategy::generate(const ContourFeature &feature,
                                                        const ToolEntry      &tool,
                                                        const StrategyParams &params) const

@@ -15,12 +15,19 @@ HoleSelectionDialog::HoleSelectionDialog(QWidget *parent)
     , m_showSerialCheck(new QCheckBox(this))
     , m_table(new QTableWidget(this))
     , m_sortDiameterButton(new QPushButton(this))
+    // 函数说明：m_sortXButton负责当前模块的核心处理。
     , m_sortXButton(new QPushButton(this))
+    // 函数说明：m_sortYButton负责当前模块的核心处理。
     , m_sortYButton(new QPushButton(this))
+    // 函数说明：m_sortNearestButton负责当前模块的核心处理。
     , m_sortNearestButton(new QPushButton(this))
+    // 函数说明：m_undoButton负责当前模块的核心处理。
     , m_undoButton(new QPushButton(this))
+    // 函数说明：m_redoButton负责当前模块的核心处理。
     , m_redoButton(new QPushButton(this))
+    // 函数说明：m_confirmButton负责当前模块的核心处理。
     , m_confirmButton(new QPushButton(this))
+    // 函数说明：m_cancelButton负责当前模块的核心处理。
     , m_cancelButton(new QPushButton(this))
 {
     setObjectName(QStringLiteral("holeSelectionDialog"));
@@ -76,38 +83,50 @@ HoleSelectionDialog::HoleSelectionDialog(QWidget *parent)
     buttons->addWidget(m_cancelButton);
     layout->addLayout(buttons);
 
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_showSerialCheck, &QCheckBox::toggled, this, [this](bool checked) {
         m_session.setDisplaySerialNumbers(checked);
         refreshTable();
     });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_sortDiameterButton, &QPushButton::clicked, this,
             [this]() { sortDiameterDescending(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_sortXButton, &QPushButton::clicked, this,
             [this]() { if (m_session.sort(HoleSelectionSort::XAscending)) refreshTable(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_sortYButton, &QPushButton::clicked, this,
             [this]() { if (m_session.sort(HoleSelectionSort::YAscending)) refreshTable(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_sortNearestButton, &QPushButton::clicked, this,
             [this]() { if (m_session.sort(HoleSelectionSort::NearestNeighbor)) refreshTable(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_undoButton, &QPushButton::clicked, this, [this]() { undo(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_redoButton, &QPushButton::clicked, this, [this]() { redo(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_confirmButton, &QPushButton::clicked, this, [this]() { confirm(); });
+    // 函数说明：connect负责当前模块的核心处理。
     connect(m_cancelButton, &QPushButton::clicked, this, [this]() { cancel(); });
 
     retranslateUi();
 }
 
+// 函数说明：setChineseUi负责当前模块的核心处理。
 void HoleSelectionDialog::setChineseUi(bool chinese)
 {
     m_chinese = chinese;
     retranslateUi();
 }
 
+// 函数说明：setRecords负责当前模块的核心处理。
 void HoleSelectionDialog::setRecords(const QList<HoleSelectionRecord> &records)
 {
     m_session = HoleSelectionSession(records);
     refreshTable();
 }
 
+// 函数说明：sortDiameterDescending负责当前模块的核心处理。
 bool HoleSelectionDialog::sortDiameterDescending()
 {
     if (!m_session.sort(HoleSelectionSort::DiameterDescending)) {
@@ -117,6 +136,7 @@ bool HoleSelectionDialog::sortDiameterDescending()
     return true;
 }
 
+// 函数说明：undo负责当前模块的核心处理。
 bool HoleSelectionDialog::undo()
 {
     if (!m_session.undo()) {
@@ -126,6 +146,7 @@ bool HoleSelectionDialog::undo()
     return true;
 }
 
+// 函数说明：redo负责当前模块的核心处理。
 bool HoleSelectionDialog::redo()
 {
     if (!m_session.redo()) {
@@ -135,6 +156,7 @@ bool HoleSelectionDialog::redo()
     return true;
 }
 
+// 函数说明：confirm负责当前模块的核心处理。
 bool HoleSelectionDialog::confirm()
 {
     if (m_session.records().isEmpty()) {
@@ -145,6 +167,7 @@ bool HoleSelectionDialog::confirm()
     return true;
 }
 
+// 函数说明：refreshTable负责当前模块的核心处理。
 void HoleSelectionDialog::refreshTable()
 {
     const QSignalBlocker blocker(m_showSerialCheck);
@@ -165,6 +188,7 @@ void HoleSelectionDialog::refreshTable()
     m_undoButton->setEnabled(m_session.isDirty());
 }
 
+// 函数说明：retranslateUi负责当前模块的核心处理。
 void HoleSelectionDialog::retranslateUi()
 {
     setWindowTitle(m_chinese ? QStringLiteral("孔位选择与排序")
@@ -190,6 +214,7 @@ void HoleSelectionDialog::retranslateUi()
     refreshTable();
 }
 
+// 函数说明：cancel负责当前模块的核心处理。
 void HoleSelectionDialog::cancel()
 {
     m_session.cancel();

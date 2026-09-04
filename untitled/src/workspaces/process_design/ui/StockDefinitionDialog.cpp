@@ -9,8 +9,11 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+// 函数说明：StockDefinitionDialog负责当前模块的核心处理。
 StockDefinitionDialog::StockDefinitionDialog(bool chinese, QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
     : QDialog(parent)
+    // 函数说明：m_chinese负责当前模块的核心处理。
     , m_chinese(chinese)
 {
     const auto ui = [chinese](const char *zh, const char *en) {
@@ -84,6 +87,7 @@ StockDefinitionDialog::StockDefinitionDialog(bool chinese, QWidget *parent)
     updateSummary();
 }
 
+// 函数说明：createAllowanceSpinBox负责当前模块的核心处理。
 QDoubleSpinBox *StockDefinitionDialog::createAllowanceSpinBox()
 {
     auto *spin = new QDoubleSpinBox(this);
@@ -95,6 +99,7 @@ QDoubleSpinBox *StockDefinitionDialog::createAllowanceSpinBox()
     return spin;
 }
 
+// 函数说明：setPartBounds负责当前模块的核心处理。
 void StockDefinitionDialog::setPartBounds(const QVector3D &minimum,
                                           const QVector3D &maximum)
 {
@@ -103,6 +108,7 @@ void StockDefinitionDialog::setPartBounds(const QVector3D &minimum,
     updateSummary();
 }
 
+// 函数说明：setStockDefinition负责当前模块的核心处理。
 void StockDefinitionDialog::setStockDefinition(const StockDefinition &stock)
 {
     m_minusX->setValue(stock.minusX);
@@ -114,6 +120,7 @@ void StockDefinitionDialog::setStockDefinition(const StockDefinition &stock)
     updateSummary();
 }
 
+// 函数说明：stockDefinition负责当前模块的核心处理。
 StockDefinition StockDefinitionDialog::stockDefinition() const
 {
     StockDefinition stock;
@@ -127,6 +134,7 @@ StockDefinition StockDefinitionDialog::stockDefinition() const
     return stock;
 }
 
+// 函数说明：updateSummary负责当前模块的核心处理。
 void StockDefinitionDialog::updateSummary()
 {
     const QVector3D partSize = m_partMax - m_partMin;

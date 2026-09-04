@@ -1,6 +1,7 @@
 #include "FeatureClassifier.h"
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：classifyHole负责当前模块的核心处理。
 void FeatureClassifier::classifyHole(MachiningFeature &feature, const TopoGraph &graph) const
 {
     int planarCaps = 0;

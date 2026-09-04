@@ -12,7 +12,9 @@
 #include <cmath>
 #include <limits>
 
+// 函数说明：ViewportWidget负责当前模块的核心处理。
 ViewportWidget::ViewportWidget(QWidget *parent)
+    // 函数说明：QOpenGLWidget负责当前模块的核心处理。
     : QOpenGLWidget(parent)
 {
     setFocusPolicy(Qt::StrongFocus);
@@ -20,6 +22,7 @@ ViewportWidget::ViewportWidget(QWidget *parent)
 
 namespace {
 
+// 函数说明：normalizeToolMesh负责当前模块的核心处理。
 static void normalizeToolMesh(MeshData &mesh)
 {
     if (mesh.triangles.isEmpty()) {
@@ -62,6 +65,7 @@ static void normalizeToolMesh(MeshData &mesh)
     mesh.bbMax = bbMax + shift;
 }
 
+// 函数说明：loadObjToolModel负责当前模块的核心处理。
 static bool loadObjToolModel(const QString &path, MeshData &mesh)
 {
     QFile file(path);
@@ -106,6 +110,7 @@ static bool loadObjToolModel(const QString &path, MeshData &mesh)
     return !mesh.triangles.isEmpty();
 }
 
+// 函数说明：loadAsciiStlToolModel负责当前模块的核心处理。
 static bool loadAsciiStlToolModel(const QString &path, MeshData &mesh)
 {
     QFile file(path);
@@ -141,6 +146,7 @@ static bool loadAsciiStlToolModel(const QString &path, MeshData &mesh)
     return !mesh.triangles.isEmpty();
 }
 
+// 函数说明：loadBinaryStlToolModel负责当前模块的核心处理。
 static bool loadBinaryStlToolModel(const QString &path, MeshData &mesh)
 {
     QFile file(path);
@@ -199,6 +205,7 @@ static bool loadBinaryStlToolModel(const QString &path, MeshData &mesh)
     return !mesh.triangles.isEmpty();
 }
 
+// 函数说明：loadToolModel负责当前模块的核心处理。
 static bool loadToolModel(const QString &path, MeshData &mesh)
 {
     mesh = MeshData{};
@@ -229,6 +236,7 @@ static bool loadToolModel(const QString &path, MeshData &mesh)
 
 } // namespace
 
+// 函数说明：setMesh负责当前模块的核心处理。
 void ViewportWidget::setMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
@@ -242,6 +250,7 @@ void ViewportWidget::setMesh(const MeshData &mesh)
     update();
 }
 
+// 函数说明：setHighlightedFaces负责当前模块的核心处理。
 void ViewportWidget::setHighlightedFaces(const QVector<int> &faceIndices)
 {
     m_highlightedFaces.clear();
@@ -253,6 +262,7 @@ void ViewportWidget::setHighlightedFaces(const QVector<int> &faceIndices)
     update();
 }
 
+// 函数说明：clearHighlight负责当前模块的核心处理。
 void ViewportWidget::clearHighlight()
 {
     if (m_highlightedFaces.isEmpty()) {
@@ -262,12 +272,14 @@ void ViewportWidget::clearHighlight()
     update();
 }
 
+// 函数说明：resetCamera负责当前模块的核心处理。
 void ViewportWidget::resetCamera()
 {
     m_rotX = 30.0f; m_rotZ = -45.0f; m_zoom = 1.0f; m_pan = {};
     update();
 }
 
+// 函数说明：initializeGL负责当前模块的核心处理。
 void ViewportWidget::initializeGL()
 {
     initializeOpenGLFunctions();
@@ -277,6 +289,7 @@ void ViewportWidget::initializeGL()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+// 函数说明：resizeGL负责当前模块的核心处理。
 void ViewportWidget::resizeGL(int w, int h)
 {
     glViewport(0, 0, w, h);
@@ -284,6 +297,7 @@ void ViewportWidget::resizeGL(int w, int h)
     m_proj.perspective(45.0f, float(w) / float(h ? h : 1), 0.1f, 5000.0f);
 }
 
+// 函数说明：paintGL负责当前模块的核心处理。
 void ViewportWidget::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -307,6 +321,7 @@ void ViewportWidget::paintGL()
     drawToolMarker();
 }
 
+// 函数说明：drawGrid负责当前模块的核心处理。
 void ViewportWidget::drawGrid()
 {
     const int steps = 20;
@@ -324,6 +339,7 @@ void ViewportWidget::drawGrid()
     glEnd();
 }
 
+// 函数说明：drawAxes负责当前模块的核心处理。
 void ViewportWidget::drawAxes()
 {
     glLineWidth(2.0f);
@@ -335,6 +351,7 @@ void ViewportWidget::drawAxes()
     glLineWidth(1.0f);
 }
 
+// 函数说明：drawMesh负责当前模块的核心处理。
 void ViewportWidget::drawMesh()
 {
     if (m_mesh.isEmpty()) return;
@@ -355,6 +372,7 @@ void ViewportWidget::drawMesh()
     glEnd();
 }
 
+// 函数说明：mousePressEvent负责当前模块的核心处理。
 void ViewportWidget::mousePressEvent(QMouseEvent *e)
 {
     m_lastMouse  = e->pos();
@@ -362,6 +380,7 @@ void ViewportWidget::mousePressEvent(QMouseEvent *e)
     m_mouseButton = e->button();
 }
 
+// 函数说明：mouseMoveEvent负责当前模块的核心处理。
 void ViewportWidget::mouseMoveEvent(QMouseEvent *e)
 {
     QPoint delta = e->pos() - m_lastMouse;
@@ -377,6 +396,7 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent *e)
     update();
 }
 
+// 函数说明：mouseReleaseEvent负责当前模块的核心处理。
 void ViewportWidget::mouseReleaseEvent(QMouseEvent *e)
 {
     const bool shortLeftClick = m_mouseButton == Qt::LeftButton &&
@@ -393,6 +413,7 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent *e)
     m_mouseButton = 0;
 }
 
+// 函数说明：wheelEvent负责当前模块的核心处理。
 void ViewportWidget::wheelEvent(QWheelEvent *e)
 {
     float factor = e->angleDelta().y() > 0 ? 1.1f : 1.0f / 1.1f;
@@ -400,6 +421,7 @@ void ViewportWidget::wheelEvent(QWheelEvent *e)
     update();
 }
 
+// 函数说明：pickFaceAt负责当前模块的核心处理。
 int ViewportWidget::pickFaceAt(const QPoint &pos, QVector3D *hitPoint) const
 {
     if (m_mesh.isEmpty() || width() <= 0 || height() <= 0) {
@@ -467,6 +489,7 @@ int ViewportWidget::pickFaceAt(const QPoint &pos, QVector3D *hitPoint) const
     return bestFace;
 }
 
+// 函数说明：setToolPath负责当前模块的核心处理。
 void ViewportWidget::setToolPath(const QVector<QVector3D> &path, const QVector<bool> &rapidSegments)
 {
     m_toolPath = path;
@@ -474,6 +497,7 @@ void ViewportWidget::setToolPath(const QVector<QVector3D> &path, const QVector<b
     update();
 }
 
+// 函数说明：setToolPosition负责当前模块的核心处理。
 void ViewportWidget::setToolPosition(const QVector3D &pos)
 {
     m_toolPos    = pos;
@@ -481,12 +505,14 @@ void ViewportWidget::setToolPosition(const QVector3D &pos)
     update();
 }
 
+// 函数说明：setToolDiameter负责当前模块的核心处理。
 void ViewportWidget::setToolDiameter(double diameter)
 {
     m_toolDiameter = diameter > 0.0 ? float(qBound(0.5, diameter, 200.0)) : 6.0f;
     update();
 }
 
+// 函数说明：setToolModelPath负责当前模块的核心处理。
 void ViewportWidget::setToolModelPath(const QString &path)
 {
     const QString normalized = path.trimmed();
@@ -502,6 +528,7 @@ void ViewportWidget::setToolModelPath(const QString &path)
     update();
 }
 
+// 函数说明：clearToolPath负责当前模块的核心处理。
 void ViewportWidget::clearToolPath()
 {
     m_toolPath.clear();
@@ -510,6 +537,7 @@ void ViewportWidget::clearToolPath()
     update();
 }
 
+// 函数说明：setContourChoicePreview负责当前模块的核心处理。
 void ViewportWidget::setContourChoicePreview(const QVector<QVector3D> &points,
                                               bool closed,
                                               int cutterSide)
@@ -520,6 +548,7 @@ void ViewportWidget::setContourChoicePreview(const QVector<QVector3D> &points,
     update();
 }
 
+// 函数说明：clearContourChoicePreview负责当前模块的核心处理。
 void ViewportWidget::clearContourChoicePreview()
 {
     if (m_contourChoicePoints.isEmpty()) {
@@ -529,6 +558,7 @@ void ViewportWidget::clearContourChoicePreview()
     update();
 }
 
+// 函数说明：drawContourChoicePreview负责当前模块的核心处理。
 void ViewportWidget::drawContourChoicePreview()
 {
     if (m_contourChoicePoints.size() < 2) {
@@ -593,6 +623,7 @@ void ViewportWidget::drawContourChoicePreview()
     glEnable(GL_DEPTH_TEST);
 }
 
+// 函数说明：drawToolPath负责当前模块的核心处理。
 void ViewportWidget::drawToolPath()
 {
     if (m_toolPath.size() < 2) return;
@@ -616,6 +647,7 @@ void ViewportWidget::drawToolPath()
     glLineWidth(1.0f);
 }
 
+// 函数说明：drawToolMarker负责当前模块的核心处理。
 void ViewportWidget::drawToolMarker()
 {
     if (!m_hasToolPos) return;

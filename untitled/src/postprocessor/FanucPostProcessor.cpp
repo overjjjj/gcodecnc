@@ -24,6 +24,7 @@ struct HoleCycleCall {
 // 函数说明：fd用于完成当前模块的对应处理。
 static QString fd(double v) { return QString::number(v, 'f', 3); }
 
+// 函数说明：parseHoleCycle负责当前模块的核心处理。
 static HoleCycleCall parseHoleCycle(const QString &line)
 {
     HoleCycleCall call;
@@ -104,6 +105,7 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
     return QString();
 }
 
+// 函数说明：cycleSignature负责当前模块的核心处理。
 static QString cycleSignature(const HoleCycleCall &call)
 {
     return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9")
@@ -116,6 +118,7 @@ static QString cycleSignature(const HoleCycleCall &call)
 
 } // namespace
 
+// 函数说明：wrapGCode负责当前模块的核心处理。
 QString FanucPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                                        const PostProcessorOptions &opts) const
 {

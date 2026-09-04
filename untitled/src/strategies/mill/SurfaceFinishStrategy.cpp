@@ -5,6 +5,7 @@
 
 namespace {
 
+// 函数说明：planarSpan负责当前模块的核心处理。
 static double planarSpan(double explicitValue, double fallbackRadius, double fallbackToolDiameter)
 {
     if (explicitValue > 0.0) {
@@ -18,6 +19,7 @@ static double planarSpan(double explicitValue, double fallbackRadius, double fal
 
 }
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams SurfaceFinishStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -31,6 +33,7 @@ StrategyParams SurfaceFinishStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult SurfaceFinishStrategy::generate(const HoleFeature &,
                                                 const ToolEntry &,
                                                 const StrategyParams &) const

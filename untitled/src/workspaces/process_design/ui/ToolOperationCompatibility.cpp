@@ -5,6 +5,7 @@
 
 namespace {
 
+// 函数说明：expectedToolType负责当前模块的核心处理。
 QString expectedToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
@@ -18,6 +19,7 @@ QString expectedToolType(const QString &strategyId)
     return QStringLiteral("drill");
 }
 
+// 函数说明：addIssue负责当前模块的核心处理。
 void addIssue(ToolCompatibilityReport &report,
               const QString &code,
               ToolCompatibilitySeverity severity,
@@ -28,11 +30,13 @@ void addIssue(ToolCompatibilityReport &report,
     report.issues.append({code, severity, useChinese ? chinese : english});
 }
 
+// 函数说明：effectiveDepth负责当前模块的核心处理。
 double effectiveDepth(double featureDepth, double requestedDepth)
 {
     return requestedDepth >= 0.0 ? requestedDepth : featureDepth;
 }
 
+// 函数说明：reviewCommon负责当前模块的核心处理。
 void reviewCommon(ToolCompatibilityReport &report,
                   const QString &strategyId,
                   const ToolEntry &tool,
@@ -78,6 +82,7 @@ void reviewCommon(ToolCompatibilityReport &report,
 
 } // namespace
 
+// 函数说明：hasBlockingIssues负责当前模块的核心处理。
 bool ToolCompatibilityReport::hasBlockingIssues() const
 {
     // 函数说明：any_of用于完成当前模块的对应处理。
@@ -86,6 +91,7 @@ bool ToolCompatibilityReport::hasBlockingIssues() const
     });
 }
 
+// 函数说明：hasWarnings负责当前模块的核心处理。
 bool ToolCompatibilityReport::hasWarnings() const
 {
     // 函数说明：any_of用于完成当前模块的对应处理。
@@ -94,6 +100,7 @@ bool ToolCompatibilityReport::hasWarnings() const
     });
 }
 
+// 函数说明：reviewToolCompatibility负责当前模块的核心处理。
 ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
                                                 const ToolEntry &tool,
                                                 const HoleFeature &feature,
@@ -147,6 +154,7 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
     return report;
 }
 
+// 函数说明：reviewToolCompatibility负责当前模块的核心处理。
 ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
                                                 const ToolEntry &tool,
                                                 const ContourFeature &feature,

@@ -10,11 +10,13 @@
 
 namespace {
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -23,6 +25,7 @@ static QString feedXY(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：feedXYZ负责当前模块的核心处理。
 static QString feedXYZ(double x, double y, double z, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
@@ -32,6 +35,7 @@ static QString feedXYZ(double x, double y, double z, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：roughWidthOffsets负责当前模块的核心处理。
 static std::vector<double> roughWidthOffsets(double centerLimit, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -57,6 +61,7 @@ static std::vector<double> roughWidthOffsets(double centerLimit, double stepover
     return offsets;
 }
 
+// 函数说明：finishBottomOffsets负责当前模块的核心处理。
 static std::vector<double> finishBottomOffsets(double centerLimit, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -80,6 +85,7 @@ static std::vector<double> finishBottomOffsets(double centerLimit, double stepov
     return offsets;
 }
 
+// 函数说明：localDistance负责当前模块的核心处理。
 static double localDistance(double u0, double v0, double u1, double v1)
 {
     const double du = u1 - u0;
@@ -87,6 +93,7 @@ static double localDistance(double u0, double v0, double u1, double v1)
     return std::sqrt(du * du + dv * dv);
 }
 
+// 函数说明：openSlotLineRange负责当前模块的核心处理。
 static void openSlotLineRange(const SlotMachiningGeometry &geometry,
                               double layerDepth,
                               double &startU,
@@ -111,6 +118,7 @@ static void openSlotLineRange(const SlotMachiningGeometry &geometry,
     }
 }
 
+// 函数说明：validateOpenSlotRoughOffsets负责当前模块的核心处理。
 static bool validateOpenSlotRoughOffsets(const SlotMachiningGeometry &geometry,
                                          const std::vector<double> &offsets,
                                          double layerDepth,
@@ -405,6 +413,7 @@ static void appendOpenSlotSlopeFinish(QString &gcode,
     }
 }
 
+// 函数说明：validateOpenSlotGeneratedGCode负责当前模块的核心处理。
 static bool validateOpenSlotGeneratedGCode(const QString &gcode,
                                            const SlotMachiningGeometry &geometry,
                                            double feedHeight,
@@ -510,6 +519,7 @@ static bool validateOpenSlotGeneratedGCode(const QString &gcode,
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams SlotMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -531,6 +541,7 @@ StrategyParams SlotMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult SlotMillingStrategy::generate(const HoleFeature &,
                                              const ToolEntry &,
                                              const StrategyParams &) const
@@ -538,6 +549,7 @@ ToolpathResult SlotMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("Slot milling requires a contour feature."), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
                                              const ToolEntry      &tool,
                                              const StrategyParams &params) const
