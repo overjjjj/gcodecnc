@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
 
-    QFile sourceFile(QStringLiteral("src/ui/MainWindow.cpp"));
+    QFile sourceFile(QStringLiteral("src/app/MainWindow.cpp"));
     if (expect(sourceFile.open(QIODevice::ReadOnly | QIODevice::Text),
                "main-window source should be readable")) {
         return 1;

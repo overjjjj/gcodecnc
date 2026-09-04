@@ -31,8 +31,8 @@ SOURCES += \
     src/core/StockDefinition.cpp \
     src/workspaces/machine_operation/model/MachineProfileValidator.cpp \
     src/core/Settings.cpp \
-    src/ui/MainWindow.cpp \
-    src/ui/ViewportWidget.cpp \
+    src/app/MainWindow.cpp \
+    src/workspaces/shared/ui/ViewportWidget.cpp \
     src/workspaces/process_design/ui/StrategyPanel.cpp \
     src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
     src/workspaces/machine_operation/ui/MachineProfileDialog.cpp \
@@ -49,7 +49,7 @@ SOURCES += \
     src/workspaces/process_design/ui/SetupOriginDialog.cpp \
     src/workspaces/process_design/ui/StockDefinitionDialog.cpp \
     src/workspaces/process_design/ui/FeatureListPanel.cpp \
-    src/ui/BottomBar.cpp \
+    src/workspaces/shared/ui/BottomBar.cpp \
     src/workspaces/program_verification/ui/GCodeEditor.cpp \
     src/workspaces/program_verification/ui/GCodeHighlighter.cpp \
     src/workspaces/machine_operation/ui/CncSendDialog.cpp \
@@ -116,8 +116,8 @@ HEADERS += \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
     src/core/Settings.h \
-    src/ui/MainWindow.h \
-    src/ui/ViewportWidget.h \
+    src/app/MainWindow.h \
+    src/workspaces/shared/ui/ViewportWidget.h \
     src/workspaces/process_design/ui/StrategyPanel.h \
     src/workspaces/process_design/ui/ParameterEditorDialog.h \
     src/workspaces/machine_operation/ui/MachineProfileDialog.h \
@@ -134,7 +134,7 @@ HEADERS += \
     src/workspaces/process_design/ui/SetupOriginDialog.h \
     src/workspaces/process_design/ui/StockDefinitionDialog.h \
     src/workspaces/process_design/ui/FeatureListPanel.h \
-    src/ui/BottomBar.h \
+    src/workspaces/shared/ui/BottomBar.h \
     src/workspaces/program_verification/ui/GCodeEditor.h \
     src/workspaces/program_verification/ui/GCodeHighlighter.h \
     src/workspaces/machine_operation/ui/CncSendDialog.h \

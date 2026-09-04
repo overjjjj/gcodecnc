@@ -9,7 +9,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
 
-    QFile sourceFile(QStringLiteral("src/ui/MainWindow.cpp"));
+    QFile sourceFile(QStringLiteral("src/app/MainWindow.cpp"));
     if (!sourceFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         std::cerr << "main-window source should be readable\n";
         return 1;

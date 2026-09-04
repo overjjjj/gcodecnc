@@ -27,7 +27,7 @@ QString readUtf8(const QString &path)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    const QString source = readUtf8(QStringLiteral("src/ui/MainWindow.cpp"));
+    const QString source = readUtf8(QStringLiteral("src/app/MainWindow.cpp"));
     const QString strategySource = readUtf8(QStringLiteral("src/workspaces/process_design/ui/StrategyPanel.cpp"));
     const QString strategyBaseSource = readUtf8(
         QStringLiteral("src/strategies/StrategyBase.h"));

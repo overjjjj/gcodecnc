@@ -4,7 +4,7 @@
 #include <QMatrix4x4>
 #include <QSet>
 #include <QVector3D>
-#include "../import/StepImporter.h"
+#include "../../../import/StepImporter.h"
 
 class ViewportWidget : public QOpenGLWidget, protected QOpenGLFunctions_1_1
 {

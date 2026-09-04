@@ -1,4 +1,4 @@
-#include "src/ui/MainWindow.h"
+#include "src/app/MainWindow.h"
 #include "src/core/AppController.h"
 #include "src/core/Settings.h"
 #include "src/strategies/StrategyFactory.h"

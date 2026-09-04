@@ -1,6 +1,6 @@
 #include "MainWindow.h"
 
-#include "BottomBar.h"
+#include "../workspaces/shared/ui/BottomBar.h"
 #include "../workspaces/machine_operation/ui/CncSendDialog.h"
 #include "../workspaces/process_design/ui/ContourFeatureGrouping.h"
 #include "../workspaces/process_design/ui/ContourMachiningChoiceDialog.h"
@@ -17,7 +17,7 @@
 #include "../workspaces/process_design/ui/CircleMillDialog.h"
 #include "../workspaces/process_design/ui/ParameterEditorDialog.h"
 #include "../workspaces/process_design/ui/ToolLibraryPanel.h"
-#include "ViewportWidget.h"
+#include "../workspaces/shared/ui/ViewportWidget.h"
 #include "../core/AppController.h"
 #include "../workspaces/process_design/selection/FeatureIdentity.h"
 #include "../core/SetupOrientation.h"

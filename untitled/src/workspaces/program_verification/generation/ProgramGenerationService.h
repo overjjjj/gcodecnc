@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../core/MachineProfile.h"
+#include "../../../workspaces/machine_operation/model/MachineProfile.h"
 #include "../../../core/ProjectManager.h"
 #include "../../../postprocessor/PostProcessorBase.h"
 #include "../../../strategies/MachiningOperation.h"
