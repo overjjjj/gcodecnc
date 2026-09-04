@@ -4,6 +4,7 @@
 
 namespace {
 
+// 按位置符号选取轴向最小值、最大值或中点。
 float axisValue(float minimum, float maximum, int position)
 {
     if (position < 0) return minimum;
@@ -13,6 +14,7 @@ float axisValue(float minimum, float maximum, int position)
 
 } // namespace
 
+// 从包围盒顶部锚点或自定义点计算原点，再叠加用户偏移。
 QVector3D SetupOrigin::resolvedPoint(const QVector3D &bbMin, const QVector3D &bbMax) const
 {
     if (anchor == SetupOriginAnchor::CustomPoint) {
@@ -38,6 +40,7 @@ QVector3D SetupOrigin::resolvedPoint(const QVector3D &bbMin, const QVector3D &bb
                      bbMax.z()) + offset;
 }
 
+// 计算已确认原点和工件坐标系的 SHA-256 指纹；未确认时返回空串。
 QString SetupOrigin::fingerprint(const QString &workOffset) const
 {
     if (!confirmed) {
@@ -55,6 +58,7 @@ QString SetupOrigin::fingerprint(const QString &workOffset) const
                                                         QCryptographicHash::Sha256).toHex());
 }
 
+// 将原点锚点转换为项目存储标识，未知值回退为顶部中心。
 QString setupOriginAnchorId(SetupOriginAnchor anchor)
 {
     switch (anchor) {
@@ -72,6 +76,7 @@ QString setupOriginAnchorId(SetupOriginAnchor anchor)
     return QStringLiteral("top_center");
 }
 
+// 从存储标识恢复原点锚点，未知标识回退为顶部中心。
 SetupOriginAnchor setupOriginAnchorFromId(const QString &id)
 {
     if (id == QStringLiteral("top_min_x_min_y")) return SetupOriginAnchor::TopMinXMinY;

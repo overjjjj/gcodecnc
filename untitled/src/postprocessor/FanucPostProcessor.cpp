@@ -21,6 +21,7 @@ struct HoleCycleCall {
     bool   valid = false;
 };
 
+// 函数说明：fd用于完成当前模块的对应处理。
 static QString fd(double v) { return QString::number(v, 'f', 3); }
 
 static HoleCycleCall parseHoleCycle(const QString &line)

@@ -3,6 +3,7 @@
 #include <QCryptographicHash>
 #include <QFile>
 
+// 读取源文件并返回带 sha256: 前缀的内容指纹；失败返回空串并填写可选错误信息。
 QString SourceFileFingerprint::calculate(const QString &filePath, QString *error)
 {
     if (error) {

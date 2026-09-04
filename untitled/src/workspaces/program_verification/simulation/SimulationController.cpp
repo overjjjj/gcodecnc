@@ -378,9 +378,13 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
                     if (tool.diameter > 0.0) currentToolDiameter = tool.diameter;
                     currentToolModelPath = tool.modelPath;
                 } else if (letter == 'X') { hx = val; hasX = true; }
+                // 函数说明：if用于完成当前模块的对应处理。
                 else if (letter == 'Y') { hy = val; hasY = true; }
+                // 函数说明：if用于完成当前模块的对应处理。
                 else if (letter == 'Z') { bottomZ = val; hasZ = true; }
+                // 函数说明：if用于完成当前模块的对应处理。
                 else if (letter == 'R') { returnZ = val; hasR = true; }
+                // 函数说明：if用于完成当前模块的对应处理。
                 else if (letter == 'Q') { peckDepth = val; }
             }
 
@@ -413,6 +417,7 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
                     currentToolModelPath = tool.modelPath;
                 }
                 if      (letter == 'X') { hx = val; hasX = true; }
+                // 函数说明：if用于完成当前模块的对应处理。
                 else if (letter == 'Y') { hy = val; hasY = true; }
             }
             if (hasX || hasY) {
@@ -441,9 +446,13 @@ QVector<ToolMove> SimulationController::parseGCode(const QString &gcode)
                 if (tool.diameter > 0.0) currentToolDiameter = tool.diameter;
                 currentToolModelPath = tool.modelPath;
             } else if (letter == 'X') { x = val; hasX = true; }
+            // 函数说明：if用于完成当前模块的对应处理。
             else if (letter == 'Y') { y = val; hasY = true; }
+            // 函数说明：if用于完成当前模块的对应处理。
             else if (letter == 'Z') { z = val; hasZ = true; }
+            // 函数说明：if用于完成当前模块的对应处理。
             else if (letter == 'I') { iOffset = val; hasI = true; }
+            // 函数说明：if用于完成当前模块的对应处理。
             else if (letter == 'J') { jOffset = val; hasJ = true; }
         }
 

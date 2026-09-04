@@ -7,18 +7,21 @@
 #include <algorithm>
 #include <cmath>
 
+// 创建刀具库并追加内置默认刀具。
 ToolLibrary::ToolLibrary(QObject *parent)
     : QObject(parent)
 {
     loadDefaults();
 }
 
+// 返回进程内共享的刀具库，首次访问时构造并加载默认刀具。
 ToolLibrary &ToolLibrary::instance()
 {
     static ToolLibrary s;
     return s;
 }
 
+// 追加刀具副本；刀号为零时分配编号，并发出刀具库变更信号。
 void ToolLibrary::addTool(const ToolEntry &t)
 {
     ToolEntry e = t;
@@ -29,6 +32,7 @@ void ToolLibrary::addTool(const ToolEntry &t)
     emit toolLibraryChanged();
 }
 
+// 按刀号替换首个匹配项并通知界面；未找到时不修改刀具库。
 void ToolLibrary::updateTool(const ToolEntry &t)
 {
     for (ToolEntry &e : m_tools) {
@@ -40,6 +44,7 @@ void ToolLibrary::updateTool(const ToolEntry &t)
     }
 }
 
+// 移除所有匹配刀号的条目，并发出刀具库变更信号。
 void ToolLibrary::removeTool(int id)
 {
     m_tools.erase(std::remove_if(m_tools.begin(), m_tools.end(),
@@ -47,6 +52,7 @@ void ToolLibrary::removeTool(int id)
     emit toolLibraryChanged();
 }
 
+// 按刀号返回首个匹配刀具的副本；未找到时返回默认构造的刀具。
 ToolEntry ToolLibrary::tool(int id) const
 {
     for (const auto &t : m_tools) {
@@ -57,6 +63,7 @@ ToolEntry ToolLibrary::tool(int id) const
     return {};
 }
 
+// 按类型标识精确筛选刀具，保持原有顺序返回副本列表。
 QVector<ToolEntry> ToolLibrary::toolsByType(const QString &type) const
 {
     QVector<ToolEntry> res;
@@ -68,6 +75,7 @@ QVector<ToolEntry> ToolLibrary::toolsByType(const QString &type) const
     return res;
 }
 
+// 将列出的刀具字段序列化为 JSON 并覆盖目标文件；无法打开时返回 false。
 bool ToolLibrary::saveToFile(const QString &path)
 {
     QJsonArray arr;
@@ -96,6 +104,7 @@ bool ToolLibrary::saveToFile(const QString &path)
     return true;
 }
 
+// 从 JSON 重建刀具列表、推进可分配编号并通知界面；打开或解析失败时保留原列表。
 bool ToolLibrary::loadFromFile(const QString &path)
 {
     QFile file(path);
@@ -130,6 +139,7 @@ bool ToolLibrary::loadFromFile(const QString &path)
     return true;
 }
 
+// 追加内置钻头、丝锥、铰刀和铣刀，给匹配规格绑定默认模型路径。
 void ToolLibrary::loadDefaults()
 {
     auto modelPath = [](const QString &file) {

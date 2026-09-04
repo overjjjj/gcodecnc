@@ -80,6 +80,7 @@ void reviewCommon(ToolCompatibilityReport &report,
 
 bool ToolCompatibilityReport::hasBlockingIssues() const
 {
+    // 函数说明：any_of用于完成当前模块的对应处理。
     return std::any_of(issues.cbegin(), issues.cend(), [](const ToolCompatibilityIssue &issue) {
         return issue.severity == ToolCompatibilitySeverity::Blocking;
     });
@@ -87,6 +88,7 @@ bool ToolCompatibilityReport::hasBlockingIssues() const
 
 bool ToolCompatibilityReport::hasWarnings() const
 {
+    // 函数说明：any_of用于完成当前模块的对应处理。
     return std::any_of(issues.cbegin(), issues.cend(), [](const ToolCompatibilityIssue &issue) {
         return issue.severity == ToolCompatibilitySeverity::Warning;
     });
@@ -126,6 +128,7 @@ ToolCompatibilityReport reviewToolCompatibility(const QString &strategyId,
                  QStringLiteral("圆插补刀具必须明显小于目标孔径。"),
                  QStringLiteral("A circular-milling tool must be clearly smaller than the target hole."), chinese);
     } else if (strategyId == QStringLiteral("hole_reaming")
+               // 函数说明：abs用于完成当前模块的对应处理。
                && std::abs(tool.diameter - targetDiameter) > tolerance) {
         addIssue(report, QStringLiteral("reamer_diameter"), ToolCompatibilitySeverity::Blocking,
                  QStringLiteral("铰刀直径与目标孔径不匹配。"),

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+// 将六个方向的毛坯余量下限限制为零，直接更新当前定义。
 void StockDefinition::normalize()
 {
     minusX = std::max(0.0, minusX);
@@ -14,6 +15,7 @@ void StockDefinition::normalize()
     plusZ = std::max(0.0, plusZ);
 }
 
+// 用非负余量向外扩展零件包围盒，返回毛坯边界而不修改当前定义。
 StockBounds StockDefinition::resolvedBounds(const QVector3D &partMin,
                                              const QVector3D &partMax) const
 {
@@ -29,6 +31,7 @@ StockBounds StockDefinition::resolvedBounds(const QVector3D &partMin,
     return bounds;
 }
 
+// 按规范化余量生成已确认毛坯的 SHA-256 指纹；未确认时返回空串。
 QString StockDefinition::fingerprint() const
 {
     if (!confirmed) {
