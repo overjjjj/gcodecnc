@@ -1,4 +1,4 @@
-#include "src/ui/ToolOperationCompatibility.h"
+#include "src/workspaces/process_design/ui/ToolOperationCompatibility.h"
 
 #include <QCoreApplication>
 #include <QTextStream>

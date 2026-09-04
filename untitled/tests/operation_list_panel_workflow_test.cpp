@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
 
-    QFile sourceFile(QStringLiteral("src/ui/OperationListPanel.cpp"));
+    QFile sourceFile(QStringLiteral("src/workspaces/process_design/ui/OperationListPanel.cpp"));
     if (expect(sourceFile.open(QIODevice::ReadOnly | QIODevice::Text),
                "operation-list source should be readable")) {
         return 1;

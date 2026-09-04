@@ -1,4 +1,4 @@
-#include "src/ui/HoleFeatureGrouping.h"
+#include "src/workspaces/process_design/ui/HoleFeatureGrouping.h"
 
 #include <QCoreApplication>
 #include <QTextStream>

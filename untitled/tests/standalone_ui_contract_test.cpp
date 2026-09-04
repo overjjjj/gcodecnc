@@ -28,15 +28,15 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     const QString source = readUtf8(QStringLiteral("src/ui/MainWindow.cpp"));
-    const QString strategySource = readUtf8(QStringLiteral("src/ui/StrategyPanel.cpp"));
+    const QString strategySource = readUtf8(QStringLiteral("src/workspaces/process_design/ui/StrategyPanel.cpp"));
     const QString strategyBaseSource = readUtf8(
         QStringLiteral("src/strategies/StrategyBase.h"));
     const QString parameterEditorSource = readUtf8(
-        QStringLiteral("src/ui/ParameterEditorDialog.cpp"));
+        QStringLiteral("src/workspaces/process_design/ui/ParameterEditorDialog.cpp"));
     const QString projectManagerSource = readUtf8(
         QStringLiteral("src/core/ProjectManager.h"));
     const QString highlighterSource = readUtf8(
-        QStringLiteral("src/ui/GCodeHighlighter.cpp"));
+        QStringLiteral("src/workspaces/program_verification/ui/GCodeHighlighter.cpp"));
 
     require(source.contains(QStringLiteral("systemHeader")),
             QStringLiteral("main window must provide a persistent system header"));

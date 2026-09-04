@@ -1,4 +1,4 @@
-#include "../src/ui/HoleSelectionDialog.h"
+#include "../src/workspaces/process_design/ui/HoleSelectionDialog.h"
 
 #include <QApplication>
 

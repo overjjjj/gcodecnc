@@ -125,7 +125,8 @@ try {
     Invoke-TestBuild `
         -Name "workspace_facade_contract_test" `
         -Sources @("tests\workspace_facade_contract_test.cpp") `
-        -Libs @("-lQt5Core")
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
 
     Invoke-TestBuild `
         -Name "standalone_ui_contract_test" `
@@ -161,7 +162,7 @@ try {
 
     Invoke-TestBuild `
         -Name "hole_selection_dialog_test" `
-        -Sources @("tests\hole_selection_dialog_test.cpp", "src\ui\HoleSelectionDialog.cpp", "src\core\HoleSelectionSession.cpp") `
+        -Sources @("tests\hole_selection_dialog_test.cpp", "src\workspaces\process_design\ui\HoleSelectionDialog.cpp", "src\workspaces\process_design\selection\HoleSelectionSession.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui", "-lQt5Widgets") `
         -NeedsGui
 
@@ -172,13 +173,13 @@ try {
 
     Invoke-TestBuild `
         -Name "feature_list_filter_test" `
-        -Sources @("tests\feature_list_filter_test.cpp", "src\ui\FeatureDisplayFilter.cpp") `
+        -Sources @("tests\feature_list_filter_test.cpp", "src\workspaces\process_design\ui\FeatureDisplayFilter.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "hole_feature_grouping_test" `
-        -Sources @("tests\hole_feature_grouping_test.cpp", "src\ui\HoleFeatureGrouping.cpp") `
+        -Sources @("tests\hole_feature_grouping_test.cpp", "src\workspaces\process_design\ui\HoleFeatureGrouping.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -207,19 +208,19 @@ try {
 
     Invoke-TestBuild `
         -Name "contour_feature_grouping_test" `
-        -Sources @("tests\contour_feature_grouping_test.cpp", "src\ui\ContourFeatureGrouping.cpp") `
+        -Sources @("tests\contour_feature_grouping_test.cpp", "src\workspaces\process_design\ui\ContourFeatureGrouping.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "contour_machining_choice_test" `
-        -Sources @("tests\contour_machining_choice_test.cpp", "src\ui\ContourMachiningChoice.cpp") `
+        -Sources @("tests\contour_machining_choice_test.cpp", "src\workspaces\process_design\ui\ContourMachiningChoice.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "tool_operation_compatibility_test" `
-        -Sources @("tests\tool_operation_compatibility_test.cpp", "src\ui\ToolOperationCompatibility.cpp") `
+        -Sources @("tests\tool_operation_compatibility_test.cpp", "src\workspaces\process_design\ui\ToolOperationCompatibility.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -282,13 +283,13 @@ try {
 
     Invoke-TestBuild `
         -Name "operation_proposal_confirmation_test" `
-        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\strategies\OperationProposal.cpp", "src\core\FeatureIdentity.cpp", "src\core\SelectionChainController.cpp") `
+        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\strategies\OperationProposal.cpp", "src\workspaces\process_design\selection\FeatureIdentity.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     Invoke-TestBuild `
         -Name "program_generation_service_test" `
-        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", "src\core\SelectionChainController.cpp") `
+        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -360,7 +361,7 @@ try {
         -Name "acceptance_step_model_test" `
         -TestSource "tests\acceptance_step_model_test.cpp" `
         -ExtraSources @(
-            "src\core\FeatureIdentity.cpp",
+            "src\workspaces\process_design\selection\FeatureIdentity.cpp",
             "src\services\ProgramGenerationService.cpp",
             "src\strategies\StrategyBase.cpp",
             "src\strategies\hole\PeckDrillingStrategy.cpp",

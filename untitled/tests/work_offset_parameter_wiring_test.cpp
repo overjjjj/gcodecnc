@@ -30,8 +30,8 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
 
-    const QString strategyHeader = readSource(QStringLiteral("src/ui/StrategyPanel.h"));
-    const QString strategySource = readSource(QStringLiteral("src/ui/StrategyPanel.cpp"));
+    const QString strategyHeader = readSource(QStringLiteral("src/workspaces/process_design/ui/StrategyPanel.h"));
+    const QString strategySource = readSource(QStringLiteral("src/workspaces/process_design/ui/StrategyPanel.cpp"));
     const QString mainWindowSource = readSource(QStringLiteral("src/ui/MainWindow.cpp"));
     if (expect(strategyHeader.contains(QStringLiteral("setWorkOffset")),
                "the strategy panel should accept the active work offset") ||

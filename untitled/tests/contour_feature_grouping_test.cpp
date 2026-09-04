@@ -1,4 +1,4 @@
-#include "src/ui/ContourFeatureGrouping.h"
+#include "src/workspaces/process_design/ui/ContourFeatureGrouping.h"
 
 #include <QCoreApplication>
 #include <QTextStream>

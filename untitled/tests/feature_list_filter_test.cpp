@@ -1,4 +1,4 @@
-#include "src/ui/FeatureDisplayFilter.h"
+#include "src/workspaces/process_design/ui/FeatureDisplayFilter.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
