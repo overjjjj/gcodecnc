@@ -86,15 +86,15 @@ SOURCES += \
     src/postprocessor/FanucPostProcessor.cpp \
     src/postprocessor/Cq8PostProcessor.cpp \
     src/postprocessor/PostProcessorRegistry.cpp \
-    src/gcode/GCodeSafetyValidator.cpp \
+    src/workspaces/program_verification/safety/GCodeSafetyValidator.cpp \
     src/gcode/GCodeModalOptimizer.cpp \
     src/gcode/Cq8MacroProgramBuilder.cpp \
     src/gcode/ProgramPackageExporter.cpp \
     src/gcode/SiemensProgramPackage.cpp \
-    src/gcode/ProgramSnapshotFingerprint.cpp \
+    src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.cpp \
     src/gcode/ProgramSnapshotStatus.cpp \
-    src/services/ProgramGenerationService.cpp \
-    src/simulation/SimulationController.cpp \
+    src/workspaces/program_verification/generation/ProgramGenerationService.cpp \
+    src/workspaces/program_verification/simulation/SimulationController.cpp \
     src/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
     src/tool/ToolEntry.cpp
@@ -172,16 +172,16 @@ HEADERS += \
     src/postprocessor/FanucPostProcessor.h \
     src/postprocessor/Cq8PostProcessor.h \
     src/postprocessor/PostProcessorRegistry.h \
-    src/gcode/GCodeSafetyValidator.h \
+    src/workspaces/program_verification/safety/GCodeSafetyValidator.h \
     src/gcode/GCodeModalOptimizer.h \
     src/gcode/Cq8MacroProgramBuilder.h \
     src/gcode/ParametricToolpathProgram.h \
     src/gcode/ProgramPackageExporter.h \
     src/gcode/SiemensProgramPackage.h \
-    src/gcode/ProgramSnapshotFingerprint.h \
+    src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h \
     src/gcode/ProgramSnapshotStatus.h \
-    src/services/ProgramGenerationService.h \
-    src/simulation/SimulationController.h \
+    src/workspaces/program_verification/generation/ProgramGenerationService.h \
+    src/workspaces/program_verification/simulation/SimulationController.h \
     src/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \
     src/tool/ToolEntry.h

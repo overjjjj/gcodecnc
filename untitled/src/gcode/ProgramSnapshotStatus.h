@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ProgramSnapshotFingerprint.h"
+#include "../workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h"
 
 #include <QList>
 #include <QString>

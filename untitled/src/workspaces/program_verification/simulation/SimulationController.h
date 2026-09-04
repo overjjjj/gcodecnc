@@ -3,7 +3,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QVector3D>
-#include "../import/StepImporter.h"
+#include "../../../import/StepImporter.h"
 
 struct ToolMove {
     QVector3D from;

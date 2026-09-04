@@ -197,7 +197,7 @@ try {
 
     Invoke-TestBuild `
         -Name "gcode_safety_validator_test" `
-        -Sources @("tests\gcode_safety_validator_test.cpp", "src\gcode\GCodeSafetyValidator.cpp") `
+        -Sources @("tests\gcode_safety_validator_test.cpp", "src\workspaces\program_verification\safety\GCodeSafetyValidator.cpp") `
         -Libs @("-lQt5Core")
 
     Invoke-TestBuild `
@@ -260,7 +260,7 @@ try {
 
     Invoke-TestBuild `
         -Name "program_snapshot_fingerprint_test" `
-        -Sources @("tests\program_snapshot_fingerprint_test.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp") `
+        -Sources @("tests\program_snapshot_fingerprint_test.cpp", "src\workspaces\program_verification\fingerprint\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -289,12 +289,12 @@ try {
 
     Invoke-TestBuild `
         -Name "program_generation_service_test" `
-        -Sources @("tests\program_generation_service_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
+        -Sources @("tests\program_generation_service_test.cpp", "src\workspaces\program_verification\generation\ProgramGenerationService.cpp", "src\strategies\hole\PeckDrillingStrategy.cpp", "src\workspaces\program_verification\safety\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\workspaces\program_verification\fingerprint\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
     $SimulationControllerMoc = Join-Path $DebugDir "moc_SimulationController_test.cpp"
-    & moc src\simulation\SimulationController.h -o $SimulationControllerMoc
+    & moc src\workspaces\program_verification\simulation\SimulationController.h -o $SimulationControllerMoc
     if ($LASTEXITCODE -ne 0) {
         throw "SimulationController moc failed"
     }
@@ -307,7 +307,7 @@ try {
 
     Invoke-TestBuild `
         -Name "simulation_gcode_test" `
-        -Sources @("tests\simulation_gcode_test.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Sources @("tests\simulation_gcode_test.cpp", "src\workspaces\program_verification\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 

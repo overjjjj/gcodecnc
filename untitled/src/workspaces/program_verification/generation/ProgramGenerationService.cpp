@@ -1,11 +1,11 @@
 #include "ProgramGenerationService.h"
 
-#include "../gcode/GCodeModalOptimizer.h"
-#include "../gcode/GCodeSafetyValidator.h"
-#include "../gcode/Cq8MacroProgramBuilder.h"
-#include "../gcode/ProgramSnapshotFingerprint.h"
-#include "../gcode/SiemensProgramPackage.h"
-#include "../strategies/StrategyBase.h"
+#include "../../../gcode/GCodeModalOptimizer.h"
+#include "../safety/GCodeSafetyValidator.h"
+#include "../../../gcode/Cq8MacroProgramBuilder.h"
+#include "../fingerprint/ProgramSnapshotFingerprint.h"
+#include "../../../gcode/SiemensProgramPackage.h"
+#include "../../../strategies/StrategyBase.h"
 
 #include <QDateTime>
 #include <QCryptographicHash>

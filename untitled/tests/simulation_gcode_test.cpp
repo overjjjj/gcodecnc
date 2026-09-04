@@ -1,4 +1,4 @@
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 
 #include <QCoreApplication>
 #include <QString>

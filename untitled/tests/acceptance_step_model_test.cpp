@@ -1,8 +1,8 @@
 #include "../src/import/StepImporter.h"
 #include "../src/workspaces/process_design/selection/FeatureIdentity.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 #include "../src/strategies/mill/PocketRoughingStrategy.h"
 

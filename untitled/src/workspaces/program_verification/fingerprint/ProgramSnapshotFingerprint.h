@@ -4,7 +4,7 @@
 #include <QString>
 #include <QStringList>
 
-#include "../strategies/MachiningOperation.h"
+#include "../../../strategies/MachiningOperation.h"
 
 class ProgramSnapshotFingerprint
 {

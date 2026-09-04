@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../core/MachineProfile.h"
-#include "../core/ProjectManager.h"
-#include "../postprocessor/PostProcessorBase.h"
-#include "../strategies/MachiningOperation.h"
+#include "../../../core/MachineProfile.h"
+#include "../../../core/ProjectManager.h"
+#include "../../../postprocessor/PostProcessorBase.h"
+#include "../../../strategies/MachiningOperation.h"
 
 #include <QList>
 #include <QStringList>

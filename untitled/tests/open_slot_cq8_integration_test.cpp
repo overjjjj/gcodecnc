@@ -1,7 +1,7 @@
-#include "../src/gcode/GCodeSafetyValidator.h"
+#include "../src/workspaces/program_verification/safety/GCodeSafetyValidator.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/mill/SlotMillingStrategy.h"
 #include <QCoreApplication>
 #include <algorithm>

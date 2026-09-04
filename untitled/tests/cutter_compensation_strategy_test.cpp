@@ -4,7 +4,7 @@
 #include "../src/strategies/mill/ContourFinishStrategy.h"
 #include "../src/strategies/mill/OpenContourMillingStrategy.h"
 #include "../src/strategies/mill/SlotMillingStrategy.h"
-#include "../src/gcode/GCodeSafetyValidator.h"
+#include "../src/workspaces/program_verification/safety/GCodeSafetyValidator.h"
 
 #include <QCoreApplication>
 #include <QStringList>

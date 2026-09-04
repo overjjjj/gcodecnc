@@ -1,4 +1,4 @@
-#include "../src/gcode/GCodeSafetyValidator.h"
+#include "../src/workspaces/program_verification/safety/GCodeSafetyValidator.h"
 
 #include <QCoreApplication>
 #include <QString>

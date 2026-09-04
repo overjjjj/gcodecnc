@@ -1,4 +1,4 @@
-#include "../src/services/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
 #include "../src/postprocessor/SiemensPostProcessor.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
