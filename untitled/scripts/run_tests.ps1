@@ -14,6 +14,18 @@ $Mkspecs = Join-Path $QtDir "mkspecs\win32-g++"
 
 $env:PATH = "$QtBin;$env:PATH"
 
+function Resolve-MigratedSourcePath {
+    param([string]$Path)
+    $map = @{
+        "src\services\ProgramGenerationService.cpp" = "src\workspaces\program_verification\generation\ProgramGenerationService.cpp"
+        "src\simulation\SimulationController.cpp" = "src\workspaces\program_verification\simulation\SimulationController.cpp"
+        "src\gcode\GCodeSafetyValidator.cpp" = "src\workspaces\program_verification\safety\GCodeSafetyValidator.cpp"
+        "src\gcode\ProgramSnapshotFingerprint.cpp" = "src\workspaces\program_verification\fingerprint\ProgramSnapshotFingerprint.cpp"
+    }
+    if ($map.ContainsKey($Path)) { return $map[$Path] }
+    return $Path
+}
+
 if (!(Test-Path $DebugDir)) {
     New-Item -ItemType Directory -Path $DebugDir | Out-Null
 }
@@ -26,6 +38,7 @@ function Invoke-TestBuild {
         [switch]$NeedsGui
     )
 
+    $Sources = @($Sources | ForEach-Object { Resolve-MigratedSourcePath $_ })
     $Output = Join-Path $DebugDir "$Name.exe"
     $Includes = @(
         "-I.",
@@ -58,6 +71,7 @@ function Invoke-OccFixtureTest {
         [string[]]$ExtraSources = @()
     )
 
+    $ExtraSources = @($ExtraSources | ForEach-Object { Resolve-MigratedSourcePath $_ })
     $OccInclude = Join-Path $OccPrefix "include\opencascade"
     $OccLib = Join-Path $OccPrefix "lib"
     $OccBin = Join-Path $OccPrefix "bin"
