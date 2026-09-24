@@ -8,6 +8,20 @@
 #include <cmath>
 #include <limits>
 
+// Cylinder axes are unoriented: both +Z and -Z describe the same hole.
+// A normalized transverse component <= 1e-6 allows float geometry noise,
+// not a machining tilt. Use double arithmetic to normalize finite float axes.
+inline bool holeAxisAlignedWithZ(const HoleFeature &feature)
+{
+    const double x = feature.axis.x();
+    const double y = feature.axis.y();
+    const double z = feature.axis.z();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return false;
+    const double length = std::sqrt(x * x + y * y + z * z);
+    if (length == 0.0) return false;
+    return std::hypot(x / length, y / length) <= 1.0e-6;
+}
+
 struct HoleZRange {
     double entryZ = 0.0;
     double retractZ = 0.0;

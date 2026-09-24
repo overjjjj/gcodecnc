@@ -1,4 +1,5 @@
 #include "ProgramGenerationService.h"
+#include "../../../strategies/hole/HoleStrategyUtils.h"
 
 #include "../../../gcode/GCodeModalOptimizer.h"
 #include "../safety/GCodeSafetyValidator.h"
@@ -397,6 +398,9 @@ ProgramGenerationResult ProgramGenerationService::generate(
                                  .arg(index + 1);
         }
         if (operations[index].opType == OperationType::Hole) {
+            if (!holeAxisAlignedWithZ(operations[index].holeFeature)) {
+                output.errors << QStringLiteral("Operation %1: hole axis is invalid or not parallel to the Setup Z axis; a matching Setup is required before G-code generation.").arg(index + 1);
+            }
             if (operations[index].holeFeature.region == FaceRegion::Side) {
                 output.errors << QStringLiteral(
                     "Operation %1: Side-face hole requires a dedicated Setup before G-code generation.")

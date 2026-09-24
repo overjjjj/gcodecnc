@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "../strategies/hole/HoleStrategyUtils.h"
 #include "../workspaces/process_design/operations/SlotOperationState.h"
 #include "MillingBatchCommit.h"
 #include "controllers/AppWorkspaceRouter.h"
@@ -2043,6 +2044,11 @@ static QString holeSetupRestrictionMessage(const HoleFeature &feature, bool zh)
                   : QStringLiteral("The selected hole is missing valid geometry, so an operation cannot be created.");
     }
 
+    if (!holeAxisAlignedWithZ(feature)) {
+        return zh ? QStringLiteral("孔轴无效或不平行于当前 Setup 的 Z 轴，不能建立钻孔工序；请重新设置加工方向。")
+                  : QStringLiteral("The hole axis is invalid or not parallel to the current Setup Z axis. A matching Setup is required before drilling.");
+    }
+
     if (feature.region == FaceRegion::Side) {
         return zh ? QStringLiteral("当前钻孔流程只支持正面 Z 向单 Setup；侧面孔需要重新装夹并设置对应正面。")
                   : QStringLiteral("The current drilling workflow only supports a single front-face Z setup. Side holes need fixture rotation and a matching Setup.");
@@ -3746,6 +3752,8 @@ void MainWindow::connectSignals()
 
     // 函数说明：connect负责当前模块的核心处理。
     connect(m_gcodeEditor, &QPlainTextEdit::textChanged, this, [this]() {
+        // Text edits invalidate the loaded path; program loading restores its expanded preview afterwards.
+        m_simCtrl->loadGCode(QString());
         m_simulationReviewState = m_gcodeEditor->toPlainText().trimmed().isEmpty()
             ? SimulationReviewState::Unavailable
             : SimulationReviewState::Ready;

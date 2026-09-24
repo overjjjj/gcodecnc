@@ -8,6 +8,8 @@
 #include <QDebug>
 
 #include <iostream>
+#include <limits>
+#include <cmath>
 #include <memory>
 #include <utility>
 
@@ -136,6 +138,13 @@ int main(int argc, char **argv)
 
     const MachiningOperation valid =
         holeOperation(QStringLiteral("op-valid"), QStringLiteral("safe_hole"), 1);
+    for (const auto axis : {QVector3D(0.104528f, 0, 0.994522f), QVector3D(0.258819f, 0, 0.965926f), QVector3D(), QVector3D(std::numeric_limits<float>::infinity(), 0, 1), QVector3D(0, 0, std::numeric_limits<float>::quiet_NaN()), QVector3D(0, 0, 2), QVector3D(0, 0, -2)}) {
+        auto candidate = valid;
+        candidate.holeFeature.axis = axis;
+        const bool aligned = axis.x() == 0 && axis.y() == 0 && std::isfinite(axis.z()) && axis.z() != 0;
+        const auto result = service.generate({candidate}, postProcessor, options, snapshotOptions);
+        if (!expect(result.ok == aligned, QStringLiteral("hole axis gate must reject tilted/invalid axes and accept scaled +/-Z"))) return 21;
+    }
     const ProgramGenerationResult success =
         service.generate({valid}, postProcessor, options, snapshotOptions);
 

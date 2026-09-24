@@ -1,4 +1,5 @@
 #include "ProgramSnapshotStatus.h"
+#include "../strategies/hole/HoleStrategyUtils.h"
 #include "../strategies/mill/BlindSlotMillingStrategy.h"
 #include "../strategies/mill/TaperedSlotMillingStrategy.h"
 
@@ -138,6 +139,13 @@ ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOpera
     const QString currentFingerprint =
         ProgramSnapshotFingerprint::calculate(operations, sourceOperationIds);
     for (const auto &operation : operations) {
+        if (sourceOperationIds.contains(operation.id) && operation.opType == OperationType::Hole &&
+            (!holeAxisAlignedWithZ(operation.holeFeature) || operation.holeFeature.region == FaceRegion::Side ||
+             operation.holeFeature.region == FaceRegion::Back)) {
+            status.state = ProgramSnapshotState::Changed;
+            status.message = QStringLiteral("This program contains a hole incompatible with the current Z Setup. Correct the Setup and regenerate; export and machine send are blocked.");
+            return status;
+        }
         if (sourceOperationIds.contains(operation.id) &&
             operation.strategyId == QStringLiteral("mill_blind_slot") &&
             BlindSlotMillingStrategy::isUnsupportedG42(operation.params.get(QStringLiteral("compensation"), 0.0))) {

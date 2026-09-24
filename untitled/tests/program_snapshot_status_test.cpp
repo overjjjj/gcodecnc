@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QVector3D>
 #include <iostream>
+#include <limits>
+#include <cmath>
 
 static int expect(bool condition, const char *message)
 {
@@ -53,6 +55,17 @@ int main(int argc, char **argv)
                    "same-fingerprint Valid blind slot G42 must be blocked; CAM/G41 remain fresh")) return 1;
     }
 
+    for (const auto axis : {QVector3D(0.104528f, 0, 0.994522f), QVector3D(0.258819f, 0, 0.965926f), QVector3D(), QVector3D(std::numeric_limits<float>::infinity(), 0, 1), QVector3D(0, 0, std::numeric_limits<float>::quiet_NaN()), QVector3D(0, 0, 2), QVector3D(0, 0, -2)}) {
+        auto candidate = sampleOperation();
+        candidate.holeFeature.axis = axis;
+        candidate.toolpathState = ToolpathState::Valid;
+        const QList<MachiningOperation> saved{candidate};
+        const QStringList ids{candidate.id};
+        const auto fingerprint = ProgramSnapshotFingerprint::calculate(saved, ids);
+        const auto status = ProgramSnapshotStatus::evaluate(saved, ids, fingerprint, {}, {}, "tool-a", "tool-a");
+        const bool aligned = axis.x() == 0 && axis.y() == 0 && std::isfinite(axis.z()) && axis.z() != 0;
+        if (expect(status.okForOutput() == aligned, "same-fingerprint legacy tilted/invalid hole must be blocked; +/-Z remain usable")) return 21;
+    }
     const QList<MachiningOperation> operations{sampleOperation()};
     const QStringList sourceIds{QStringLiteral("op-1")};
     const QString fingerprint =

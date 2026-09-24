@@ -169,6 +169,8 @@ try {
         -Name "slot_b2v_startup_test"
     Invoke-MainWindowTest `
         -Name "slot_output_gate_mainwindow_test"
+    Invoke-MainWindowTest `
+        -Name "simulation_text_refresh_mainwindow_test"
 
     Invoke-TestBuild `
         -Name "cq8_macro_program_builder_test" `
