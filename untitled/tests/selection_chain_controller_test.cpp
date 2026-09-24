@@ -167,6 +167,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    SelectionChainController singleEdge;
+    singleEdge.begin();
+    singleEdge.addGeometry(QStringLiteral("edge-only"), QVector3D());
+    if (expect(singleEdge.reverse() && singleEdge.reversed(),
+               "a single selected edge must support reversing its traversal")) return 1;
+
     std::cout << "PASS selection_chain_controller_test\n";
     return 0;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../strategies/MachiningOperation.h"
+#include "MachiningOperation.h"
 
 #include <QList>
 

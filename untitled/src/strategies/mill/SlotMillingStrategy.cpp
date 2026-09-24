@@ -584,9 +584,18 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
     const double feedRate = params.get(QStringLiteral("feedRate"), 800.0);
     const double plungeRate = params.get(QStringLiteral("plungeRate"), 200.0);
     const double comp = params.get(QStringLiteral("compensation"), 0.0);
+    const double targetDepth = params.get(QStringLiteral("depth"), feature.depth);
+    if (!std::isfinite(targetDepth) || targetDepth <= 0.0 || targetDepth > feature.depth) {
+        res.errorMsg = QObject::tr("Target depth must be positive and no greater than the true slot depth.");
+        return res;
+    }
+    if (targetDepth < feature.depth && (feature.slopeStartLength != 0.0 || feature.slopeEndLength != 0.0)) {
+        res.errorMsg = QObject::tr("Partial-depth open slots with end slopes require a proven cutter-offset profile; no toolpath was generated.");
+        return res;
+    }
 
     const bool camOffset = std::abs(comp) < 1.0e-9;
-    const int layerCount = static_cast<int>(std::ceil(feature.depth / stepDown));
+    const int layerCount = static_cast<int>(std::ceil(targetDepth / stepDown));
     const double leadLength = std::max(tool.diameter, 5.0);
 
     if ((camOffset ? geometry.roughHalfWidth : geometry.halfWidth) <= 0.0) {
@@ -618,7 +627,7 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
     double totalLength = 0.0;
 
     for (int layer = 1; layer <= layerCount; ++layer) {
-        const double zLayer = geometry.zTop - std::min(layer * stepDown, feature.depth);
+        const double zLayer = geometry.zTop - std::min(layer * stepDown, targetDepth);
 
         if (geometry.roughMaxU > geometry.roughMinU && geometry.roughHalfWidth > 0.0) {
             const std::vector<double> offsets = roughWidthOffsets(geometry.roughHalfWidth, stepover, tool.diameter);
@@ -749,6 +758,6 @@ ToolpathResult SlotMillingStrategy::generate(const ContourFeature &feature,
 
     res.gcode = gcode;
     res.ok = true;
-    res.estimatedTimeS = (totalLength / feedRate * 60.0) + (feature.depth / plungeRate * 60.0);
+    res.estimatedTimeS = (totalLength / feedRate * 60.0) + (targetDepth / plungeRate * 60.0);
     return res;
 }

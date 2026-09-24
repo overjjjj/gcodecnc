@@ -1,21 +1,10 @@
 #pragma once
 #include <QString>
 #include <QStringList>
-#include <QVariantMap>
+#include "../core/StrategyParams.h"
 #include "../import/StepImporter.h"
 #include "../tool/ToolEntry.h"
 #include "../gcode/ParametricToolpathProgram.h"
-
-struct StrategyParams {
-    QVariantMap values;
-    double get(const QString &k, double def = 0.0) const {
-        return values.value(k, def).toDouble();
-    }
-    void set(const QString &k, double v) { values[k] = v; }
-    QString getString(const QString &k, const QString &def = {}) const {
-        return values.value(k, def).toString();
-    }
-};
 
 struct ToolpathResult {
     QString     gcode;

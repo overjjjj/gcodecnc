@@ -20,18 +20,23 @@ TRANSLATIONS += \
 
 SOURCES += \
     main.cpp \
-    src/core/AppController.cpp \
+    src/app/AppController.cpp \
     src/core/ProjectManager.cpp \
     src/core/SourceFileFingerprint.cpp \
     src/workspaces/process_design/selection/FeatureIdentity.cpp \
     src/workspaces/process_design/selection/HoleSelectionSession.cpp \
     src/workspaces/process_design/selection/SelectionChainController.cpp \
+    src/workspaces/process_design/ui/SelectionChainDialog.cpp \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
     src/workspaces/machine_operation/model/MachineProfileValidator.cpp \
     src/core/Settings.cpp \
     src/app/MainWindow.cpp \
+    src/app/MillingBatchCommit.cpp \
+    src/app/controllers/AppWorkspaceRouter.cpp \
+    src/app/controllers/ProjectCommandController.cpp \
+    src/app/controllers/SlotOperationController.cpp \
     src/workspaces/shared/ui/ViewportWidget.cpp \
     src/workspaces/process_design/ui/StrategyPanel.cpp \
     src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
@@ -80,7 +85,7 @@ SOURCES += \
     src/strategies/mill/TaperedSlotMillingStrategy.cpp \
     src/strategies/StrategyBase.cpp \
     src/strategies/StrategyFactory.cpp \
-    src/strategies/OperationProposal.cpp \
+    src/workspaces/process_design/operations/OperationProposal.cpp \
     src/postprocessor/PostProcessorBase.cpp \
     src/postprocessor/SiemensPostProcessor.cpp \
     src/postprocessor/FanucPostProcessor.cpp \
@@ -100,7 +105,7 @@ SOURCES += \
     src/tool/ToolEntry.cpp
 
 HEADERS += \
-    src/core/AppController.h \
+    src/app/AppController.h \
     src/workspaces/machine_operation/model/MachineProfile.h \
     src/workspaces/machine_operation/model/MachineProfileValidator.h \
     src/core/ProjectManager.h \
@@ -109,14 +114,24 @@ HEADERS += \
     src/workspaces/process_design/selection/HoleSelectionSession.h \
     src/workspaces/process_design/operations/OperationWorkflow.h \
     src/workspaces/process_design/selection/SelectionChainController.h \
+    src/workspaces/process_design/selection/SelectionCandidate.h \
+    src/workspaces/process_design/ui/SelectionChainDialog.h \
     src/workspaces/shared/WorkspaceModule.h \
     src/workspaces/shared/WorkspaceContracts.h \
-    src/workspaces/shared/WorkspaceFacades.h \
+    src/workspaces/process_design/ProcessDesignWorkspaceFacade.h \
+    src/workspaces/program_verification/ProgramVerificationWorkspaceFacade.h \
+    src/workspaces/machine_operation/MachineOperationWorkspaceFacade.h \
+    src/core/StrategyParams.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
     src/core/Settings.h \
     src/app/MainWindow.h \
+    src/app/MillingBatchCommit.h \
+    src/app/controllers/AppWorkspaceRouter.h \
+    src/app/controllers/ProjectCommandController.h \
+    src/app/controllers/SlotOperationController.h \
+    src/workspaces/process_design/operations/SlotOperationState.h \
     src/workspaces/shared/ui/ViewportWidget.h \
     src/workspaces/process_design/ui/StrategyPanel.h \
     src/workspaces/process_design/ui/ParameterEditorDialog.h \
@@ -165,8 +180,8 @@ HEADERS += \
     src/strategies/mill/TaperedSlotMillingStrategy.h \
     src/strategies/StrategyBase.h \
     src/strategies/StrategyFactory.h \
-    src/strategies/MachiningOperation.h \
-    src/strategies/OperationProposal.h \
+    src/workspaces/process_design/operations/MachiningOperation.h \
+    src/workspaces/process_design/operations/OperationProposal.h \
     src/postprocessor/PostProcessorBase.h \
     src/postprocessor/SiemensPostProcessor.h \
     src/postprocessor/FanucPostProcessor.h \
@@ -310,7 +325,24 @@ contains(QT_ARCH, i386) {
                 libraw-24.dll libspeex-1.dll libtiff-6.dll \
                 libvorbis-0.dll libvorbisenc-2.dll libvpx-1.dll \
                 libwebp-7.dll libwebpmux-3.dll libx264-165.dll libx265-215.dll \
-                libxml2-16.dll libzvbi-0.dll xvidcore.dll
+                libxml2-16.dll libzvbi-0.dll xvidcore.dll \
+                libbluray-3.dll libcairo-2.dll libcairo-gobject-2.dll \
+                libcrypto-3-x64.dll libdatrie-1.dll libdeflate.dll libffi-8.dll \
+                libfontconfig-1.dll libfribidi-0.dll libgdk_pixbuf-2.0-0.dll \
+                libgio-2.0-0.dll libgme.dll libgmodule-2.0-0.dll \
+                libgnutls-30.dll libgobject-2.0-0.dll libgomp-1.dll libhwy.dll \
+                libIlmThread-3_4.dll libjbig-0.dll libjpegxr.dll libjxl_cms.dll \
+                libjxrglue.dll liblc3-1.dll liblcms2-2.dll libLerc.dll \
+                libmodplug-1.dll libogg-0.dll libopencore-amrnb-0.dll \
+                libopencore-amrwb-0.dll libOpenEXRCore-3_4.dll \
+                libopenjph-0.26.dll libopenvr_api.dll libp11-kit-0.dll \
+                libpango-1.0-0.dll libpangocairo-1.0-0.dll \
+                libpangoft2-1.0-0.dll libpangowin32-1.0-0.dll libpixman-1-0.dll \
+                librav1e.dll librsvg-2-2.dll librtmp-1.dll \
+                libshaderc_shared.dll libsharpyuv-0.dll libsoxr.dll libsrt.dll \
+                libssh.dll libSvtAv1Enc-4.dll libtasn1-6.dll libthai-0.dll \
+                libtheoradec-2.dll libtheoraenc-2.dll libTKHLR.dll \
+                libunistring-5.dll libva_win32.dll libva.dll libvpl-2.dll
 
             for (dll, OCC_RUNTIME_DLLS) {
                 exists($$OCC_RUNTIME_DIR/$${dll}) {

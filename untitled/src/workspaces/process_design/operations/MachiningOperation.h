@@ -1,6 +1,7 @@
 #pragma once
-#include "StrategyBase.h"
-#include "../workspaces/process_design/selection/SelectionChainController.h"
+#include "../../../core/StrategyParams.h"
+#include "../../../import/StepImporter.h"
+#include "../selection/SelectionChainController.h"
 #include <QVariant>
 
 enum class OperationType {
@@ -19,6 +20,7 @@ enum class OperationStage {
     Cleanup
 };
 
+// 刀路的计算状态独立于人工确认：正式工序初始仍为 Empty，输入变化后转为 Stale。
 enum class ToolpathState {
     Empty,
     Calculating,
@@ -31,17 +33,17 @@ struct MachiningOperation {
     QString        id;
     OperationType  opType     = OperationType::Hole;
     OperationStage stage      = OperationStage::RoughCut;
-    QString        featureRef;   // human-readable label (e.g. "Hole D12 Z-20")
+    QString        featureRef;   // 供界面显示的标签，不作为几何身份依据。
     QString        strategyId;
     int            toolId     = -1;
     StrategyParams params;
     bool           enabled = true;
     QStringList    geometryRefs;
-    SelectionChain selectionEvidence;
+    SelectionChain selectionEvidence;  // 保留确认时的选择、来源和 Setup 证据。
     ToolpathState  toolpathState = ToolpathState::Empty;
     QStringList    warnings;
 
-    // Exactly one of these is valid, depending on opType
+    // opType 为 Hole 时使用 holeFeature，其余工序使用 contourFeature。
     HoleFeature    holeFeature;
     ContourFeature contourFeature;
 

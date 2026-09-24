@@ -36,8 +36,11 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
-    const QString fixturePath = QDir(QCoreApplication::applicationDirPath())
-                                    .filePath(QStringLiteral("../测试模型/孔.stp"));
+    const QString fixtureRoot = app.arguments().size() > 1
+                                    ? app.arguments().at(1)
+                                    : QDir(QCoreApplication::applicationDirPath()).filePath("..");
+    const QString fixturePath = QDir(fixtureRoot)
+                                    .filePath(QStringLiteral("测试模型/孔.stp"));
     QFile fixture(fixturePath);
     if (!expect(fixture.open(QIODevice::ReadOnly),
                 "the committed hole STEP fixture should be readable")) {

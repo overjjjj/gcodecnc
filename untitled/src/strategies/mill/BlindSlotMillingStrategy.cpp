@@ -10,15 +10,15 @@ namespace {
 // 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
-    return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
+    return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 6).arg(y, 0, 'f', 6);
 }
 
 // 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
-        .arg(x, 0, 'f', 3)
-        .arg(y, 0, 'f', 3)
+        .arg(x, 0, 'f', 6)
+        .arg(y, 0, 'f', 6)
         .arg(int(feed));
 }
 
@@ -26,9 +26,9 @@ static QString feedXY(double x, double y, double feed)
 static QString feedXYZ(double x, double y, double z, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
-        .arg(x, 0, 'f', 3)
-        .arg(y, 0, 'f', 3)
-        .arg(z, 0, 'f', 3)
+        .arg(x, 0, 'f', 6)
+        .arg(y, 0, 'f', 6)
+        .arg(z, 0, 'f', 6)
         .arg(int(feed));
 }
 
@@ -130,23 +130,6 @@ static void slotLayerWidthRange(double halfWidth,
     maxV =  halfWidth - std::max(0.0, slopeMaxWidth) * clampedRatio - centerInset;
 }
 
-// 函数说明：clampSlopePair负责当前模块的核心处理。
-static void clampSlopePair(double &first, double &second, double maxTotal)
-{
-    first = std::max(0.0, first);
-    second = std::max(0.0, second);
-    maxTotal = std::max(0.0, maxTotal);
-
-    const double sum = first + second;
-    if (sum <= maxTotal || sum <= 1.0e-9) {
-        return;
-    }
-
-    const double scale = maxTotal / sum;
-    first *= scale;
-    second *= scale;
-}
-
 } // namespace
 
 // 函数说明：defaultParams负责当前模块的核心处理。
@@ -234,13 +217,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double halfLen = fullLength * 0.5;
     const double halfWid = fullWidth * 0.5;
     const double angleRad = angleDeg * std::acos(-1.0) / 180.0;
-    const double maxHelixRadius = std::max(0.0, halfWid - tool.diameter * 0.5);
-    double helixRadius = params.get(QStringLiteral("helixRadius"), 0.0);
-    if (helixRadius > 0.0) {
-        helixRadius = std::min(helixRadius, maxHelixRadius);
-    } else {
-        helixRadius = 0.0;
-    }
+    const double helixRadius = params.get(QStringLiteral("helixRadius"), 0.0);
     double helixPitch = params.get(QStringLiteral("helixPitch"), 0.0);
     if (helixRadius > 1.0e-6 && helixPitch <= 0.0) {
         helixPitch = std::min(stepDown * 0.5, tool.diameter * 0.15);
@@ -252,13 +229,61 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double retractZ = zTop + feedH;
     const double cosA = std::cos(angleRad);
     const double sinA = std::sin(angleRad);
+    if (isUnsupportedG42(comp)) {
+        res.errorMsg = QObject::tr("G42 is not supported for this counterclockwise blind slot contour: it offsets the cutter outside the slot. Use CAM offset (compensation = 0).");
+        return res;
+    }
     const bool camOffset = std::abs(comp) < 1.0e-9;
     const double roughCenterInset = tool.diameter * 0.5 + stockToLeave;
     const double finishCenterInset = camOffset ? tool.diameter * 0.5 : 0.0;
-    const double rampAngleForLimit = std::max(1.0, std::min(rampAngle, 10.0));
-    const double centerRampLength = std::max(0.0, halfLen - roughCenterInset);
-    const double centerRampStepDown = centerRampLength *
-                                      std::tan(rampAngleForLimit * std::acos(-1.0) / 180.0);
+    if (!std::isfinite(rampAngle) || rampAngle <= 0.0 || rampAngle > 10.0) {
+        res.errorMsg = QObject::tr("Ramp angle must be greater than 0 and at most 10 degrees.");
+        return res;
+    }
+    const double rampAngleForLimit = rampAngle;
+    const double coordinateQuantum = 0.000001;
+    const double rampTangent = std::tan(rampAngle * std::acos(-1.0) / 180.0);
+    const double slopeStartLength = feature.slopeStartLength;
+    const double slopeEndLength = feature.slopeEndLength;
+    const double slopeMinWidth = feature.slopeMinWidth;
+    const double slopeMaxWidth = feature.slopeMaxWidth;
+    const double targetRatio = targetDepth / feature.depth;
+    if (!camOffset && (slopeStartLength != 0.0 || slopeEndLength != 0.0 ||
+                       slopeMinWidth != 0.0 || slopeMaxWidth != 0.0)) {
+        res.errorMsg = QObject::tr("Controller compensation is not supported for sloped slot walls: the finish entry cutter envelope is not proven. Use CAM offset.");
+        return res;
+    }
+    if (slopeStartLength < 0.0 || slopeEndLength < 0.0 ||
+        slopeMinWidth < 0.0 || slopeMaxWidth < 0.0 || helixRadius < 0.0) {
+        res.errorMsg = QObject::tr("Slot slopes and helix radius must not be negative.");
+        return res;
+    }
+    // Inward linear walls are narrowest at the deepest requested layer.
+    // Preserve the recognized geometry; an infeasible cutter must be rejected.
+    const double bottomMinU = -halfLen + slopeStartLength * targetRatio + roughCenterInset;
+    const double bottomMaxU = halfLen - slopeEndLength * targetRatio - roughCenterInset;
+    const double bottomMinV = -halfWid + slopeMinWidth * targetRatio + roughCenterInset;
+    const double bottomMaxV = halfWid - slopeMaxWidth * targetRatio - roughCenterInset;
+    if (bottomMaxU <= bottomMinU || bottomMaxV <= bottomMinV) {
+        res.errorMsg = QObject::tr("The true slot bottom cannot fit the selected tool and stock allowance; slope geometry was not changed.");
+        return res;
+    }
+    if (bottomMinU > 0.0 || bottomMaxU < 0.0 || bottomMinV > 0.0 || bottomMaxV < 0.0 ||
+        bottomMaxU - bottomMinU + 2.0 * stockToLeave < tool.diameter * 0.5) {
+        res.errorMsg = QObject::tr("The slot does not support the strategy's center entry and wall finish lead with this tool.");
+        return res;
+    }
+    if (helixRadius > 1.0e-6 &&
+        (helixRadius > -bottomMinU || helixRadius > bottomMaxU ||
+         helixRadius > -bottomMinV || helixRadius > bottomMaxV)) {
+        res.errorMsg = QObject::tr("The requested helix and cutter envelope exceed the true slot walls or stock allowance.");
+        return res;
+    }
+    // The deepest inward rectangle is contained in every previously cleared layer.
+    // Reserve endpoint rounding: delta Z <= q, delta XY length <= sqrt(2)*q.
+    const double centerRampLength = (bottomMaxU - bottomMinU) * 0.5;
+    const double centerRampStepDown =
+        (centerRampLength - 2.0 * std::sqrt(2.0) * coordinateQuantum) * rampTangent - coordinateQuantum;
     const double effectiveStepDown = helixRadius > 1.0e-6
                                          ? std::min(stepDown, targetDepth)
                                          : std::min(stepDown, centerRampStepDown);
@@ -266,23 +291,12 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         res.errorMsg = QObject::tr("Slot is too short for ramp plunging with the selected tool and stock allowance.");
         return res;
     }
-    double slopeStartLength = feature.slopeStartLength;
-    double slopeEndLength = feature.slopeEndLength;
-    double slopeMinWidth = feature.slopeMinWidth;
-    double slopeMaxWidth = feature.slopeMaxWidth;
-    const double minCenterSpan = std::max(0.05, tool.diameter * 0.25);
-    clampSlopePair(slopeStartLength,
-                   slopeEndLength,
-                   fullLength - 2.0 * roughCenterInset - minCenterSpan);
-    clampSlopePair(slopeMinWidth,
-                   slopeMaxWidth,
-                   fullWidth - 2.0 * roughCenterInset - minCenterSpan);
     double finishMinU = 0.0;
     double finishMaxU = 0.0;
     slotLayerRange(halfLen,
                    slopeStartLength,
                    slopeEndLength,
-                   1.0,
+                   targetRatio,
                    finishCenterInset,
                    finishMinU,
                    finishMaxU);
@@ -291,7 +305,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     slotLayerWidthRange(halfWid,
                         slopeMinWidth,
                         slopeMaxWidth,
-                        1.0,
+                        targetRatio,
                         finishCenterInset,
                         finishMinV,
                         finishMaxV);
@@ -300,7 +314,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     slotLayerRange(halfLen,
                    slopeStartLength,
                    slopeEndLength,
-                   1.0,
+                   targetRatio,
                    tool.diameter * 0.5,
                    bottomFinishMinU,
                    bottomFinishMaxU);
@@ -309,7 +323,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     slotLayerWidthRange(halfWid,
                         slopeMinWidth,
                         slopeMaxWidth,
-                        1.0,
+                        targetRatio,
                         tool.diameter * 0.5,
                         bottomFinishMinV,
                         bottomFinishMaxV);
@@ -334,36 +348,29 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                                 double targetV,
                                 double minU,
                                 double maxU,
+                                double startZ,
                                 double targetZ) {
-        const double angle = std::max(1.0, std::min(rampAngle, 10.0));
-        const double verticalDrop = std::max(0.0, zTop - targetZ);
-        const double desiredLength = verticalDrop / std::tan(angle * std::acos(-1.0) / 180.0);
+        const double verticalDrop = startZ - targetZ;
+        const double desiredLength = (verticalDrop + coordinateQuantum) / rampTangent +
+                                     std::sqrt(2.0) * coordinateQuantum;
         const double backward = targetU - minU;
         const double forward = maxU - targetU;
-        double startU = targetU;
-        if (desiredLength > 1.0e-6 && std::max(backward, forward) > 0.05) {
-            if (backward >= forward) {
-                startU = targetU - std::min(desiredLength, backward);
-            } else {
-                startU = targetU + std::min(desiredLength, forward);
-            }
+        if (verticalDrop <= 0.0 || desiredLength > std::max(backward, forward)) {
+            return false;
         }
-
+        const double startU = backward >= forward ? targetU - desiredLength : targetU + desiredLength;
         double startX = 0.0;
         double startY = 0.0;
         double endX = 0.0;
         double endY = 0.0;
         slotToWorld(startU, targetV, startX, startY);
         slotToWorld(targetU, targetV, endX, endY);
-        out += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
+        out += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
         out += rapidXY(startX, startY);
-        out += QStringLiteral("G1 Z%1 F%2\n").arg(zTop, 0, 'f', 3).arg(int(plungeRate));
-        if (std::abs(startU - targetU) > 0.05 && targetZ < zTop - 1.0e-6) {
-            out += QStringLiteral("; Blind slot ramp plunge angle %1\n").arg(angle, 0, 'f', 3);
-            out += feedXYZ(endX, endY, targetZ, plungeRate);
-        } else {
-            out += QStringLiteral("G1 Z%1 F%2\n").arg(targetZ, 0, 'f', 3).arg(int(plungeRate));
-        }
+        out += QStringLiteral("G1 Z%1 F%2\n").arg(startZ, 0, 'f', 6).arg(int(plungeRate));
+        out += QStringLiteral("; Blind slot ramp plunge angle %1\n").arg(rampAngle, 0, 'f', 3);
+        out += feedXYZ(endX, endY, targetZ, plungeRate);
+        return true;
     };
 
     QString gcode;
@@ -393,7 +400,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                      .arg(stepDown, 0, 'f', 3)
                      .arg(effectiveStepDown, 0, 'f', 3);
     }
-    gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+    gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 6);
 
     double totalLength = 0.0;
 
@@ -401,7 +408,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         const double zLayer = zTop - std::min(layer * effectiveStepDown, targetDepth);
         const double layerDepth = zTop - zLayer;
         const double depthRatio = targetDepth > 1.0e-6
-                                      ? std::max(0.0, std::min(layerDepth / targetDepth, 1.0))
+                                      ? std::max(0.0, std::min(layerDepth / feature.depth, 1.0))
                                       : 1.0;
         double roughMinU = 0.0;
         double roughMaxU = 0.0;
@@ -424,7 +431,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         gcode += QStringLiteral("; Blind slot rough layer %1/%2 Z=%3 U[%4,%5] V[%6,%7]\n")
                      .arg(layer)
                      .arg(layerCount)
-                     .arg(zLayer, 0, 'f', 3)
+                     .arg(zLayer, 0, 'f', 6)
                      .arg(roughMinU, 0, 'f', 3)
                      .arg(roughMaxU, 0, 'f', 3)
                      .arg(roughMinV, 0, 'f', 3)
@@ -435,29 +442,46 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                 double startX = 0.0;
                 double startY = 0.0;
                 slotToWorld(helixRadius, 0.0, startX, startY);
-                gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
+                gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
                 gcode += rapidXY(startX, startY);
                 const int helixLoops = static_cast<int>(std::ceil(((zTop + feedH) - zLayer) / helixPitch));
                 for (int loop = 1; loop <= helixLoops; ++loop) {
                     const double zNext = std::max(zLayer, (zTop + feedH) - loop * helixPitch);
-                    gcode += QStringLiteral("G2 X%1 Y%2 I%3 J0.000 Z%4 F%5\n")
-                                 .arg(startX, 0, 'f', 3)
-                                 .arg(startY, 0, 'f', 3)
-                                 .arg(-helixRadius, 0, 'f', 3)
-                                 .arg(zNext, 0, 'f', 3)
+                    gcode += QStringLiteral("G2 X%1 Y%2 I%3 J%4 Z%5 F%6\n")
+                                 .arg(startX, 0, 'f', 6)
+                                 .arg(startY, 0, 'f', 6)
+                                 .arg(-helixRadius * cosA, 0, 'f', 6)
+                                 .arg(-helixRadius * sinA, 0, 'f', 6)
+                                 .arg(zNext, 0, 'f', 6)
                                  .arg(int(plungeRate));
                 }
                 gcode += QStringLiteral("G1 X%1 Y%2 F%3\n")
-                             .arg(cx, 0, 'f', 3)
-                             .arg(cy, 0, 'f', 3)
+                             .arg(cx, 0, 'f', 6)
+                             .arg(cy, 0, 'f', 6)
                              .arg(int(feedRate));
             } else {
-                appendRampPlunge(gcode,
+                const double clearedZ = zTop - std::min((layer - 1) * effectiveStepDown, targetDepth);
+                if (!appendRampPlunge(gcode,
                                   (roughMinU + roughMaxU) * 0.5,
-                                  (roughMinV + roughMaxV) * 0.5,
+                                  (bottomMinV + bottomMaxV) * 0.5,
                                   roughMinU,
                                   roughMaxU,
-                                  zLayer);
+                                  clearedZ,
+                                  zLayer)) {
+                    res.errorMsg = QObject::tr("The requested ramp cannot fit inside the current slot layer.");
+                    return res;
+                }
+                // Sweep the same centerline at every depth. Its capsule proves that
+                // the entire cutter can descend to this layer before the next ramp,
+                // even when asymmetric slopes shift the ordinary raster scan lines.
+                double entryX = 0.0;
+                double entryY = 0.0;
+                const double entryV = (bottomMinV + bottomMaxV) * 0.5;
+                slotToWorld(roughMinU, entryV, entryX, entryY);
+                gcode += feedXY(entryX, entryY, feedRate);
+                slotToWorld(roughMaxU, entryV, entryX, entryY);
+                gcode += feedXY(entryX, entryY, feedRate);
+                totalLength += roughMaxU - roughMinU;
             }
 
             bool leftToRight = true;
@@ -512,11 +536,11 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
             }
         } else {
             gcode += QStringLiteral("; Blind slot rough skipped: no valid stock-to-leave range at Z=%1\n")
-                         .arg(zLayer, 0, 'f', 3);
+                         .arg(zLayer, 0, 'f', 6);
         }
 
         if (layer < layerCount) {
-            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
+            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 6);
             continue;
         }
 
@@ -531,7 +555,6 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                                                                           stepover,
                                                                           tool.diameter);
                 const double midV = (bottomFinishMinV + bottomFinishMaxV) * 0.5;
-                bool firstLine = true;
                 for (double offset : scanOffsets) {
                     const double layerV = midV + offset;
                     const double startU = forward ? bottomFinishMinU : bottomFinishMaxU;
@@ -542,12 +565,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                     double y1 = 0.0;
                     slotToWorld(startU, layerV, x0, y0);
                     slotToWorld(endU, layerV, x1, y1);
-                    if (firstLine) {
-                        appendRampPlunge(gcode, startU, layerV, bottomFinishMinU, bottomFinishMaxU, zLayer);
-                        firstLine = false;
-                    } else {
-                        gcode += feedXY(x0, y0, feedRate);
-                    }
+                    // Rough and finish rectangles are convex; this stays at the cleared bottom.
+                    gcode += feedXY(x0, y0, feedRate);
                     gcode += feedXY(x1, y1, feedRate);
                     totalLength += spanU;
                     forward = !forward;
@@ -557,7 +576,6 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                                                                           stepover,
                                                                           tool.diameter);
                 const double midU = (bottomFinishMinU + bottomFinishMaxU) * 0.5;
-                bool firstLine = true;
                 for (double offset : scanOffsets) {
                     const double layerU = midU + offset;
                     const double startV = forward ? bottomFinishMinV : bottomFinishMaxV;
@@ -568,12 +586,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                     double y1 = 0.0;
                     slotToWorld(layerU, startV, x0, y0);
                     slotToWorld(layerU, endV, x1, y1);
-                    if (firstLine) {
-                        appendRampPlunge(gcode, layerU, startV, bottomFinishMinU, bottomFinishMaxU, zLayer);
-                        firstLine = false;
-                    } else {
-                        gcode += feedXY(x0, y0, feedRate);
-                    }
+                    // Rough and finish rectangles are convex; this stays at the cleared bottom.
+                    gcode += feedXY(x0, y0, feedRate);
                     gcode += feedXY(x1, y1, feedRate);
                     totalLength += spanV;
                     forward = !forward;
@@ -604,10 +618,10 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(u0, layerV, x0, y0);
                         slotToWorld(u1, layerV, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 6);
                         gcode += rapidXY(x0, y0);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
-                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
+                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
+                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 6).arg(int(plungeRate));
                         gcode += feedXYZ(x1, y1, z1, feedRate);
                         totalLength += std::sqrt((u1 - u0) * (u1 - u0) + (z1 - z0) * (z1 - z0));
                         forward = !forward;
@@ -630,10 +644,10 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(u0, layerV, x0, y0);
                         slotToWorld(u1, layerV, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 6);
                         gcode += rapidXY(x0, y0);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
-                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
+                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
+                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 6).arg(int(plungeRate));
                         gcode += feedXYZ(x1, y1, z1, feedRate);
                         totalLength += std::sqrt((u1 - u0) * (u1 - u0) + (z1 - z0) * (z1 - z0));
                         forward = !forward;
@@ -663,10 +677,10 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(layerU, v0, x0, y0);
                         slotToWorld(layerU, v1, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 6);
                         gcode += rapidXY(x0, y0);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
-                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
+                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
+                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 6).arg(int(plungeRate));
                         gcode += feedXYZ(x1, y1, z1, feedRate);
                         totalLength += std::sqrt((v1 - v0) * (v1 - v0) + (z1 - z0) * (z1 - z0));
                         forward = !forward;
@@ -689,10 +703,10 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                         double y1 = 0.0;
                         slotToWorld(layerU, v0, x0, y0);
                         slotToWorld(layerU, v1, x1, y1);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+                        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 6);
                         gcode += rapidXY(x0, y0);
-                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 3);
-                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 3).arg(int(plungeRate));
+                        gcode += QStringLiteral("G0 Z%1\n").arg(zTop + feedH, 0, 'f', 6);
+                        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(z0, 0, 'f', 6).arg(int(plungeRate));
                         gcode += feedXYZ(x1, y1, z1, feedRate);
                         totalLength += std::sqrt((v1 - v0) * (v1 - v0) + (z1 - z0) * (z1 - z0));
                         forward = !forward;
@@ -702,7 +716,7 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         }
 
         if (!finishRangeValid) {
-            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 3);
+            gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 6);
             continue;
         }
 
@@ -719,7 +733,15 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         slotToWorld(leadU, 0.0, leadX, leadY);
 
         gcode += QStringLiteral("; Blind slot wall finish\n");
-        appendRampPlunge(gcode, leadU, 0.0, finishMinU, finishMaxU, zLayer);
+        // Slope finishing may end at the top. Re-enter the fully swept bottom at its center.
+        double entryX = 0.0;
+        double entryY = 0.0;
+        slotToWorld((bottomFinishMinU + bottomFinishMaxU) * 0.5,
+                    (bottomFinishMinV + bottomFinishMaxV) * 0.5, entryX, entryY);
+        gcode += QStringLiteral("G0 Z%1\n").arg(retractZ, 0, 'f', 6);
+        gcode += rapidXY(entryX, entryY);
+        gcode += QStringLiteral("G1 Z%1 F%2\n").arg(zLayer, 0, 'f', 6).arg(int(plungeRate));
+        gcode += feedXY(leadX, leadY, feedRate);
         if (camOffset) {
             gcode += QStringLiteral("G40\n");
         }
@@ -733,8 +755,8 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                 gcode += QStringLiteral("G1 %1 D%2 X%3 Y%4 F%5\n")
                              .arg(compCode)
                              .arg(tool.id)
-                             .arg(x, 0, 'f', 3)
-                             .arg(y, 0, 'f', 3)
+                             .arg(x, 0, 'f', 6)
+                             .arg(y, 0, 'f', 6)
                              .arg(int(feedRate));
             } else {
                 gcode += feedXY(x, y, feedRate);
@@ -749,15 +771,15 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
             gcode += QStringLiteral("G40\n");
         } else {
             gcode += QStringLiteral("G1 G40 X%1 Y%2 F%3\n")
-                         .arg(leadX, 0, 'f', 3)
-                         .arg(leadY, 0, 'f', 3)
+                         .arg(leadX, 0, 'f', 6)
+                         .arg(leadY, 0, 'f', 6)
                          .arg(int(feedRate));
         }
         gcode += QStringLiteral("G1 X%1 Y%2 F%3\n")
-                     .arg(cx, 0, 'f', 3)
-                     .arg(cy, 0, 'f', 3)
+                     .arg(cx, 0, 'f', 6)
+                     .arg(cy, 0, 'f', 6)
                      .arg(int(feedRate));
-        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 3);
+        gcode += QStringLiteral("G0 Z%1\n").arg(safe, 0, 'f', 6);
 
         totalLength += 2.0 * ((finishMaxU - finishMinU) + (finishMaxV - finishMinV)) +
                        2.0 * std::max(0.0, leadU - finishMinU);

@@ -1,13 +1,18 @@
 param(
     [string]$QtDir = "D:\qt5\5.14.2\mingw73_64",
     [string]$MinGwDir = "D:\qt5\Tools\mingw730_64\bin",
-    [switch]$CheckEnvironment
+    [switch]$CheckEnvironment,
+    [string]$BuildDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = Split-Path -Parent $PSScriptRoot
 $RepoDir = Split-Path -Parent $ProjectDir
+if (!$BuildDir) { $BuildDir = $RepoDir }
+$BuildDir = [IO.Path]::GetFullPath($BuildDir)
+$QtDir = [IO.Path]::GetFullPath($QtDir)
+$MinGwDir = [IO.Path]::GetFullPath($MinGwDir)
 $ProjectFile = Join-Path $ProjectDir "untitled.pro"
 $TestScript = Join-Path $PSScriptRoot "run_tests.ps1"
 $PipelineTest = Join-Path $ProjectDir "tests\build_pipeline_test.ps1"
@@ -25,9 +30,11 @@ if ($CheckEnvironment) {
     return
 }
 
-$env:PATH = "$($QtDir)\bin;$MinGwDir;$env:PATH"
+$PreviousPath = $env:PATH
+$env:PATH = "$($QtDir)\bin;$MinGwDir;$PreviousPath"
 
-Push-Location $RepoDir
+New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
+Push-Location $BuildDir
 try {
     & $QMake -o Makefile $ProjectFile
     if ($LASTEXITCODE -ne 0) {
@@ -39,9 +46,10 @@ try {
         throw "Debug build failed with exit code $LASTEXITCODE"
     }
 
-    & $TestScript -QtDir $QtDir
+    & $TestScript -QtDir $QtDir -MinGwDir $MinGwDir -BuildDir $BuildDir
     & $PipelineTest
 }
 finally {
+    $env:PATH = $PreviousPath
     Pop-Location
 }

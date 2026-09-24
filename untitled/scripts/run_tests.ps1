@@ -1,18 +1,33 @@
 param(
     [string]$QtDir = "D:\qt5\5.14.2\mingw73_64",
-    [string]$OccPrefix = "D:\msys64\mingw64"
+    [string]$OccPrefix = "D:\msys64\mingw64",
+    [string[]]$TestNames = @(),
+    [string]$BuildDir = "",
+    [string]$MinGwDir = "D:\qt5\Tools\mingw730_64\bin"
 )
 
 $ErrorActionPreference = "Stop"
+$QtDir = [IO.Path]::GetFullPath($QtDir)
+$MinGwDir = [IO.Path]::GetFullPath($MinGwDir)
+$OccPrefix = [IO.Path]::GetFullPath($OccPrefix)
+if ($BuildDir) { $BuildDir = [IO.Path]::GetFullPath($BuildDir) }
 
 $ProjectDir = Split-Path -Parent $PSScriptRoot
-$DebugDir = Join-Path $ProjectDir "debug"
+$registeredNames = @([regex]::Matches((Get-Content -LiteralPath $PSCommandPath -Raw),
+    '(?m)^\s*-Name "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+foreach ($testName in $TestNames) {
+    if ($testName -notin $registeredNames) { throw "Unknown test name: $testName" }
+}
+$executedTests = [System.Collections.Generic.List[string]]::new()
+$DebugDir = if ($BuildDir) { Join-Path ([IO.Path]::GetFullPath($BuildDir)) "tests" } else { Join-Path $ProjectDir "debug" }
+$Compiler = Join-Path $MinGwDir "g++.exe"
+if (!(Test-Path -LiteralPath $Compiler)) { throw "Compiler not found: $Compiler" }
 $QtBin = Join-Path $QtDir "bin"
 $QtInclude = Join-Path $QtDir "include"
 $QtLib = Join-Path $QtDir "lib"
 $Mkspecs = Join-Path $QtDir "mkspecs\win32-g++"
 
-$env:PATH = "$QtBin;$env:PATH"
+. (Join-Path $PSScriptRoot "mainwindow_test.ps1")
 
 function Resolve-MigratedSourcePath {
     param([string]$Path)
@@ -35,9 +50,11 @@ function Invoke-TestBuild {
         [string]$Name,
         [string[]]$Sources,
         [string[]]$Libs,
-        [switch]$NeedsGui
+        [switch]$NeedsGui,
+        [string[]]$Arguments = @()
     )
 
+    if ($TestNames.Count -gt 0 -and $Name -notin $TestNames) { return }
     $Sources = @($Sources | ForEach-Object { Resolve-MigratedSourcePath $_ })
     $Output = Join-Path $DebugDir "$Name.exe"
     $Includes = @(
@@ -52,15 +69,20 @@ function Invoke-TestBuild {
     }
 
     $LibArgs = @("-L$QtLib") + $Libs
-    & g++ -std=gnu++17 @Includes @Sources @LibArgs -o $Output
+    & $Compiler -std=gnu++17 @Includes @Sources @LibArgs -o $Output
     if ($LASTEXITCODE -ne 0) {
         throw "$Name build failed"
     }
 
-    & $Output
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Name failed"
+    $testPreviousPath = $env:PATH
+    try {
+        # These tests use the Qt kit without the application's OCC runtime.
+        $env:PATH = "$MinGwDir;$QtBin;$PreviousPath"
+        Invoke-TestProcess -Name $Name -Executable $Output -Arguments $Arguments
+    } finally {
+        $env:PATH = $testPreviousPath
     }
+    $executedTests.Add($Name)
     Write-Host "PASS $Name"
 }
 
@@ -71,6 +93,7 @@ function Invoke-OccFixtureTest {
         [string[]]$ExtraSources = @()
     )
 
+    if ($TestNames.Count -gt 0 -and $Name -notin $TestNames) { return }
     $ExtraSources = @($ExtraSources | ForEach-Object { Resolve-MigratedSourcePath $_ })
     $OccInclude = Join-Path $OccPrefix "include\opencascade"
     $OccLib = Join-Path $OccPrefix "lib"
@@ -109,7 +132,7 @@ function Invoke-OccFixtureTest {
         $OccLibraries += Join-Path $OccLib "lib$occName.dll.a"
     }
 
-    & g++ -std=gnu++17 -DCNEXT_ENABLE_OCC @Includes @Sources @OccLibraries `
+    & $Compiler -std=gnu++17 -DCNEXT_ENABLE_OCC @Includes @Sources @OccLibraries `
         "-L$OccLib" -lfreetype -ltbb12 -ltbbmalloc -lz `
         "-L$QtLib" -lQt5Core -lQt5Gui -o $Output
     if ($LASTEXITCODE -ne 0) {
@@ -117,15 +140,74 @@ function Invoke-OccFixtureTest {
     }
 
     $env:PATH = "$OccBin;$env:PATH"
-    & $Output
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Name failed"
-    }
+    Invoke-TestProcess -Name $Name -Executable $Output -Arguments @($ProjectDir)
+    $executedTests.Add($Name)
     Write-Host "PASS $Name"
 }
 
 Push-Location $ProjectDir
+$PreviousPath = $env:PATH
+$PreviousQtPlatform = $env:QT_QPA_PLATFORM
+$PreviousQtPluginPath = $env:QT_PLUGIN_PATH
+$PreviousQtPlatformPluginPath = $env:QT_QPA_PLATFORM_PLUGIN_PATH
 try {
+    $runtimeDir = if ($BuildDir) { Join-Path $BuildDir "debug" } else { $DebugDir }
+    $env:PATH = "$runtimeDir;$MinGwDir;$QtBin;$(Join-Path $OccPrefix 'bin');$PreviousPath"
+    $env:QT_QPA_PLATFORM = "offscreen"
+    & (Join-Path $ProjectDir "tests\architecture_boundary_test.ps1")
+    # GUI 测试使用所选 Qt kit 的插件，避免加载其他 Qt 安装中的 offscreen 插件。
+    $env:QT_PLUGIN_PATH = Join-Path $QtDir "plugins"
+    $env:QT_QPA_PLATFORM_PLUGIN_PATH = Join-Path $QtDir "plugins\platforms"
+    Invoke-TestBuild `
+        -Name "slot_b2v_ramp_test" `
+        -Sources @("tests/slot_b2v_ramp_test.cpp", "src/strategies/mill/BlindSlotMillingStrategy.cpp", "src/postprocessor/Cq8PostProcessor.cpp", "src/postprocessor/FanucPostProcessor.cpp", "src/postprocessor/PostProcessorBase.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui `
+        -Arguments @((Join-Path $DebugDir "slot_b2v_ramp_test/output"))
+
+    Invoke-MainWindowTest `
+        -Name "slot_b2v_startup_test"
+    Invoke-MainWindowTest `
+        -Name "slot_output_gate_mainwindow_test"
+
+    Invoke-TestBuild `
+        -Name "cq8_macro_program_builder_test" `
+        -Sources @("tests\cq8_macro_program_builder_test.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "gcode_modal_optimizer_test" `
+        -Sources @("tests\gcode_modal_optimizer_test.cpp", "src\gcode\GCodeModalOptimizer.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "selection_chain_wiring_test" `
+        -Sources @("tests\selection_chain_wiring_test.cpp") `
+        -Libs @("-lQt5Core")
+
+    Invoke-TestBuild `
+        -Name "milling_batch_commit_test" `
+        -Sources @("tests\milling_batch_commit_test.cpp", "src\app\MillingBatchCommit.cpp", "src\workspaces\process_design\operations\OperationProposal.cpp", "src\workspaces\process_design\selection\FeatureIdentity.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp", "src\strategies\mill\OpenContourMillingStrategy.cpp") `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "selection_chain_dialog_test" `
+        -Sources @("tests\selection_chain_dialog_test.cpp", "src\workspaces\process_design\ui\SelectionChainDialog.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
+        -Libs @("-lQt5Widgets", "-lQt5Gui", "-lQt5Core") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "app_workspace_router_test" `
+        -Sources @("tests\app_workspace_router_test.cpp", "src\app\controllers\AppWorkspaceRouter.cpp") `
+        -Libs @("-lQt5Widgets", "-lQt5Gui", "-lQt5Core") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "project_command_controller_test" `
+        -Sources @("tests\project_command_controller_test.cpp", "src\app\controllers\ProjectCommandController.cpp") `
+        -Libs @("-lQt5Core")
+
     Invoke-TestBuild `
         -Name "workspace_module_contract_test" `
         -Sources @("tests\workspace_module_contract_test.cpp") `
@@ -297,7 +379,7 @@ try {
 
     Invoke-TestBuild `
         -Name "operation_proposal_confirmation_test" `
-        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\strategies\OperationProposal.cpp", "src\workspaces\process_design\selection\FeatureIdentity.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
+        -Sources @("tests\operation_proposal_confirmation_test.cpp", "src\workspaces\process_design\operations\OperationProposal.cpp", "src\workspaces\process_design\selection\FeatureIdentity.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp") `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -326,6 +408,18 @@ try {
         -NeedsGui
 
     Invoke-TestBuild `
+        -Name "slot_safety_regression_test" `
+        -Sources @("tests\slot_safety_regression_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\BlindSlotMillingStrategy.cpp", "src\strategies\mill\TaperedSlotMillingStrategy.cpp", "src\app\MillingBatchCommit.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "slot_partial_depth_test" `
+        -Sources @("tests\slot_partial_depth_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\BlindSlotMillingStrategy.cpp", "src\strategies\mill\SlotMillingStrategy.cpp", "src\strategies\mill\SlotMachiningGeometry.cpp", "src\strategies\mill\TaperedSlotMillingStrategy.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
         -Name "blind_slot_cq8_integration_test" `
         -Sources @("tests\blind_slot_cq8_integration_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\BlindSlotMillingStrategy.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
@@ -339,7 +433,7 @@ try {
 
     Invoke-TestBuild `
         -Name "tapered_slot_cq8_integration_test" `
-        -Sources @("tests\tapered_slot_cq8_integration_test.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\TaperedSlotMillingStrategy.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
+        -Sources @("tests\tapered_slot_cq8_integration_test.cpp", "src\app\MillingBatchCommit.cpp", "src\postprocessor\SiemensPostProcessor.cpp", "src\services\ProgramGenerationService.cpp", "src\strategies\mill\TaperedSlotMillingStrategy.cpp", "src\simulation\SimulationController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\gcode\GCodeSafetyValidator.cpp", "src\gcode\GCodeModalOptimizer.cpp", "src\gcode\Cq8MacroProgramBuilder.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\SiemensProgramPackage.cpp", "src\postprocessor\PostProcessorBase.cpp", "src\postprocessor\FanucPostProcessor.cpp", "src\postprocessor\Cq8PostProcessor.cpp", $SimulationControllerMoc, $ToolLibraryMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -406,9 +500,49 @@ try {
         throw "ProjectManager moc failed"
     }
 
+    if ($TestNames.Count -eq 0 -or "slot_workflow_ui_test" -in $TestNames) {
+        $SlotUiMocs = @()
+        foreach ($header in @("src/workspaces/process_design/ui/StrategyPanel.h", "src/workspaces/process_design/ui/ParameterEditorDialog.h", "src/workspaces/process_design/ui/CircleMillDialog.h", "src/workspaces/process_design/ui/OperationListPanel.h", "src/workspaces/process_design/ui/FeatureListPanel.h", "src/app/controllers/SlotOperationController.h")) {
+            $outputMoc = Join-Path $DebugDir ("moc_slot_ui_" + [IO.Path]::GetFileNameWithoutExtension($header) + ".cpp")
+            & moc $header -o $outputMoc
+            if ($LASTEXITCODE -ne 0) { throw "slot UI moc failed" }
+            $SlotUiMocs += $outputMoc
+        }
+        $SlotUiStrategies = @(Get-ChildItem src/strategies -Recurse -Filter *.cpp | ForEach-Object { $_.FullName })
+        $SlotUiGeneration = @("src/workspaces/program_verification/generation/ProgramGenerationService.cpp", "src/gcode/ProgramSnapshotStatus.cpp", "src/workspaces/program_verification/safety/GCodeSafetyValidator.cpp", "src/gcode/GCodeModalOptimizer.cpp", "src/gcode/Cq8MacroProgramBuilder.cpp", "src/gcode/SiemensProgramPackage.cpp", "src/postprocessor/PostProcessorBase.cpp", "src/postprocessor/FanucPostProcessor.cpp", "src/postprocessor/Cq8PostProcessor.cpp")
+        Invoke-TestBuild `
+            -Name "slot_workflow_ui_test" `
+            -Sources (@("tests/slot_workflow_ui_test.cpp", "src/workspaces/process_design/ui/StrategyPanel.cpp", "src/workspaces/process_design/ui/ParameterEditorDialog.cpp", "src/workspaces/process_design/ui/CircleMillDialog.cpp", "src/workspaces/process_design/ui/ToolOperationCompatibility.cpp", "src/core/Settings.cpp", "src/core/ProjectManager.cpp", "src/core/SetupOrigin.cpp", "src/core/StockDefinition.cpp", "src/import/StepImporter.cpp", "src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.cpp", "src/workspaces/process_design/ui/OperationListPanel.cpp", "src/workspaces/process_design/ui/FeatureListPanel.cpp", "src/workspaces/process_design/ui/FeatureDisplayFilter.cpp", "src/workspaces/process_design/ui/HoleFeatureGrouping.cpp", "src/workspaces/process_design/ui/ContourFeatureGrouping.cpp", "src/app/controllers/SlotOperationController.cpp", "src/app/MillingBatchCommit.cpp", "src/workspaces/process_design/ui/SelectionChainDialog.cpp", "src/workspaces/process_design/selection/SelectionChainController.cpp", "src/workspaces/process_design/selection/FeatureIdentity.cpp", "src/workspaces/process_design/operations/OperationProposal.cpp", $ProjectManagerMoc, "src/core/SetupOrientation.cpp", "src/tool/ToolLibrary.cpp", "src/tool/ToolEntry.cpp", $ToolLibraryMoc) + $SlotUiMocs + $SlotUiStrategies + $SlotUiGeneration) `
+            -Libs @("-lQt5Widgets", "-lQt5Gui", "-lQt5Core") `
+            -NeedsGui
+    }
+
+    if ($TestNames.Count -eq 0 -or "slot_dimensions_persistence_test" -in $TestNames -or "slot_operation_edit_test" -in $TestNames) {
+        $OperationListPanelMoc = Join-Path $DebugDir "moc_OperationListPanel_test.cpp"
+        & moc src\workspaces\process_design\ui\OperationListPanel.h -o $OperationListPanelMoc
+        if ($LASTEXITCODE -ne 0) { throw "OperationListPanel moc failed" }
+        $SlotDimensionStrategies = @(Get-ChildItem src\strategies -Recurse -Filter *.cpp | ForEach-Object { $_.FullName })
+        Invoke-TestBuild `
+            -Name "slot_dimensions_persistence_test" `
+            -Sources (@("tests\slot_dimensions_persistence_test.cpp", "src\workspaces\process_design\ui\OperationListPanel.cpp", "src\core\Settings.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp", $OperationListPanelMoc, $ToolLibraryMoc, $ProjectManagerMoc) + $SlotDimensionStrategies) `
+            -Libs @("-lQt5Widgets", "-lQt5Gui", "-lQt5Core") `
+            -NeedsGui
+        Invoke-TestBuild `
+            -Name "slot_operation_edit_test" `
+            -Sources (@("tests\slot_operation_edit_test.cpp", "src\workspaces\process_design\ui\OperationListPanel.cpp", "src\core\Settings.cpp", "src\workspaces\process_design\selection\SelectionChainController.cpp", "src\tool\ToolLibrary.cpp", "src\tool\ToolEntry.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp", $OperationListPanelMoc, $ToolLibraryMoc, $ProjectManagerMoc) + $SlotDimensionStrategies) `
+            -Libs @("-lQt5Widgets", "-lQt5Gui", "-lQt5Core") `
+            -NeedsGui
+    }
+
     Invoke-TestBuild `
         -Name "project_manager_serialization_test" `
         -Sources @("tests\project_manager_serialization_test.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc) `
+        -Libs @("-lQt5Core", "-lQt5Gui") `
+        -NeedsGui
+
+    Invoke-TestBuild `
+        -Name "program_tool_snapshot_test" `
+        -Sources @("tests\program_tool_snapshot_test.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\gcode\ProgramSnapshotFingerprint.cpp", "src\gcode\ProgramSnapshotStatus.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
 
@@ -419,17 +553,28 @@ try {
         -NeedsGui
 
     $AppControllerMoc = Join-Path $DebugDir "moc_AppController_test.cpp"
-    & moc src\core\AppController.h -o $AppControllerMoc
+    & moc src\app\AppController.h -o $AppControllerMoc
     if ($LASTEXITCODE -ne 0) {
         throw "AppController moc failed"
     }
 
     Invoke-TestBuild `
         -Name "app_controller_project_load_test" `
-        -Sources @("tests\app_controller_project_load_test.cpp", "src\core\AppController.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\core\SourceFileFingerprint.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc, $AppControllerMoc) `
+        -Sources @("tests\app_controller_project_load_test.cpp", "src\app\AppController.cpp", "src\core\ProjectManager.cpp", "src\core\SetupOrigin.cpp", "src\core\StockDefinition.cpp", "src\core\SourceFileFingerprint.cpp", "src\import\StepImporter.cpp", $ProjectManagerMoc, $AppControllerMoc) `
         -Libs @("-lQt5Core", "-lQt5Gui") `
         -NeedsGui
+    $expectedCount = if ($TestNames.Count -gt 0) {
+        @($TestNames | Select-Object -Unique).Count
+    } else { $registeredNames.Count }
+    if ($executedTests.Count -eq 0 -or $executedTests.Count -ne $expectedCount) {
+        throw "Executed $($executedTests.Count) C++ tests; expected $expectedCount"
+    }
+    Write-Host "Executed $($executedTests.Count) C++ tests: $($executedTests -join ', ')"
 }
 finally {
+    $env:PATH = $PreviousPath
+    $env:QT_QPA_PLATFORM = $PreviousQtPlatform
+    $env:QT_PLUGIN_PATH = $PreviousQtPluginPath
+    $env:QT_QPA_PLATFORM_PLUGIN_PATH = $PreviousQtPlatformPluginPath
     Pop-Location
 }

@@ -4,7 +4,7 @@
 #include <QPushButton>
 #include <QToolButton>
 
-#include "../../../strategies/MachiningOperation.h"
+#include "../operations/MachiningOperation.h"
 #include "../../../import/StepImporter.h"
 
 class QLabel;
@@ -16,6 +16,8 @@ public:
     explicit OperationListPanel(QWidget *parent = nullptr);
 
     QStringList addConfirmedOperations(const QList<MachiningOperation> &operations);
+    bool replaceSlotOperation(const MachiningOperation &expected,
+                              const MachiningOperation &replacement, QString *error = nullptr);
 
     void setOperations(const QList<MachiningOperation> &operations);
     const QList<MachiningOperation> &operations() const { return m_operations; }
@@ -38,6 +40,7 @@ signals:
     void operationsEdited(const QList<MachiningOperation> &operations);
     void applyCurrentToolRequested();
     void currentOperationChanged(int operationNumber);
+    void editSlotRequested(const MachiningOperation &operation);
 
 private slots:
     void onMoveUp();
@@ -59,6 +62,7 @@ private:
     QToolButton   *m_btnApplyTool;
     QToolButton   *m_btnSortStage;
     QToolButton   *m_btnRecalculate;
+    QToolButton   *m_btnEditSlot = nullptr;
     QPushButton   *m_btnGenerateProgram;
 
     QList<MachiningOperation> m_operations;

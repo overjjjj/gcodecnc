@@ -1,3 +1,4 @@
+#include "../src/workspaces/process_design/operations/SlotOperationState.h"
 #include "../src/workspaces/program_verification/safety/GCodeSafetyValidator.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
@@ -22,13 +23,20 @@ int main(int argc, char **argv)
     const auto strategy = std::make_shared<SlotMillingStrategy>();
     ProgramGenerationService generator(
         [strategy](const QString &id) { return id == strategy->id() ? strategy : std::shared_ptr<StrategyBase>(); },
-        [](int id) { ToolEntry tool; if (id == 6) { tool.id = 6; tool.type = QStringLiteral("end_mill"); tool.diameter = 6.0; tool.fluteLen = 20.0; tool.totalLen = 60.0; } return tool; });
+        [](int id) { ToolEntry tool; if (id == 6) { tool.id = 6; tool.type = QStringLiteral("end_mill"); tool.diameter = 6.0; tool.fluteLen = 20.0; tool.totalLen = 60.0; } return tool; }, [](const ContourFeature &candidate) {
+            ContourFeature source;
+            source.subType = "open_slot"; source.length = 40; source.width = 12; source.depth = 4;
+            source.axis = QVector3D(0, 0, 1); source.region = FaceRegion::Front;
+            source.openSide = -1;
+            return sameSlotGeometry(candidate, source);
+        });
     MachiningOperation operation;
     operation.id = QStringLiteral("front-open-slot"); operation.opType = OperationType::Contour;
     operation.stage = OperationStage::RoughCut; operation.strategyId = strategy->id(); operation.toolId = 6;
     operation.params = strategy->defaultParams(); operation.contourFeature.subType = QStringLiteral("open_slot");
     operation.contourFeature.center = QVector3D(); operation.contourFeature.length = 40.0;
     operation.contourFeature.width = 12.0; operation.contourFeature.depth = 4.0;
+    operation.params.set("depth", 4.0);
     operation.contourFeature.openSide = -1.0; operation.contourFeature.axis = QVector3D(0, 0, 1);
     operation.contourFeature.region = FaceRegion::Front;
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2402");

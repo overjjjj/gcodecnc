@@ -30,7 +30,7 @@ static bool containsProgramId(const QList<ProgramEntry> &programs, const QString
     return false;
 }
 
-// 函数说明：ensureOperationIds负责当前模块的核心处理。
+// 为缺少 ID 的历史工序补齐标识；补 ID 本身不执行人工确认或刀路校验。
 static void ensureOperationIds(QList<MachiningOperation> &operations)
 {
     for (MachiningOperation &op : operations) {
@@ -59,7 +59,7 @@ void ProjectManager::setMesh(const MeshData &mesh)
     emit projectChanged();
 }
 
-// 函数说明：setLoadedMesh负责当前模块的核心处理。
+// 打开项目时接收重建的显示网格，不因此将已保存项目标记为已修改。
 void ProjectManager::setLoadedMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
@@ -121,6 +121,21 @@ void ProjectManager::setOperations(const QList<MachiningOperation> &operations)
     emit operationsChanged();
 }
 
+void ProjectManager::invalidateToolOperations(const QSet<int> &toolIds)
+{
+    bool changed = false;
+    for (MachiningOperation &operation : m_operations) {
+        if (toolIds.contains(operation.toolId)) {
+            operation.markToolpathStale(QStringLiteral("tool definition changed or missing"));
+            changed = true;
+        }
+    }
+    if (changed) {
+        m_modified = true;
+        emit operationsChanged();
+    }
+}
+
 // 函数说明：setPrograms负责当前模块的核心处理。
 void ProjectManager::setPrograms(const QList<ProgramEntry> &programs)
 {
@@ -153,6 +168,7 @@ void ProjectManager::setSourceFilePath(const QString &path)
 {
     m_sourceFilePath = path;
     m_modified = true;
+    emit machiningContextChanged();
 }
 
 // 函数说明：setSourceFileFingerprint负责当前模块的核心处理。
@@ -160,6 +176,7 @@ void ProjectManager::setSourceFileFingerprint(const QString &fingerprint)
 {
     m_sourceFileFingerprint = fingerprint;
     m_modified = true;
+    emit machiningContextChanged();
 }
 
 // 函数说明：setSetupRotation负责当前模块的核心处理。
@@ -172,6 +189,7 @@ void ProjectManager::setSetupRotation(const QQuaternion &rotation)
     m_setupRotation = normalized;
     invalidateOperations(QStringLiteral("setup orientation changed"));
     m_modified = true;
+    emit machiningContextChanged();
 }
 
 // 函数说明：setActiveRegion负责当前模块的核心处理。
@@ -179,6 +197,7 @@ void ProjectManager::setActiveRegion(FaceRegion region)
 {
     m_activeRegion = region;
     m_modified = true;
+    emit machiningContextChanged();
 }
 
 // 函数说明：setWorkOffset负责当前模块的核心处理。
@@ -196,6 +215,7 @@ void ProjectManager::setWorkOffset(const QString &workOffset)
     m_workOffset = accepted;
     invalidateOperations(QStringLiteral("work offset changed"));
     m_modified = true;
+    emit machiningContextChanged();
 }
 
 // 函数说明：setSetupOrigin负责当前模块的核心处理。
@@ -223,8 +243,7 @@ void ProjectManager::setStockDefinition(const StockDefinition &stock)
     emit projectChanged();
 }
 
-// 中文说明：集中处理几何、Setup、毛坯或机床配置变化后的失效传播，
-// 保留旧程序内容但禁止其继续导出/发送。
+// 标记现有工序刀路过期并通知界面；本函数不修改程序文本，输出检查由调用链另行执行。
 void ProjectManager::invalidateOperations(const QString &reason)
 {
     if (m_operations.isEmpty()) {
@@ -234,7 +253,7 @@ void ProjectManager::invalidateOperations(const QString &reason)
     emit operationsChanged();
 }
 
-// 函数说明：setupFingerprint负责当前模块的核心处理。
+// 原点（含工件坐标系）和毛坯均有有效指纹时才返回组合摘要；缺任一项表示 Setup 未就绪。
 QString ProjectManager::setupFingerprint() const
 {
     const QString originFingerprint = m_setupOrigin.fingerprint(m_workOffset);
@@ -248,8 +267,7 @@ QString ProjectManager::setupFingerprint() const
                                                         QCryptographicHash::Sha256).toHex());
 }
 
-// 中文说明：替换外部模型时同步更新指纹和候选特征，确保历史工序不会
-// 在新几何上被误复用；调用方应要求重新确认工艺。
+// 新模型不能复用旧几何上的加工结果：先清空工序和程序，再统一发送刷新信号。
 void ProjectManager::replaceChangedSource(const MeshData &mesh,
                                           const QVector<MachiningFeature> &features,
                                           const QString &sourceFilePath,
@@ -275,7 +293,7 @@ void ProjectManager::setMachineProfile(const MachineProfile &profile)
     m_modified = true;
 }
 
-// 函数说明：upsertProgram负责当前模块的核心处理。
+// 按 ID 更新或追加程序，并补齐展示元数据；这里只存储结果，不代替生成和安全校验。
 QString ProjectManager::upsertProgram(ProgramEntry program)
 {
     if (program.id.trimmed().isEmpty()) {
@@ -698,6 +716,7 @@ static QJsonObject serializeProgramEntry(const ProgramEntry &program)
     obj["name"] = program.name;
     obj["postProcessorId"] = program.postProcessorId;
     obj["sourceOperationFingerprint"] = program.sourceOperationFingerprint;
+    obj["toolFingerprint"] = program.toolFingerprint;
     obj["setupFingerprint"] = program.setupFingerprint;
     obj["machineProfileId"] = program.machineProfileId;
     obj["machineProfileVersion"] = program.machineProfileVersion;
@@ -750,6 +769,7 @@ static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
     program.name = obj["name"].toString();
     program.postProcessorId = obj["postProcessorId"].toString();
     program.sourceOperationFingerprint = obj["sourceOperationFingerprint"].toString();
+    program.toolFingerprint = obj["toolFingerprint"].toString();
     program.setupFingerprint = obj["setupFingerprint"].toString();
     program.machineProfileId = obj["machineProfileId"].toString();
     program.machineProfileVersion = obj["machineProfileVersion"].toString();
@@ -794,7 +814,7 @@ static bool hasValidProjectStructure(const QJsonObject &root)
         && root.value(QStringLiteral("programs")).isArray();
 }
 
-// 函数说明：saveToFile负责当前模块的核心处理。
+// 项目 JSON 保存可重建状态及程序文本，显示网格仍依赖外部 STEP 文件。
 bool ProjectManager::saveToFile(const QString &path)
 {
     QJsonObject root;
@@ -912,7 +932,7 @@ bool ProjectManager::saveToFile(const QString &path)
     return true;
 }
 
-// 函数说明：loadFromFile负责当前模块的核心处理。
+// 先检查 JSON 语法和顶层结构，再恢复字段；不在此读取源 STEP 或核验程序安全性。
 bool ProjectManager::loadFromFile(const QString &path)
 {
     QFile file(path);

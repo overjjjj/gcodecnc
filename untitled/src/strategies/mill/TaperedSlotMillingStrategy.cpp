@@ -130,7 +130,15 @@ ToolpathResult TaperedSlotMillingStrategy::generate(const ContourFeature &featur
     const double baseWidth = slotWidth(feature, params);
     const double fullLength = baseLength;
     const double fullWidth = baseWidth;
-    const double targetDepth = std::min(params.get(QStringLiteral("depth"), feature.depth), feature.depth);
+    const double targetDepth = params.get(QStringLiteral("depth"), feature.depth);
+    if (!std::isfinite(targetDepth) || targetDepth <= 0.0 || targetDepth > feature.depth) {
+        res.errorMsg = QObject::tr("Target depth must be positive and no greater than the real slot depth.");
+        return res;
+    }
+    if (targetDepth < feature.depth) {
+        res.errorMsg = QObject::tr("Partial-depth tapered slots require a proven cutter-offset floor profile and are not supported.");
+        return res;
+    }
     const double safe = params.get(QStringLiteral("safeHeight"), 50.0);
     const double feedH = params.get(QStringLiteral("feedHeight"), 3.0);
     const double stepDown = params.get(QStringLiteral("stepDown"), 1.0);
@@ -144,6 +152,15 @@ ToolpathResult TaperedSlotMillingStrategy::generate(const ContourFeature &featur
     const double angleDeg = slotAngleDeg(feature, params);
     const bool useLengthSlope = useLengthSlopeProfile(feature);
     const bool useWidthSlope = feature.slopeMinWidth > 1.0e-6 || feature.slopeMaxWidth > 1.0e-6;
+
+    if (feature.slopeStartLength != 0.0 || feature.slopeEndLength != 0.0) {
+        res.errorMsg = QObject::tr("Segmented tapered slot floors are not supported: reachable intervals and cutter-safe slope transitions are not proven. No toolpath was generated.");
+        return res;
+    }
+    if (isLinearDirectionProfile(feature)) {
+        res.errorMsg = QObject::tr("Linear-direction tapered slot floors are disabled: cutter envelope safety is not proven. No toolpath was generated.");
+        return res;
+    }
 
     if (fullLength <= 0.0 || fullWidth <= 0.0 || targetDepth <= 0.0) {
         res.errorMsg = QObject::tr("Slot length, width and depth must all be greater than 0.");

@@ -124,7 +124,7 @@ bool SelectionChainController::finishChain()
 // 函数说明：reverse负责当前模块的核心处理。
 bool SelectionChainController::reverse()
 {
-    if (m_records.size() < 2) {
+    if (m_records.isEmpty()) {
         return false;
     }
     rememberForUndo();
@@ -414,7 +414,7 @@ bool SelectionChainController::redo()
     return true;
 }
 
-// 函数说明：commit负责当前模块的核心处理。
+// 将选择内容和来源上下文散列为确定性 ID；只提交选择结果，不创建正式工序。
 SelectionChain SelectionChainController::commit()
 {
     if (m_records.isEmpty()) {
@@ -448,6 +448,7 @@ SelectionChain SelectionChainController::commit()
     stablePayload.append(QByteArray::number(static_cast<int>(m_chain.sortStrategy)));
     m_chain.id = QStringLiteral("selection:v1:") + QString::fromLatin1(
         QCryptographicHash::hash(stablePayload, QCryptographicHash::Sha256).toHex());
+    // 确认结果成为新的取消回退点，之前的撤销/重做记录不再跨越此次确认。
     m_state = SelectionChainState::Confirmed;
     m_baselineChain = m_chain;
     m_baselineRecords = m_records;
@@ -457,7 +458,7 @@ SelectionChain SelectionChainController::commit()
     return m_chain;
 }
 
-// 函数说明：cancel负责当前模块的核心处理。
+// 回到构造时或最近一次确认的基线，而非仅撤销最后一步操作。
 void SelectionChainController::cancel()
 {
     m_chain = m_baselineChain;
@@ -487,7 +488,7 @@ void SelectionChainController::restore(const Snapshot &snapshot)
     m_state = snapshot.state;
 }
 
-// 函数说明：rememberForUndo负责当前模块的核心处理。
+// 新编辑会形成新的历史分支，因此保存当前快照的同时丢弃原重做栈。
 void SelectionChainController::rememberForUndo()
 {
     m_undoStack.append(snapshot());

@@ -2,7 +2,7 @@
 #include <QObject>
 #include <QString>
 #include <QVector>
-#include "ProjectManager.h"
+#include "../core/ProjectManager.h"
 #ifdef CNEXT_ENABLE_OCC
 #include "../import/StepImporter.h"
 #include <QQuaternion>
@@ -27,7 +27,7 @@ public:
 
     // 中文说明：导入 STEP 后更新项目模型、特征候选和界面状态；失败时保留原项目。
     void importStep(const QString &filePath);
-    // 中文说明：从当前已确认工序生成最终程序，并通过安全校验后通知 UI。
+    // 兼容占位入口，目前只发送状态消息；实际生成由 ProgramGenerationService 承担。
     void generateGCode();
     bool saveProject(const QString &path);
     bool loadProject(const QString &path, const QString &replacementSourcePath = QString());

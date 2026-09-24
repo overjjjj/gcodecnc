@@ -5,20 +5,16 @@
 #include <QSerialPort>
 #endif
 
-// 函数说明：CncCommInterface负责当前模块的核心处理。
 CncCommInterface::CncCommInterface(QObject *parent)
-    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
     m_serial = new QSerialPort(this);
-    // 函数说明：connect负责当前模块的核心处理。
+    // 接收数据按到达的字节片段转发；这里尚未组装协议帧或判断控制器接收确认。
     QObject::connect(m_serial, &QSerialPort::readyRead, this, [this]() {
         emit responseReceived(QString::fromLocal8Bit(m_serial->readAll()));
     });
-    // 函数说明：connect负责当前模块的核心处理。
     QObject::connect(m_serial,
-                     // 函数说明：of负责当前模块的核心处理。
                      QOverload<QSerialPort::SerialPortError>::of(&QSerialPort::errorOccurred),
                      this,
                      [this](QSerialPort::SerialPortError error) {
@@ -30,7 +26,7 @@ CncCommInterface::CncCommInterface(QObject *parent)
 #endif
 }
 
-// 函数说明：connect负责当前模块的核心处理。
+// 使用 8N1、无流控打开串口；连接成功只代表端口已打开，不代表机床已就绪。
 bool CncCommInterface::connect(const QString &portName, int baudRate)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
@@ -65,7 +61,7 @@ bool CncCommInterface::connect(const QString &portName, int baudRate)
 #endif
 }
 
-// 函数说明：disconnect负责当前模块的核心处理。
+// 直接关闭端口，不等待尚在缓冲区中的发送数据完成。
 void CncCommInterface::disconnect()
 {
 #ifdef CNEXT_ENABLE_SERIALPORT
@@ -80,13 +76,12 @@ void CncCommInterface::disconnect()
     emit disconnected();
 }
 
-// 函数说明：isConnected负责当前模块的核心处理。
 bool CncCommInterface::isConnected() const
 {
     return m_connected;
 }
 
-// 函数说明：sendGCode负责当前模块的核心处理。
+// 将本地编码文本提交到 Qt 串口缓冲区并尝试刷新；返回值不是整份程序发送完成或收件确认。
 bool CncCommInterface::sendGCode(const QString &gcode)
 {
 #ifdef CNEXT_ENABLE_SERIALPORT

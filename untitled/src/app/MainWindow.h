@@ -8,7 +8,7 @@
 #include <QToolBar>
 #include <QTranslator>
 #include "../import/StepImporter.h"
-#include "../strategies/OperationProposal.h"
+#include "../workspaces/process_design/operations/OperationProposal.h"
 
 class ViewportWidget;
 class FeatureListPanel;
@@ -17,6 +17,8 @@ class ToolLibraryPanel;
 class OperationListPanel;
 class GCodeEditor;
 class BottomBar;
+class AppWorkspaceRouter;
+class ProjectCommandController;
 class SimulationController;
 class QListWidget;
 class QStackedWidget;
@@ -112,6 +114,8 @@ private:
     OperationListPanel *m_operationPanel;
 
     QListWidget      *m_pageNav = nullptr;
+    AppWorkspaceRouter *m_workspaceRouter = nullptr;
+    ProjectCommandController *m_projectCommandController = nullptr;
     QStackedWidget   *m_pageStack = nullptr;
     QLabel           *m_productTitleLabel = nullptr;
     QLabel           *m_workspaceTitleLabel = nullptr;

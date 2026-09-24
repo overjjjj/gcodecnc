@@ -1,3 +1,4 @@
+#include "../src/workspaces/process_design/operations/SlotOperationState.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
 #include "../src/workspaces/program_verification/simulation/SimulationController.h"
@@ -38,6 +39,12 @@ int main(int argc, char **argv)
                 tool.totalLen = 60.0;
             }
             return tool;
+        }, [](const ContourFeature &candidate) {
+            ContourFeature source;
+            source.subType = "blind_slot"; source.length = 40; source.width = 12; source.depth = 4;
+            source.axis = QVector3D(0, 0, 1); source.region = FaceRegion::Front;
+            
+            return sameSlotGeometry(candidate, source);
         });
 
     MachiningOperation operation;
@@ -52,6 +59,7 @@ int main(int argc, char **argv)
     operation.contourFeature.length = 40.0;
     operation.contourFeature.width = 12.0;
     operation.contourFeature.depth = 4.0;
+    operation.params.set("depth", 4.0);
     operation.contourFeature.axis = QVector3D(0.0f, 0.0f, 1.0f);
     operation.contourFeature.region = FaceRegion::Front;
 

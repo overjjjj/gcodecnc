@@ -9,7 +9,7 @@
 #include <QTableWidget>
 #include <QWidget>
 #include "../../../import/StepImporter.h"
-#include "../../../strategies/OperationProposal.h"
+#include "../operations/OperationProposal.h"
 #include "../../../strategies/StrategyBase.h"
 #include "../../../tool/ToolEntry.h"
 
@@ -26,12 +26,16 @@ public:
     void setWorkOffset(const QString &workOffset);
     ToolEntry currentTool() const;
     void retranslateUi();
+    void setSlotGeometry(const QList<ContourFeature> &features);
+    void invalidateSlotGeometry();
 
 public slots:
     void setActiveRegion(FaceRegion region);
 
 signals:
     void operationProposalConfirmed(const OperationProposal &proposal);
+    void slotGeometryRequested(const QString &strategyId);
+    void slotGeometryInvalidated();
 
 private slots:
     void onStrategyChanged(int index);
@@ -73,6 +77,8 @@ private:
     int m_workOffset = 54;
     QString m_currentStrategyId;
     QMap<QString, StrategyParams> m_userParams;
+    QList<ContourFeature> m_slotGeometry;
+    QPushButton *m_reselectSlotBtn = nullptr;
     QLabel *m_proposalTitleLabel = nullptr;
     QLabel *m_proposalStateLabel = nullptr;
     QLabel *m_featureLabel = nullptr;

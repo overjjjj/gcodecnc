@@ -3,6 +3,7 @@
 #include "CircleMillDialog.h"
 #include "ParameterEditorDialog.h"
 #include "ToolOperationCompatibility.h"
+#include "../operations/SlotOperationState.h"
 #include "../../../core/Settings.h"
 #include "../../../core/SetupOrientation.h"
 #include "../../../strategies/StrategyFactory.h"
@@ -369,6 +370,14 @@ StrategyPanel::StrategyPanel(QWidget *parent)
 
     m_confirmOperationBtn->setObjectName(QStringLiteral("strategyPrimaryAction"));
     layout->addWidget(m_confirmOperationBtn);
+    m_reselectSlotBtn = new QPushButton(this);
+    m_reselectSlotBtn->setObjectName(QStringLiteral("reselectSlotGeometry"));
+    m_editHoleParamsBtn->setObjectName(QStringLiteral("editStrategyParameters"));
+    layout->addWidget(m_reselectSlotBtn);
+    connect(m_reselectSlotBtn, &QPushButton::clicked, this, [this]() {
+        invalidateSlotGeometry();
+        emit slotGeometryRequested(m_currentStrategyId);
+    });
 
     auto *millingLayout = new QVBoxLayout(m_millingGroup);
     millingLayout->setContentsMargins(6, 6, 6, 6);
@@ -552,6 +561,7 @@ void StrategyPanel::selectPreferredStrategyForCurrentContext()
 // 函数说明：onStrategyChanged负责当前模块的核心处理。
 void StrategyPanel::onStrategyChanged(int)
 {
+    invalidateSlotGeometry();
     cacheCurrentParams();
     m_currentStrategyId = m_strategyCombo->currentData().toString();
     populateTools();
@@ -617,6 +627,7 @@ void StrategyPanel::setWorkOffset(const QString &workOffset)
     }
     cacheCurrentParams();
     m_workOffset = parsed;
+    invalidateSlotGeometry();
     refreshParamTable();
 }
 
@@ -697,6 +708,9 @@ StrategyParams StrategyPanel::currentParams() const
 // 函数说明：currentContourFeature负责当前模块的核心处理。
 ContourFeature StrategyPanel::currentContourFeature() const
 {
+    if (isSlotStrategy(m_currentStrategyId)) {
+        return m_slotGeometry.isEmpty() ? toContourFeature(m_contourFeature) : m_slotGeometry.first();
+    }
     ContourFeature contour = toContourFeature(m_contourFeature);
     const StrategyParams params = currentParams();
 
@@ -852,6 +866,7 @@ void StrategyPanel::seedContourParamsFromFeature()
 // 函数说明：setContourFeature负责当前模块的核心处理。
 void StrategyPanel::setContourFeature(const MachiningFeature &feature)
 {
+    invalidateSlotGeometry();
     m_contourFeature = feature;
     m_hasContourFeature = true;
     m_feature = HoleFeature();
@@ -864,6 +879,7 @@ void StrategyPanel::setContourFeature(const MachiningFeature &feature)
 // 函数说明：clearContourFeature负责当前模块的核心处理。
 void StrategyPanel::clearContourFeature()
 {
+    invalidateSlotGeometry();
     m_hasContourFeature = false;
     m_contourFeature = MachiningFeature();
     if (!m_hasFeature) {
@@ -875,6 +891,7 @@ void StrategyPanel::clearContourFeature()
 // 函数说明：setFeature负责当前模块的核心处理。
 void StrategyPanel::setFeature(const HoleFeature &feature)
 {
+    invalidateSlotGeometry();
     m_feature = feature;
     m_hasFeature = true;
     m_contourFeature = MachiningFeature();
@@ -886,6 +903,7 @@ void StrategyPanel::setFeature(const HoleFeature &feature)
 // 函数说明：clearFeature负责当前模块的核心处理。
 void StrategyPanel::clearFeature()
 {
+    invalidateSlotGeometry();
     m_hasFeature = false;
     m_feature = HoleFeature();
     if (!m_hasContourFeature) {
@@ -897,6 +915,7 @@ void StrategyPanel::clearFeature()
 // 函数说明：setActiveRegion负责当前模块的核心处理。
 void StrategyPanel::setActiveRegion(FaceRegion region)
 {
+    if (m_activeRegion != region) invalidateSlotGeometry();
     m_activeRegion = region;
     updateStrategyHint();
     updateProposalState();
@@ -1011,9 +1030,48 @@ void StrategyPanel::updateProposalState()
     }
     m_proposalStateLabel->style()->unpolish(m_proposalStateLabel);
     m_proposalStateLabel->style()->polish(m_proposalStateLabel);
+    const bool slot = isSlotStrategy(m_currentStrategyId);
+    const bool pendingGeometry = slot && m_slotGeometry.isEmpty();
+    m_editHoleParamsBtn->setEnabled(!pendingGeometry);
+    m_toolCombo->setEnabled(!pendingGeometry);
+    m_reselectSlotBtn->setVisible(slot && !pendingGeometry);
+    m_reselectSlotBtn->setText(zh ? QStringLiteral("重新选择几何") : QStringLiteral("Reselect Geometry"));
+    m_confirmOperationBtn->setText(pendingGeometry
+        ? (zh ? QStringLiteral("选择槽几何") : QStringLiteral("Select Slot Geometry"))
+        : (zh ? QStringLiteral("确认并加入工序") : QStringLiteral("Confirm and Add Operation")));
+    if (pendingGeometry) {
+        m_featureLabel->setText(zh ? QStringLiteral("槽几何尚未确认，请选择槽几何。")
+                                 : QStringLiteral("Slot geometry is not confirmed. Select slot geometry."));
+    } else if (slot) {
+        QStringList summary;
+        for (const auto &f : m_slotGeometry) {
+            summary << QStringLiteral("L%1 W%2 D%3 · (%4,%5,%6) · A%7")
+                .arg(f.length).arg(f.width).arg(f.depth).arg(f.center.x()).arg(f.center.y()).arg(f.center.z()).arg(f.angle);
+        }
+        m_featureLabel->setText((zh ? QStringLiteral("已选 %1 个槽（只读几何）\n") : QStringLiteral("%1 selected slots (read-only geometry)\n"))
+            .arg(m_slotGeometry.size()) + summary.join(QLatin1Char('\n')));
+    }
     m_confirmOperationBtn->setEnabled(
         hasSelection && !noSupportedStrategy && !unspecifiedSetup && !setupMismatch &&
-        !toolBlocked && !entryModeMissing && !helicalEntryInvalid);
+        (pendingGeometry || !toolBlocked) && !entryModeMissing && !helicalEntryInvalid);
+}
+
+void StrategyPanel::invalidateSlotGeometry()
+{
+    m_slotGeometry.clear();
+    emit slotGeometryInvalidated();
+    if (m_reselectSlotBtn) updateProposalState();
+}
+
+void StrategyPanel::setSlotGeometry(const QList<ContourFeature> &features)
+{
+    m_slotGeometry = features;
+    if (!features.isEmpty()) {
+        auto params = slotCuttingParams(currentParams());
+        params.set(QStringLiteral("depth"), features.first().depth);
+        setCurrentParams(params);
+    }
+    updateProposalState();
 }
 
 // 中文说明：将当前特征、刀具和参数组装成待确认提案；只有确认后才创建正式工序，
@@ -1022,6 +1080,11 @@ void StrategyPanel::onConfirmOperation()
 {
     const QString strategyId = m_strategyCombo->currentData().toString();
     if (strategyId.isEmpty()) {
+        return;
+    }
+
+    if (isSlotStrategy(strategyId) && m_slotGeometry.isEmpty()) {
+        emit slotGeometryRequested(strategyId);
         return;
     }
 
@@ -1072,9 +1135,14 @@ void StrategyPanel::onEditHoleParams()
     if (strategyId.isEmpty()) {
         return;
     }
+    if (isSlotStrategy(strategyId) && m_slotGeometry.isEmpty()) return;
 
     QMap<QString, QString> labels;
     StrategyParams current = currentParams();
+    if (isSlotStrategy(strategyId)) {
+        current = slotCuttingParams(current);
+        current.values.remove(QStringLiteral("workOffset"));
+    }
     const int selectedEntryMode = m_entryModeCombo->currentData().toInt();
     current.values.remove(QStringLiteral("entryMode"));
     for (auto it = current.values.cbegin(); it != current.values.cend(); ++it) {
@@ -1088,9 +1156,16 @@ void StrategyPanel::onEditHoleParams()
         : QStringLiteral("Configure Parameters - %1").arg(displayNameForStrategy(strategyId)));
     paramDialog.setLabelMap(labels);
     paramDialog.setBasicKeys(basicParameterKeys());
-    paramDialog.setNonNegativeKeys(nonNegativeParameterKeys());
+    auto nonNegativeKeys = nonNegativeParameterKeys();
+    if (isSlotStrategy(strategyId)) nonNegativeKeys.insert(QStringLiteral("depthMode"));
+    paramDialog.setNonNegativeKeys(nonNegativeKeys);
     paramDialog.setAllowAnyValueKeys(unconstrainedParameterKeys());
-    paramDialog.setDefaultParams(paramsForStrategy(strategyId, false));
+    auto defaults = paramsForStrategy(strategyId, false);
+    if (isSlotStrategy(strategyId)) {
+        defaults = slotCuttingParams(defaults);
+        defaults.values.remove(QStringLiteral("workOffset"));
+    }
+    paramDialog.setDefaultParams(defaults);
     paramDialog.setParams(current);
 
     if (paramDialog.exec() == QDialog::Accepted) {
@@ -1102,6 +1177,7 @@ void StrategyPanel::onEditHoleParams()
         setCurrentParams(updated);
         updatePocketEntryUi();
         updateParamSummary();
+        if (isSlotStrategy(strategyId)) updateProposalState();
     }
 }
 // 函数说明：onCircleMillClicked负责当前模块的核心处理。

@@ -1,4 +1,4 @@
-#include "../src/strategies/OperationProposal.h"
+#include "../src/workspaces/process_design/operations/OperationProposal.h"
 #include "../src/workspaces/process_design/selection/FeatureIdentity.h"
 
 #include <QCoreApplication>

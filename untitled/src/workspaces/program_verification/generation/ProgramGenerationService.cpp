@@ -19,7 +19,6 @@
 
 namespace {
 
-// 函数说明：isSlotMillingStrategy负责当前模块的核心处理。
 bool isSlotMillingStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_slot") ||
@@ -27,7 +26,6 @@ bool isSlotMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
-// 函数说明：isPocketMillingStrategy负责当前模块的核心处理。
 bool isPocketMillingStrategy(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -35,7 +33,7 @@ bool isPocketMillingStrategy(const QString &strategyId)
            strategyId == QStringLiteral("mill_pocket_floor_finish");
 }
 
-// 函数说明：requiresClosedSelection负责当前模块的核心处理。
+// 生成前复核依赖闭环的策略，避免已保存的选择证据绕过确认阶段的拓扑要求。
 bool requiresClosedSelection(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -46,7 +44,6 @@ bool requiresClosedSelection(const QString &strategyId)
            strategyId == QStringLiteral("mill_tapered_slot");
 }
 
-// 函数说明：expectedHoleToolType负责当前模块的核心处理。
 QString expectedHoleToolType(const QString &strategyId)
 {
     if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("spot_drill");
@@ -63,7 +60,7 @@ QString expectedHoleToolType(const QString &strategyId)
     return QString();
 }
 
-// 函数说明：holeToolError负责当前模块的核心处理。
+// 按孔策略检查刀具类型、加工深度与刀具尺寸；点钻采用参数深度，其余采用孔特征深度。
 QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     const QString expectedToolType = expectedHoleToolType(operation.strategyId);
@@ -123,7 +120,7 @@ QString holeToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
-// 函数说明：slotToolError负责当前模块的核心处理。
+// 槽加工要求立铣刀严格小于槽宽，并在刀具长度资料存在时核对加工深度。
 QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     if (tool.type != QStringLiteral("end_mill")) {
@@ -152,7 +149,7 @@ QString slotToolError(const MachiningOperation &operation, const ToolEntry &tool
     return QString();
 }
 
-// 函数说明：pocketToolError负责当前模块的核心处理。
+// 以矩形短边或圆形直径限制刀径；这里的尺寸检查不能替代策略内的边界校验。
 QString pocketToolError(const MachiningOperation &operation, const ToolEntry &tool)
 {
     if (tool.type != QStringLiteral("end_mill")) {
@@ -182,12 +179,11 @@ QString pocketToolError(const MachiningOperation &operation, const ToolEntry &to
     return QString();
 }
 
-// 函数说明：generationParams负责当前模块的核心处理。
+// 槽的尺寸、深度和角度以确认后的几何为准，移除旧参数副本，避免再次覆盖几何。
 StrategyParams generationParams(const MachiningOperation &operation)
 {
     StrategyParams params = operation.params;
     if (isSlotMillingStrategy(operation.strategyId)) {
-        params.values.remove(QStringLiteral("depth"));
         params.values.remove(QStringLiteral("slotLength"));
         params.values.remove(QStringLiteral("slotWidth"));
         params.values.remove(QStringLiteral("angle"));
@@ -195,7 +191,7 @@ StrategyParams generationParams(const MachiningOperation &operation)
     return params;
 }
 
-// 函数说明：holeKey负责当前模块的核心处理。
+// 同孔工序去重使用毫米坐标保留三位小数的中心键，不包含刀具和孔径。
 QString holeKey(const HoleFeature &hole)
 {
     return QStringLiteral("%1|%2|%3")
@@ -204,7 +200,8 @@ QString holeKey(const HoleFeature &hole)
         .arg(hole.center.z(), 0, 'f', 3);
 }
 
-// 函数说明：holeBatchKey负责当前模块的核心处理。
+// 按尺寸、区域、表面高度及归一化轴向的绝对分量生成合批键，浮点字段保留四位小数。
+// XY 位置由各孔单独提供，不参与此合批键。
 QString holeBatchKey(const HoleFeature &hole)
 {
     const QVector3D axis = hole.axis.normalized();
@@ -222,7 +219,7 @@ QString holeBatchKey(const HoleFeature &hole)
         .arg(hole.center.z(), 0, 'f', 4);
 }
 
-// 函数说明：sharesHoleBatch负责当前模块的核心处理。
+// 点钻允许跨孔尺寸合批；策略、刀具和参数一致性由调用处的合批循环保证。
 bool sharesHoleBatch(const MachiningOperation &first,
                      const MachiningOperation &candidate)
 {
@@ -232,7 +229,6 @@ bool sharesHoleBatch(const MachiningOperation &first,
     return holeBatchKey(first.holeFeature) == holeBatchKey(candidate.holeFeature);
 }
 
-// 函数说明：operationSummary负责当前模块的核心处理。
 QString operationSummary(const MachiningOperation &operation)
 {
     if (operation.opType == OperationType::Hole) {
@@ -248,7 +244,7 @@ QString operationSummary(const MachiningOperation &operation)
         .arg(operation.toolId);
 }
 
-// 函数说明：operationBlock负责当前模块的核心处理。
+// 在代码块前保留工序 ID 以便追溯，并显式恢复本工序使用的工件坐标系。
 QString operationBlock(int operationNumber,
                        const MachiningOperation &operation,
                        const QStringList &sourceOperationIds,
@@ -271,7 +267,7 @@ QString operationBlock(int operationNumber,
     return lines.join(QLatin1Char('\n'));
 }
 
-// 函数说明：internalHoleCycleError负责当前模块的核心处理。
+// CNEXT_HOLE_CYCLE 是策略与后处理间的内部标记，进入后处理前先拒绝未知循环码。
 QString internalHoleCycleError(const QString &gcode)
 {
     static const QRegularExpression codePattern(
@@ -305,7 +301,7 @@ QString internalHoleCycleError(const QString &gcode)
     return QString();
 }
 
-// 函数说明：expandParametricProgram负责当前模块的核心处理。
+// 按调用参数展开模板，用于核对 CQ8 宏替换是否与策略提供的展开文本一致。
 QString expandParametricProgram(const ParametricToolpathProgram &program)
 {
     QStringList lines = program.prefixLines;
@@ -322,7 +318,6 @@ QString expandParametricProgram(const ParametricToolpathProgram &program)
     return lines.join(QLatin1Char('\n'));
 }
 
-// 函数说明：sha256负责当前模块的核心处理。
 QString sha256(const QString &content)
 {
     return QString::fromLatin1(
@@ -332,18 +327,16 @@ QString sha256(const QString &content)
 
 } // namespace
 
-// 函数说明：ProgramGenerationService负责当前模块的核心处理。
 ProgramGenerationService::ProgramGenerationService(StrategyLookup strategyLookup,
-                                                   ToolLookup toolLookup)
-    // 函数说明：m_strategyLookup负责当前模块的核心处理。
+                                                   ToolLookup toolLookup,
+                                                   SlotGeometryValidator slotGeometryValidator)
     : m_strategyLookup(std::move(strategyLookup)),
-      // 函数说明：m_toolLookup负责当前模块的核心处理。
-      m_toolLookup(std::move(toolLookup))
+      m_toolLookup(std::move(toolLookup)),
+      m_slotGeometryValidator(std::move(slotGeometryValidator))
 {
 }
 
-// 中文说明：按工序顺序构造后处理输入，执行 Setup/刀具/参数安全门，
-// 再生成程序快照并校验最终文本；任何一步失败都不返回可发布程序。
+// 先核对工序输入，再生成、后处理并检查文本；全部通过后才组装快照。
 ProgramGenerationResult ProgramGenerationService::generate(
     const QList<MachiningOperation> &operations,
     const PostProcessorBase &postProcessor,
@@ -357,6 +350,12 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     for (int index = 0; index < operations.size(); ++index) {
+        if (isSlotMillingStrategy(operations[index].strategyId) &&
+            (!m_slotGeometryValidator || !m_slotGeometryValidator(operations[index].contourFeature))) {
+            output.errors << QStringLiteral(
+                "Operation %1: slot source geometry is unverified or changed; reselect the source slot and rebuild the operation.")
+                                 .arg(index + 1);
+        }
         if (!operations[index].enabled) {
             output.errors << QStringLiteral("Operation %1 is disabled.").arg(index + 1);
         }
@@ -381,6 +380,17 @@ ProgramGenerationResult ProgramGenerationService::generate(
         }
         const double depthMode =
             operations[index].params.get(QStringLiteral("depthMode"), 0.0);
+        if (operations[index].selectionEvidence.explicitUserSelection) {
+            const SetupAccessResult access = evaluateSelectionAccess(
+                operations[index].selectionEvidence,
+                snapshotOptions.sourceFingerprint, snapshotOptions.setupFingerprint,
+                QStringLiteral("G%1").arg(configuredWorkOffset),
+                requiresClosedSelection(operations[index].strategyId));
+            if (!access.ok()) {
+                output.errors << QStringLiteral("Operation %1: %2")
+                                     .arg(index + 1).arg(access.issueCode);
+            }
+        }
         if (depthMode != 0.0) {
             output.errors << QStringLiteral(
                 "Operation %1: incremental depth mode is not supported; use absolute depth mode.")
@@ -496,6 +506,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     QList<ParametricToolpathProgram> parametricPrograms;
     QSet<QString> holesWithDeepCycle;
     QSet<QString> holesWithCircularMill;
+    QHash<int, ToolEntry> generationTools;
     for (const MachiningOperation &operation : operations) {
         if (operation.opType != OperationType::Hole) {
             continue;
@@ -536,7 +547,11 @@ ProgramGenerationResult ProgramGenerationService::generate(
             continue;
         }
 
-        const ToolEntry tool = m_toolLookup ? m_toolLookup(operation.toolId) : ToolEntry();
+        // 同一次生成复用首次读取的刀具定义，使刀路与快照取自同一份资料。
+        // 该缓存只包含实际走到生成分支的刀具。
+        const ToolEntry tool = generationTools.contains(operation.toolId)
+            ? generationTools.value(operation.toolId)
+            : m_toolLookup ? m_toolLookup(operation.toolId) : ToolEntry();
         if (tool.id <= 0 || tool.diameter <= 0.0) {
             output.errors << QStringLiteral("Operation %1: tool T%2 is invalid or missing.")
                                      .arg(index + 1)
@@ -545,6 +560,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
             continue;
         }
 
+        generationTools.insert(operation.toolId, tool);
         const QString toolError = operation.opType == OperationType::Hole
             ? holeToolError(operation, tool)
             : isSlotMillingStrategy(operation.strategyId)
@@ -563,6 +579,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         if (operation.opType == OperationType::Hole) {
             QVector<HoleFeature> batch;
             int next = index;
+            // 只合并相邻且条件相同的孔，保持已确认工序之间的先后关系。
             while (next < operations.size() &&
                    operations[next].opType == OperationType::Hole &&
                    operations[next].strategyId == operation.strategyId &&
@@ -613,6 +630,14 @@ ProgramGenerationResult ProgramGenerationService::generate(
             continue;
         }
 
+        if (isSlotMillingStrategy(operation.strategyId)) {
+            const double depth = operation.params.get(QStringLiteral("depth"), operation.contourFeature.depth);
+            if (!std::isfinite(depth) || depth <= 0.0 || depth > operation.contourFeature.depth) {
+                output.errors << QStringLiteral("Operation %1: target depth must be positive and no greater than the true slot depth.").arg(index + 1);
+                ++index;
+                continue;
+            }
+        }
         const ToolpathResult result = strategy->generate(
             operation.contourFeature, tool, generationParams(operation));
         if (result.ok && !result.gcode.trimmed().isEmpty()) {
@@ -651,6 +676,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         return output;
     }
 
+    // 检查后处理和模态压缩后的展开文本，不能用策略内部的原始代码替代此检查。
     const QString expandedGCode = GCodeModalOptimizer::optimize(
         postProcessor.wrapGCode(blocks.join(QLatin1Char('\n')).split(QLatin1Char('\n')),
                                 options));
@@ -660,6 +686,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         return output;
     }
 
+    // 来源记录保留全部输入工序，包括前面去重而未单独输出代码块的工序。
     QStringList sourceOperationIds;
     for (const MachiningOperation &operation : operations) {
         if (!operation.id.trimmed().isEmpty()) {
@@ -685,6 +712,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
                     break;
                 }
             }
+            // 找不到完全一致的展开片段时拒绝压缩，防止宏调用与已检查刀路不对应。
             if (!replaced) {
                 output.errors << QStringLiteral(
                     "CQ8 routine '%1' does not reproduce its expanded toolpath exactly.")
@@ -695,6 +723,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         finalGCode = GCodeModalOptimizer::optimize(
             postProcessor.wrapGCode(compactBlocks.join(QLatin1Char('\n')).split(QLatin1Char('\n')),
                                     options));
+        // 宏压缩后的控制器文本还需单独检查，展开文本的通过结果不能直接复用。
         const GCodeSafetyReport compactSafetyReport = GCodeSafetyValidator::validate(finalGCode);
         if (!compactSafetyReport.ok) {
             output.errors = compactSafetyReport.messages;
@@ -702,6 +731,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
         }
     }
 
+    // 快照携带生成来源、刀具及 Setup 摘要，供保存后再次输出时检查是否已变化。
     ProgramEntry snapshot;
     snapshot.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     snapshot.createdAt = QDateTime::currentDateTime();
@@ -710,6 +740,8 @@ ProgramGenerationResult ProgramGenerationService::generate(
     snapshot.sourceOperationIds = sourceOperationIds;
     snapshot.sourceOperationFingerprint =
         ProgramSnapshotFingerprint::calculate(operations, sourceOperationIds);
+    snapshot.toolFingerprint = ProgramSnapshotFingerprint::calculateTools(
+        operations, sourceOperationIds, [&generationTools](int id) { return generationTools.value(id); });
     snapshot.machineProfileId = snapshotOptions.machineProfile.id;
     snapshot.machineProfileVersion = snapshotOptions.machineProfile.version;
     snapshot.setupFingerprint = snapshotOptions.setupFingerprint;

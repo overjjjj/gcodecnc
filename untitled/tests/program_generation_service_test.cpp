@@ -1,3 +1,4 @@
+#include "../src/workspaces/process_design/operations/SlotOperationState.h"
 #include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
 #include "../src/postprocessor/SiemensPostProcessor.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
@@ -151,7 +152,8 @@ int main(int argc, char **argv)
                 QStringLiteral("final G-code should retain the operation trace marker")) ||
         !expect(success.snapshot.sourceOperationIds ==
                     QStringList{QStringLiteral("op-valid")} &&
-                    !success.snapshot.sourceOperationFingerprint.isEmpty(),
+                    !success.snapshot.sourceOperationFingerprint.isEmpty() &&
+                    !success.snapshot.toolFingerprint.isEmpty(),
                 QStringLiteral("the snapshot should fingerprint every source operation")) ||
         !expect(success.snapshot.postProcessorId == QStringLiteral("siemens") &&
                     success.snapshot.machineProfileId == QStringLiteral("profile-test") &&
@@ -599,6 +601,33 @@ int main(int argc, char **argv)
 
     const auto blindSlotStrategy = std::make_shared<FixedStrategy>(
         QStringLiteral("mill_blind_slot"), safeToolpath);
+    MachiningOperation legacySlot = sideSlot;
+    legacySlot.id = "legacy-slot";
+    legacySlot.contourFeature.region = FaceRegion::Front;
+    legacySlot.contourFeature.axis = QVector3D(0, 0, 1);
+    legacySlot.contourFeature.center.setZ(-2.5);
+    ProgramGenerationService uncheckedSlotService(
+        [blindSlotStrategy](const QString &) { return blindSlotStrategy; },
+        [](int id) { ToolEntry t; t.id=id; t.type="end_mill"; t.diameter=1; return t; });
+    const auto unchecked = uncheckedSlotService.generate({legacySlot}, postProcessor, options, snapshotOptions);
+    if (!expect(!unchecked.ok && unchecked.snapshot.id.isEmpty() && unchecked.snapshot.gcodeText.isEmpty(),
+                "missing slot source geometry callback must reject without snapshot")) return 1;
+    ContourFeature expectedSlot = legacySlot.contourFeature;
+    expectedSlot.center.setZ(0);
+    ProgramGenerationService checkedSlotService(
+        [blindSlotStrategy](const QString &) { return blindSlotStrategy; },
+        [](int id) { ToolEntry t; t.id=id; t.type="end_mill"; t.diameter=1; return t; },
+        [expectedSlot](const ContourFeature &f) { return sameSlotGeometry(f, expectedSlot); });
+    const auto rejectedOld = checkedSlotService.generate({legacySlot}, postProcessor, options, snapshotOptions);
+    if (!expect(!rejectedOld.ok && rejectedOld.snapshot.id.isEmpty() &&
+                rejectedOld.errors.join(";").contains("reselect the source slot"),
+                "old wrong-Z geometry must reject without a snapshot")) return 1;
+    legacySlot.contourFeature = expectedSlot;
+    if (!expect(checkedSlotService.generate({legacySlot}, postProcessor, options, snapshotOptions).ok,
+                "known matching geometry must generate")) return 1;
+    legacySlot.contourFeature.slopeMinWidth += 0.1;
+    if (!expect(!checkedSlotService.generate({legacySlot}, postProcessor, options, snapshotOptions).ok,
+                "slope-only geometry mismatch must reject")) return 1;
     ProgramGenerationService oversizedSlotToolService(
         [blindSlotStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
             return id == blindSlotStrategy->id()
@@ -613,6 +642,10 @@ int main(int argc, char **argv)
                 tool.diameter = 8.0;
             }
             return tool;
+        }, [sideSlot](const ContourFeature &candidate) {
+            ContourFeature expected = sideSlot.contourFeature;
+            expected.region = FaceRegion::Front; expected.axis = QVector3D(0, 0, 1);
+            return sameSlotGeometry(candidate, expected);
         });
     MachiningOperation oversizedSlot = sideSlot;
     oversizedSlot.id = QStringLiteral("op-oversized-slot-tool");
@@ -647,6 +680,10 @@ int main(int argc, char **argv)
                 tool.fluteLen = 4.0;
             }
             return tool;
+        }, [sideSlot](const ContourFeature &candidate) {
+            ContourFeature expected = sideSlot.contourFeature;
+            expected.region = FaceRegion::Front; expected.axis = QVector3D(0, 0, 1);
+            return sameSlotGeometry(candidate, expected);
         });
     const ProgramGenerationResult shortFluteSlotFailure =
         shortFluteSlotService.generate({oversizedSlot},
@@ -678,6 +715,10 @@ int main(int argc, char **argv)
                 tool.totalLen = 5.0;
             }
             return tool;
+        }, [sideSlot](const ContourFeature &candidate) {
+            ContourFeature expected = sideSlot.contourFeature;
+            expected.region = FaceRegion::Front; expected.axis = QVector3D(0, 0, 1);
+            return sameSlotGeometry(candidate, expected);
         });
     const ProgramGenerationResult shortTotalLengthSlotFailure =
         shortTotalLengthSlotService.generate({oversizedSlot},
@@ -767,6 +808,42 @@ int main(int argc, char **argv)
                 QStringLiteral("a side-labeled pocket with explicit Z-facing selection evidence should generate"))) {
         std::cerr << accessibleSidePocketResult.errors.join('\n').toStdString() << '\n';
         return 1;
+    }
+
+    // Confirmed front-face selections must be checked too, including after edits.
+    for (const QString &strategyId : {QStringLiteral("mill_face"), QStringLiteral("mill_slot"),
+                                     QStringLiteral("mill_pocket_rough"), QStringLiteral("mill_closed_contour")}) {
+      for (int invalidation = 0; invalidation < 4; ++invalidation) {
+        MachiningOperation selected = accessibleSidePocket;
+        selected.strategyId = strategyId;
+        selected.opType = strategyId == QStringLiteral("mill_closed_contour")
+            ? OperationType::Finish : OperationType::Contour;
+        selected.contourFeature.region = FaceRegion::Front;
+        ProgramGenerationSnapshotOptions current = snapshotOptions;
+        current.sourceFingerprint = QStringLiteral("source-test");
+        current.setupFingerprint = QStringLiteral("setup-test");
+        QString code;
+        if (invalidation == 0) {
+            current.setupFingerprint = QStringLiteral("setup-new");
+            code = QStringLiteral("SELECTION_SETUP_MISMATCH");
+        } else if (invalidation == 1) {
+            selected.params.set(QStringLiteral("workOffset"), 55);
+            code = QStringLiteral("SELECTION_SETUP_MISMATCH");
+        } else if (invalidation == 2) {
+            selected.selectionEvidence.selectedSurfaceNormal = QVector3D(1, 0, 0);
+            code = QStringLiteral("SELECTION_DIRECTION_UNREACHABLE");
+        } else {
+            current.sourceFingerprint = QStringLiteral("source-new");
+            code = QStringLiteral("SELECTION_SOURCE_STALE");
+        }
+        const auto blocked = oversizedPocketToolService.generate(
+            {selected}, postProcessor, options, current);
+        if (!expect(!blocked.ok && blocked.snapshot.gcodeText.isEmpty() &&
+                        blocked.errors.join('\n').contains(code),
+                    QStringLiteral("invalid confirmed selection must block front-face generation: ") + code)) {
+            return 1;
+        }
+      }
     }
 
     const auto faceStrategy = std::make_shared<FixedStrategy>(

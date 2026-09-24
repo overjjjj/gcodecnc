@@ -58,6 +58,7 @@ struct SetupAccessResult {
     bool ok() const { return status == SetupAccessStatus::Ready; }
 };
 
+// 记录一次选择的顺序及其来源证据；选择确认不等于正式工序确认。
 struct SelectionChain {
     QString id;
     QString sourceFingerprint;
@@ -82,6 +83,8 @@ struct SelectionChain {
     bool operator==(const SelectionChain &other) const;
 };
 
+// 按选择、来源、Setup、方向和闭合拓扑顺序返回首个失败原因，不检查实际刀路碰撞。
+// 当前来源摘要非空时才进行相等比较，正式确认调用方应提供当前项目的摘要。
 inline SetupAccessResult evaluateSelectionAccess(
     const SelectionChain &selection,
     const QString &currentSourceFingerprint,

@@ -11,7 +11,7 @@ enum class MotionMode {
     Arc
 };
 
-// 函数说明：stripComments负责当前模块的核心处理。
+// 去掉分号和括号注释后再匹配指令，避免把说明文字中的 G/M 码当成执行代码。
 static QString stripComments(QString line)
 {
     const int semicolon = line.indexOf(QLatin1Char(';'));
@@ -24,27 +24,25 @@ static QString stripComments(QString line)
     return line.toUpper().trimmed();
 }
 
-// 函数说明：containsWord负责当前模块的核心处理。
+// 当前匹配依赖空白分隔，无法识别 G0X10 等紧凑写法；此处不是完整的 NC 词法解析器。
 static bool containsWord(const QString &line, const QString &word)
 {
     static const QString boundary = QStringLiteral("(^|\\s)%1(\\s|$)");
     return QRegularExpression(boundary.arg(QRegularExpression::escape(word))).match(line).hasMatch();
 }
 
-// 函数说明：containsWorkOffset负责当前模块的核心处理。
 static bool containsWorkOffset(const QString &line)
 {
     static const QRegularExpression workOffset(QStringLiteral("(^|\\s)G5[4-9](\\s|$)"));
     return workOffset.match(line).hasMatch();
 }
 
-// 函数说明：containsAxis负责当前模块的核心处理。
+// 当前只识别带整数部分的轴数值；X.5 等形式不在此匹配范围内。
 static bool containsAxis(const QString &line, QChar axis)
 {
     return QRegularExpression(QStringLiteral("(^|\\s)%1[-+]?\\d").arg(axis)).match(line).hasMatch();
 }
 
-// 函数说明：readAxisValue负责当前模块的核心处理。
 static bool readAxisValue(const QString &line, QChar axis, double &value)
 {
     const QRegularExpression re(QStringLiteral("(^|\\s)%1([-+]?\\d+(?:\\.\\d+)?)").arg(axis));
@@ -62,14 +60,12 @@ static bool readAxisValue(const QString &line, QChar axis, double &value)
     return true;
 }
 
-// 函数说明：addError负责当前模块的核心处理。
 static void addError(GCodeSafetyReport &report, const QString &message)
 {
     report.ok = false;
     report.messages.append(message);
 }
 
-// 函数说明：startsFixedCycle负责当前模块的核心处理。
 static bool startsFixedCycle(const QString &line)
 {
     return containsWord(line, QStringLiteral("G81")) ||
@@ -83,7 +79,7 @@ static bool startsFixedCycle(const QString &line)
            containsWord(line, QStringLiteral("G89"));
 }
 
-// 函数说明：unsupportedFixedCycleCode负责当前模块的核心处理。
+// 识别固定循环不代表支持执行；当前明确阻断 G86 至 G89。
 static QString unsupportedFixedCycleCode(const QString &line)
 {
     for (const QString &code : {QStringLiteral("G86"), QStringLiteral("G87"),
@@ -97,8 +93,8 @@ static QString unsupportedFixedCycleCode(const QString &line)
 
 } // namespace
 
-// 中文说明：只检查最终文本中的危险状态和收尾完整性，避免“显示路径安全”
-// 与“实际导出代码危险”出现分叉；发现问题时返回可直接展示给用户的原因。
+// 对最终文本跟踪已支持的模态和收尾状态；逐行发现的问题附带行号，整体缺项单独报告。
+// 不展开任意宏，也不验证刀具与工件、夹具的空间碰撞。
 GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
 {
     GCodeSafetyReport report;
@@ -312,18 +308,20 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
             }
         }
 
+        // 固定循环激活后，后续 XY 行是循环孔位调用，不能按之前的 G0 模态误判为快移。
         const bool fixedCyclePositionCall = fixedCycleActive && hasXY && !explicitRapid;
         const bool rapidMove = motionMode == MotionMode::Rapid &&
                                !fixedCycleStart &&
                                !fixedCyclePositionCall;
         double zValue = 0.0;
         const bool hasZ = readAxisValue(line, QLatin1Char('Z'), zValue);
-        const bool rapidZKnown = hasZ || zKnown;
         const double rapidDestinationZ = hasZ ? zValue : currentZ;
+        // XY 快移前必须已处于正 Z，终点也必须为正；同一行抬刀加横移不能代替先退刀。
+        // 这里只用工件 Z=0 作为阈值，不表示已验证实际夹具高度或指定安全平面。
         if (rapidMove && hasXY) {
-            if (!rapidZKnown) {
+            if (!zKnown || currentZ <= 0.0) {
                 addError(report,
-                         QStringLiteral("Line %1: G0 X/Y move occurs before a known safe Z is established.")
+                         QStringLiteral("Line %1: Retract to a known safe Z above 0 before G0 X/Y motion.")
                              .arg(i + 1));
             } else if (rapidDestinationZ <= 0.0) {
                 addError(report,

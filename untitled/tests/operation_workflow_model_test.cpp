@@ -1,7 +1,7 @@
 #include "../src/workspaces/process_design/selection/FeatureIdentity.h"
 #include "../src/workspaces/process_design/selection/HoleSelectionSession.h"
 #include "../src/workspaces/process_design/operations/OperationWorkflow.h"
-#include "../src/strategies/MachiningOperation.h"
+#include "../src/workspaces/process_design/operations/MachiningOperation.h"
 
 #include <QCoreApplication>
 

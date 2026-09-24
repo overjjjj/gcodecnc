@@ -42,9 +42,12 @@ bool hasFeedMoveTo(const QVector<QVector3D> &path,
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    const QString fixturePath = QDir(QCoreApplication::applicationDirPath())
+    const QString fixtureRoot = app.arguments().size() > 1
+                                    ? app.arguments().at(1)
+                                    : QDir(QCoreApplication::applicationDirPath()).filePath("..");
+    const QString fixturePath = QDir(fixtureRoot)
                                     .filePath(QStringLiteral(
-                                        "../测试模型/验收/WH250852-模板紅色面加工（零件3）.STEP"));
+                                        "测试模型/验收/WH250852-模板紅色面加工（零件3）.STEP"));
     QFile fixture(fixturePath);
     if (!expect(fixture.open(QIODevice::ReadOnly),
                 "the committed acceptance STEP model should be readable")) {

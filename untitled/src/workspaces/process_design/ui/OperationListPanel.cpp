@@ -1,6 +1,7 @@
 #include "OperationListPanel.h"
 
 #include "../operations/OperationWorkflow.h"
+#include "../operations/SlotOperationState.h"
 #include "../../../core/Settings.h"
 #include "../../../tool/ToolLibrary.h"
 #include "../../../strategies/StrategyFactory.h"
@@ -197,6 +198,15 @@ OperationListPanel::OperationListPanel(QWidget *parent)
     toolbar->addWidget(m_btnApplyTool);
     toolbar->addWidget(m_btnSortStage);
     toolbar->addWidget(m_btnRecalculate);
+    m_btnEditSlot = new QToolButton(this);
+    m_btnEditSlot->setObjectName(QStringLiteral("editSlotOperation"));
+    toolbar->addWidget(m_btnEditSlot);
+    connect(m_btnEditSlot, &QToolButton::clicked, this, [this]() {
+        const auto rows = m_table->selectionModel()->selectedRows();
+        if (rows.size() != 1) return;
+        const auto &operation = m_operations.at(rows.first().row());
+        if (isSlotStrategy(operation.strategyId)) emit editSlotRequested(operation);
+    });
     toolbar->addStretch();
     layout->addLayout(toolbar);
 
@@ -301,10 +311,12 @@ QStringList OperationListPanel::addConfirmedOperations(
                 if (operation.strategyId == QStringLiteral("mill_slot") ||
                     operation.strategyId == QStringLiteral("mill_blind_slot") ||
                     operation.strategyId == QStringLiteral("mill_tapered_slot")) {
-                    const double slotLength = operation.params.get(
-                        QStringLiteral("slotLength"), operation.contourFeature.radius * 2.0);
-                    const double slotWidth = operation.params.get(
-                        QStringLiteral("slotWidth"), operation.contourFeature.radius);
+                    const double slotLength = operation.contourFeature.length > 0.0
+                        ? operation.contourFeature.length : operation.params.get(
+                            QStringLiteral("slotLength"), operation.contourFeature.radius * 2.0);
+                    const double slotWidth = operation.contourFeature.width > 0.0
+                        ? operation.contourFeature.width : operation.params.get(
+                            QStringLiteral("slotWidth"), operation.contourFeature.radius);
                     operation.featureRef = QStringLiteral("%1 L%2 W%3 Z-%4")
                         .arg(strategyName)
                         .arg(slotLength, 0, 'f', 1)
@@ -327,6 +339,30 @@ QStringList OperationListPanel::addConfirmedOperations(
     refreshTable();
     emit operationsEdited(m_operations);
     return addedIds;
+}
+
+bool OperationListPanel::replaceSlotOperation(const MachiningOperation &expected,
+                                              const MachiningOperation &replacement, QString *error)
+{
+    for (int index = 0; index < m_operations.size(); ++index) {
+        const auto &current = m_operations.at(index);
+        if (current.id != expected.id) continue;
+        if (!isSlotStrategy(current.strategyId) || !sameSlotOperation(current, expected) ||
+            replacement.id != expected.id || replacement.strategyId != expected.strategyId) {
+            if (error) *error = tr("工序已变化，请重新打开编辑窗口。");
+            return false;
+        }
+        auto updated = replacement;
+        updated.enabled = current.enabled;
+        if (sameSlotOperation(current, updated)) return true;
+        m_operations[index] = updated;
+        refreshTable();
+        selectOperationById(updated.id);
+        emit operationsEdited(m_operations);
+        return true;
+    }
+    if (error) *error = tr("原工序已不存在，未保存编辑结果。");
+    return false;
 }
 
 // 函数说明：applyToolToSelection负责当前模块的核心处理。
@@ -443,16 +479,17 @@ QString OperationListPanel::operationLabel(const MachiningOperation &op) const
     if (op.strategyId == QStringLiteral("mill_slot") ||
         op.strategyId == QStringLiteral("mill_blind_slot") ||
         op.strategyId == QStringLiteral("mill_tapered_slot")) {
-        const double length = op.params.get(QStringLiteral("slotLength"),
-                                            op.contourFeature.length > 0.0 ? op.contourFeature.length
-                                                                           : op.contourFeature.radius * 2.0);
-        const double width = op.params.get(QStringLiteral("slotWidth"),
-                                           op.contourFeature.width > 0.0 ? op.contourFeature.width
-                                                                         : op.contourFeature.radius);
-        return QStringLiteral("L%1 W%2 Z-%3")
+        const double length = op.contourFeature.length > 0.0 ? op.contourFeature.length
+            : op.params.get(QStringLiteral("slotLength"), op.contourFeature.radius * 2.0);
+        const double width = op.contourFeature.width > 0.0 ? op.contourFeature.width
+            : op.params.get(QStringLiteral("slotWidth"), op.contourFeature.radius);
+        return (isChineseUi()
+            ? QStringLiteral("L%1 W%2 · 槽深 %3 · 加工深度 %4")
+            : QStringLiteral("L%1 W%2 · Slot depth %3 · Cutting depth %4"))
             .arg(length, 0, 'f', 1)
             .arg(width, 0, 'f', 1)
-            .arg(op.contourFeature.depth, 0, 'f', 1);
+            .arg(op.contourFeature.depth, 0, 'f', 1)
+            .arg(op.params.get(QStringLiteral("depth"), op.contourFeature.depth), 0, 'f', 1);
     }
 
     if (!op.featureRef.isEmpty()) {
@@ -589,6 +626,9 @@ void OperationListPanel::onSelectionChanged()
     m_btnRecalculate->setEnabled(hasSelection && row < m_operations.size() &&
                                  m_operations.at(row).enabled);
     m_btnGenerateProgram->setEnabled(!enabledOperations(m_operations).isEmpty());
+    if (m_btnEditSlot) m_btnEditSlot->setEnabled(
+        m_table->selectionModel()->selectedRows().size() == 1 && hasSelection &&
+        row < m_operations.size() && isSlotStrategy(m_operations.at(row).strategyId));
     emit currentOperationChanged(hasSelection ? row + 1 : -1);
 }
 
@@ -604,6 +644,7 @@ void OperationListPanel::retranslateUi()
     m_btnApplyTool->setText(zh ? QStringLiteral("用当前刀具") : QStringLiteral("Use Tool"));
     m_btnSortStage->setText(zh ? QStringLiteral("按流程排序") : QStringLiteral("Sort Flow"));
     m_btnRecalculate->setText(zh ? QStringLiteral("重新生成刀路") : QStringLiteral("Recalculate Toolpath"));
+    if (m_btnEditSlot) m_btnEditSlot->setText(zh ? QStringLiteral("编辑参数") : QStringLiteral("Edit Parameters"));
     m_btnGenerateProgram->setText(zh ? QStringLiteral("从已确认工序生成程序")
                                      : QStringLiteral("Generate Program from Confirmed Operations"));
     m_table->setHorizontalHeaderLabels({

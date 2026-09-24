@@ -100,10 +100,30 @@ int main(int argc, char **argv)
                               QStringLiteral("G1 Z-1.000 F100\nG0 X10.000 Y0.000 Z50.000\nM5"));
     const GCodeSafetyReport combinedSafeReport =
         GCodeSafetyValidator::validate(combinedSafeRapid);
-    if (expect(combinedSafeReport.ok,
-               "combined rapid XY move to a safe destination Z should pass")) {
+    if (expect(!combinedSafeReport.ok,
+               "rapid XY must not start at cutting Z even when its destination is safe")) {
         return 1;
     }
+
+    for (const QString &prefix : {QStringLiteral("G0 Z0.000\n"),
+                                  QStringLiteral("G0 Z-1.000\n")}) {
+        QString modalRapid = validProgram;
+        modalRapid.replace(QStringLiteral("G0 Z50.000\nM5"),
+                           prefix + QStringLiteral("X10.000 Y0.000 Z50.000\nM5"));
+        if (expect(!GCodeSafetyValidator::validate(modalRapid).ok,
+                   "modal rapid XY must reject zero or negative starting Z")) return 1;
+    }
+    QString unknownStart = validProgram;
+    unknownStart.replace(QStringLiteral("G0 Z50.000\nG0 X0.000 Y0.000"),
+                         QStringLiteral("G0 X0.000 Y0.000 Z50.000"));
+    if (expect(!GCodeSafetyValidator::validate(unknownStart).ok,
+               "combined rapid XY must reject unknown starting Z")) return 1;
+
+    QString raisedFirst = validProgram;
+    raisedFirst.replace(QStringLiteral("G0 Z50.000\nM5"),
+                        QStringLiteral("G0 Z50.000\nG0 X10.000 Y0.000 Z60.000\nM5"));
+    if (expect(GCodeSafetyValidator::validate(raisedFirst).ok,
+               "rapid XY between known safe heights should pass after separate retract")) return 1;
 
     QString combinedUnsafeRapid = validProgram;
     combinedUnsafeRapid.replace(QStringLiteral("G0 X0.000 Y0.000\n"),

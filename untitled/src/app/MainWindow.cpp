@@ -1,9 +1,14 @@
 #include "MainWindow.h"
+#include "../workspaces/process_design/operations/SlotOperationState.h"
+#include "MillingBatchCommit.h"
+#include "controllers/AppWorkspaceRouter.h"
+#include "controllers/ProjectCommandController.h"
 
 #include "../workspaces/shared/ui/BottomBar.h"
 #include "../workspaces/machine_operation/ui/CncSendDialog.h"
 #include "../workspaces/process_design/ui/ContourFeatureGrouping.h"
 #include "../workspaces/process_design/ui/ContourMachiningChoiceDialog.h"
+#include "../workspaces/process_design/ui/SelectionChainDialog.h"
 #include "../workspaces/process_design/ui/FeatureListPanel.h"
 #include "../workspaces/program_verification/ui/GCodeEditor.h"
 #include "../workspaces/process_design/ui/HoleFeatureGrouping.h"
@@ -13,12 +18,13 @@
 #include "../workspaces/process_design/ui/SetupOriginDialog.h"
 #include "../workspaces/process_design/ui/StockDefinitionDialog.h"
 #include "../workspaces/process_design/ui/StrategyPanel.h"
+#include "controllers/SlotOperationController.h"
 #include "../workspaces/process_design/ui/ToolOperationCompatibility.h"
 #include "../workspaces/process_design/ui/CircleMillDialog.h"
 #include "../workspaces/process_design/ui/ParameterEditorDialog.h"
 #include "../workspaces/process_design/ui/ToolLibraryPanel.h"
 #include "../workspaces/shared/ui/ViewportWidget.h"
-#include "../core/AppController.h"
+#include "AppController.h"
 #include "../workspaces/process_design/selection/FeatureIdentity.h"
 #include "../core/SetupOrientation.h"
 #include "../core/Settings.h"
@@ -30,7 +36,9 @@
 #include "../postprocessor/PostProcessorRegistry.h"
 #include "../workspaces/program_verification/simulation/SimulationController.h"
 #include "../workspaces/program_verification/generation/ProgramGenerationService.h"
-#include "../workspaces/shared/WorkspaceFacades.h"
+#include "../workspaces/process_design/ProcessDesignWorkspaceFacade.h"
+#include "../workspaces/program_verification/ProgramVerificationWorkspaceFacade.h"
+#include "../workspaces/machine_operation/MachineOperationWorkspaceFacade.h"
 #include "../strategies/StrategyFactory.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
 #include "../strategies/mill/SlotMachiningGeometry.h"
@@ -69,6 +77,14 @@
 #include <memory>
 
 namespace {
+
+static QString currentProgramToolFingerprint(const ProgramEntry &program,
+                                             const QList<MachiningOperation> &operations)
+{
+    return ProgramSnapshotFingerprint::calculateTools(
+        operations, program.sourceOperationIds,
+        [](int id) { return ToolLibrary::instance().tool(id); });
+}
 
 // 函数说明：isHoleFeature负责当前模块的核心处理。
 static bool isHoleFeature(const MachiningFeature &feature)
@@ -868,6 +884,15 @@ static QVector<FrontSlotLocalSample> collectFrontSlotLocalSamples(const Machinin
                                                                   double *bottomMinVOut = nullptr,
                                                                   double *bottomMaxVOut = nullptr);
 
+static bool isFrontPositiveZSimpleSlot(const MachiningFeature &feature)
+{
+    return feature.kind == FeatureKind::Slot && feature.region == FaceRegion::Front &&
+           feature.axis.z() > 0.999f && std::abs(feature.axis.x()) < 0.001f &&
+           std::abs(feature.axis.y()) < 0.001f &&
+           (feature.subType == QStringLiteral("straight_slot") ||
+            feature.subType == QStringLiteral("arc_slot"));
+}
+
 // 函数说明：refineFrontStraightSlotFromLocalSamples负责当前模块的核心处理。
 static bool refineFrontStraightSlotFromLocalSamples(const MachiningFeature &source,
                                                     const MeshData &mesh,
@@ -903,6 +928,18 @@ static bool refineFrontStraightSlotFromLocalSamples(const MachiningFeature &sour
         maxV = std::max(maxV, sample.v);
         minZ = std::min(minZ, sample.z);
         maxZ = std::max(maxZ, sample.z);
+    }
+
+    if (isFrontPositiveZSimpleSlot(source)) {
+        // Recognition stores the bottom-face center; verify it against selected faces.
+        const double tolerance = std::max(1.0e-4, source.depth * 1.0e-5);
+        if (!std::isfinite(source.depth) || source.depth <= 0.0 ||
+            !std::isfinite(double(source.center.z())) ||
+            std::abs(minZ - double(source.center.z())) > tolerance ||
+            std::abs((maxZ - minZ) - source.depth) > tolerance) {
+            return false;
+        }
+        contour.center.setZ(float(maxZ));
     }
 
     const double spanU = maxU - minU;
@@ -1814,6 +1851,11 @@ static ContourFeature toContourFeature(const MachiningFeature &feature, const Me
             }
         }
         if (!refineFrontStraightSlotFromLocalSamples(feature, *mesh, contour)) {
+            if (isFrontPositiveZSimpleSlot(feature)) {
+                qWarning() << "[slot-debug] selected faces cannot verify front slot top Z";
+                contour.depth = 0.0; // Existing depth validation blocks unverified geometry.
+                return contour;
+            }
             refineSlotContourFromMesh(feature, *mesh, contour);
         }
         if (!(contour.region == FaceRegion::Front &&
@@ -1845,6 +1887,18 @@ static ContourFeature toContourFeature(const MachiningFeature &feature, const Me
         }
     }
     return contour;
+}
+
+static bool matchesCurrentSlotGeometry(const ContourFeature &contour)
+{
+    const ProjectManager *project = AppController::instance().projectManager();
+    if (!project) return false;
+    int matches = 0;
+    for (const MachiningFeature &source : project->features()) {
+        if (source.kind == FeatureKind::Slot &&
+            sameSlotGeometry(contour, toContourFeature(source, &project->mesh()))) ++matches;
+    }
+    return matches == 1;
 }
 
 // 函数说明：applyContourOverrides负责当前模块的核心处理。
@@ -1914,7 +1968,6 @@ static ContourFeature applySlotOverridesFromParams(ContourFeature feature,
 // 函数说明：slotMachiningParamsWithoutGeometry负责当前模块的核心处理。
 static StrategyParams slotMachiningParamsWithoutGeometry(StrategyParams params)
 {
-    params.values.remove(QStringLiteral("depth"));
     params.values.remove(QStringLiteral("slotLength"));
     params.values.remove(QStringLiteral("slotWidth"));
     params.values.remove(QStringLiteral("angle"));
@@ -2091,6 +2144,11 @@ MainWindow::MainWindow(QWidget *parent)
     // 函数说明：m_simCtrl负责当前模块的核心处理。
     , m_simCtrl(new SimulationController(this))
 {
+    m_projectCommandController = new ProjectCommandController(
+        [](const QString &path) { return AppController::instance().saveProject(path); },
+        [](const QString &path, const QString &replacement) {
+            return AppController::instance().loadProject(path, replacement);
+        }, this);
     setMinimumSize(1200, 750);
     resize(1440, 900);
     setObjectName(QStringLiteral("mainWindow"));
@@ -2426,7 +2484,8 @@ void MainWindow::updateProgramActionAvailability()
                 program.sourceOperationIds,
                 program.sourceOperationFingerprint,
                 project->setupFingerprint(),
-                program.setupFingerprint);
+                program.setupFingerprint,
+                currentProgramToolFingerprint(program, project->operations()), program.toolFingerprint);
             outputReady = status.okForOutput();
         }
     }
@@ -2487,7 +2546,8 @@ void MainWindow::updateProgramReviewSummary()
                     program.sourceOperationIds,
                     program.sourceOperationFingerprint,
                     project->setupFingerprint(),
-                    program.setupFingerprint);
+                    program.setupFingerprint,
+                    currentProgramToolFingerprint(program, project->operations()), program.toolFingerprint);
                 snapshotReady = status.okForOutput();
             }
         }
@@ -2601,7 +2661,9 @@ void MainWindow::syncProgramList()
                                                              program.sourceOperationIds,
                                                              program.sourceOperationFingerprint,
                                                              project->setupFingerprint(),
-                                                             program.setupFingerprint);
+                                                             program.setupFingerprint,
+                                                             currentProgramToolFingerprint(program, project->operations()),
+                                                             program.toolFingerprint);
         }
 
         QString label = program.name.trimmed();
@@ -2831,6 +2893,7 @@ QString MainWindow::appendProgramSnapshot(const QString &baseName,
     if (m_operationPanel) {
         program.sourceOperationFingerprint =
             ProgramSnapshotFingerprint::calculate(m_operationPanel->operations(), sourceOperationIds);
+        program.toolFingerprint = currentProgramToolFingerprint(program, m_operationPanel->operations());
     }
     program.setupFingerprint = project->setupFingerprint();
     program.sourceSummary = sourceSummary;
@@ -2861,14 +2924,15 @@ bool MainWindow::validateCurrentGCodeForOutput(const QString &actionName)
         const ProgramEntry program = project->programById(m_currentProgramId);
         if (!program.id.isEmpty()
             && !program.sourceOperationIds.isEmpty()
-            && !program.sourceOperationFingerprint.isEmpty()
             && m_operationPanel) {
             const ProgramSnapshotStatus status =
                 ProgramSnapshotStatus::evaluate(m_operationPanel->operations(),
                                                 program.sourceOperationIds,
                                                 program.sourceOperationFingerprint,
                                                 project->setupFingerprint(),
-                                                program.setupFingerprint);
+                                                program.setupFingerprint,
+                                                currentProgramToolFingerprint(program, project->operations()),
+                                                program.toolFingerprint);
             if (!status.okForOutput()) {
                 QMessageBox::warning(this,
                                      tr("G-code snapshot is stale"),
@@ -3486,16 +3550,9 @@ void MainWindow::createPages()
     rootLayout->addWidget(bodyShell, 1);
     setCentralWidget(central);
 
-    connect(m_pageNav, &QListWidget::currentRowChanged,
-            m_pageStack, &QStackedWidget::setCurrentIndex);
-    // 函数说明：connect负责当前模块的核心处理。
-    connect(m_pageNav, &QListWidget::currentRowChanged, this, [this](int row) {
-        if (!m_workspaceTitleLabel || !m_pageNav || row < 0 || row >= m_pageNav->count()) {
-            return;
-        }
-        m_workspaceTitleLabel->setText(m_pageNav->item(row)->text());
-    });
-    m_pageNav->setCurrentRow(0);
+    m_workspaceRouter = new AppWorkspaceRouter(*m_pageNav, *m_pageStack,
+                                               *m_workspaceTitleLabel, this);
+    m_workspaceRouter->showWorkspace(WorkspaceArchitecture::WorkspaceId::ProcessDesign);
 }
 
 // 函数说明：createStatusBar负责当前模块的核心处理。
@@ -3507,10 +3564,31 @@ void MainWindow::createStatusBar()
 // 函数说明：connectSignals负责当前模块的核心处理。
 void MainWindow::connectSignals()
 {
-    // 函数说明：connect负责当前模块的核心处理。
-    connect(&ToolLibrary::instance(), &ToolLibrary::toolLibraryChanged, this, [this]() {
+    const auto captureTools = []() {
+        QHash<int, QString> fingerprints;
+        for (const ToolEntry &tool : ToolLibrary::instance().allTools()) {
+            fingerprints.insert(tool.id, ProgramSnapshotFingerprint::toolFingerprint(tool));
+        }
+        return fingerprints;
+    };
+    connect(&ToolLibrary::instance(), &ToolLibrary::toolLibraryChanged, this,
+            [this, captureTools, previousTools = captureTools()]() mutable {
+        const QHash<int, QString> currentTools = captureTools();
+        ProjectManager *project = AppController::instance().projectManager();
+        if (project) {
+            QSet<int> changedTools;
+            for (const MachiningOperation &operation : project->operations()) {
+                if (previousTools.value(operation.toolId) != currentTools.value(operation.toolId)) {
+                    changedTools.insert(operation.toolId);
+                }
+            }
+            project->invalidateToolOperations(changedTools);
+        }
+        previousTools = currentTools;
         const QString toolsPath = QCoreApplication::applicationDirPath() + QStringLiteral("/tools.json");
         ToolLibrary::instance().saveToFile(toolsPath);
+        syncProgramList();
+        updateProgramActionAvailability();
     });
 
     connect(m_actImportStep, &QAction::triggered, this, &MainWindow::onImportStep);    connect(m_actOpenProject, &QAction::triggered, this, &MainWindow::onOpenProject);
@@ -3617,6 +3695,19 @@ void MainWindow::connectSignals()
 
     ProjectManager *project = ctrl.projectManager();
     if (project) {
+        auto *slotController = new SlotOperationController(project, m_featurePanel, m_strategyPanel,
+            m_operationPanel, [project](const MachiningFeature &feature) {
+                return toContourFeature(feature, &project->mesh());
+            }, [this](const OperationProposal &proposal, const ToolEntry &tool) {
+                const QString error = slotSetupRestrictionMessage(proposal.contourFeature,
+                    proposal.strategyId, tool, proposal.params, isChineseUi());
+                if (!error.isEmpty()) return error;
+                return validateSetupForProposals({proposal}) ? QString() : tr("已取消 Setup 确认。");
+            }, this);
+        connect(slotController, &SlotOperationController::errorOccurred, this, &MainWindow::onErrorOccurred);
+        connect(slotController, &SlotOperationController::operationsConfirmed, this, [this](const QStringList &ids) {
+            m_bottomBar->setStatus(tr("已确认 %1 道槽工序；可从工序列表编辑或生成程序。").arg(ids.size()));
+        });
         connect(project, &ProjectManager::projectChanged, this, [this]() {
             ProjectManager *pm = AppController::instance().projectManager();
             if (!pm) {
@@ -4122,6 +4213,9 @@ void MainWindow::connectSignals()
         if (proposal.kind != OperationProposalKind::Contour) {
             return;
         }
+        // SlotOperationController consumes the frozen geometry batch; the legacy
+        // non-slot flow must not re-read sidebar candidates for a slot proposal.
+        if (isSlotMillingStrategy(proposal.strategyId)) return;
         const ContourFeature &feature = proposal.contourFeature;
         const QString &strategyId = proposal.strategyId;
         const StrategyParams &params = proposal.params;
@@ -4294,24 +4388,95 @@ void MainWindow::connectSignals()
             oneProposal.strategyId = resolvedStrategyId;
             oneProposal.params = generationParams;
             oneProposal.contourFeature = oneFeature;
+            QList<SelectionCandidate> candidates;
+            SelectionCandidate candidate;
+            candidate.geometryId = stableContourId(oneFeature);
+            candidate.label = tr("当前加工特征 · 实体面与边界");
+            candidate.referencePoint = oneFeature.center;
+            candidate.surfaceNormal = oneFeature.axis;
+            candidate.points = oneFeature.points;
+            if (candidate.points.isEmpty() && oneFeature.length > 0 && oneFeature.width > 0) {
+                const double angle = oneFeature.angle * 3.14159265358979323846 / 180.0;
+                for (const auto &local : {QVector3D(-oneFeature.length / 2, -oneFeature.width / 2, 0),
+                                         QVector3D(oneFeature.length / 2, -oneFeature.width / 2, 0),
+                                         QVector3D(oneFeature.length / 2, oneFeature.width / 2, 0),
+                                         QVector3D(-oneFeature.length / 2, oneFeature.width / 2, 0)}) {
+                    candidate.points.append(oneFeature.center + QVector3D(
+                        local.x() * std::cos(angle) - local.y() * std::sin(angle),
+                        local.x() * std::sin(angle) + local.y() * std::cos(angle), 0));
+                }
+            }
+            candidate.closed = oneFeature.subType != QStringLiteral("open_contour") &&
+                               candidate.points.size() >= 3;
+            candidate.outerLoopPointCount = candidate.points.size();
+            candidate.islandCount = oneFeature.islands.size();
+            candidate.freeEndCount = candidate.closed ? 0 : 2;
+            candidates.append(candidate);
+            if (!candidate.points.isEmpty()) {
+                SelectionCandidate wire = candidate;
+                wire.source = ChainGeometrySource::Wire;
+                wire.geometryId += QStringLiteral("/wire");
+                wire.label = tr("当前加工特征 · 外边界线框");
+                candidates.append(wire);
+            }
             if (project && !project->sourceFileFingerprint().isEmpty()) {
-                SelectionChain &selection = oneProposal.selectionEvidence;
-                selection.sourceFingerprint = project->sourceFileFingerprint();
-                selection.setupFingerprint = project->setupFingerprint();
-                selection.coordinateSystemId = currentWorkOffset();
-                selection.selectionMode = oneFeature.points.size() >= 3
-                    ? ChainSelectionMode::Chain
-                    : ChainSelectionMode::Face;
-                selection.orderedGeometryIds.clear();
-                selection.orderedGeometryIds.append(stableContourId(oneFeature));
-                selection.selectedSurfaceNormal = oneFeature.axis;
-                selection.toolAxis = QVector3D(0.0f, 0.0f, 1.0f);
-                selection.closed = oneFeature.points.size() >= 3 ||
-                                   oneFeature.islands.size() > 0;
-                selection.outerLoopPointCount = oneFeature.points.size();
-                selection.islandCount = oneFeature.islands.size();
-                selection.freeEndCount = 0;
-                selection.explicitUserSelection = true;
+                if (project->stockDefinition().confirmed) {
+                    const StockBounds bounds = project->stockDefinition().resolvedBounds(
+                        project->mesh().bbMin, project->mesh().bbMax);
+                    SelectionCandidate stock;
+                    stock.geometryId = QStringLiteral("stock:") + project->stockDefinition().fingerprint();
+                    stock.source = ChainGeometrySource::Stock;
+                    stock.label = tr("已确认毛坯 · 上表面边界");
+                    stock.referencePoint = (bounds.minimum + bounds.maximum) * 0.5f;
+                    stock.referencePoint.setZ(bounds.maximum.z());
+                    stock.closed = true;
+                    stock.outerLoopPointCount = 4;
+                    stock.points = {QVector3D(bounds.minimum.x(), bounds.minimum.y(), bounds.maximum.z()),
+                                    QVector3D(bounds.maximum.x(), bounds.minimum.y(), bounds.maximum.z()),
+                                    bounds.maximum,
+                                    QVector3D(bounds.minimum.x(), bounds.maximum.y(), bounds.maximum.z())};
+                    candidates.append(stock);
+                }
+                SelectionChainDialog selectionDialog(this, isSlotMillingStrategy(resolvedStrategyId));
+                selectionDialog.setRequireClosedBoundary(
+                    resolvedStrategyId.startsWith(QStringLiteral("mill_pocket")) ||
+                    resolvedStrategyId == QStringLiteral("mill_closed_contour") ||
+                    resolvedStrategyId == QStringLiteral("mill_blind_slot") ||
+                    resolvedStrategyId == QStringLiteral("mill_tapered_slot"));
+                selectionDialog.setContext(project->sourceFileFingerprint(),
+                                           project->setupFingerprint(),
+                                           currentWorkOffset());
+                selectionDialog.setCandidates(candidates);
+                if (selectionDialog.exec() != QDialog::Accepted) {
+                    m_bottomBar->setStatus(zh ? QStringLiteral("已取消几何选择。")
+                                              : QStringLiteral("Geometry selection canceled."));
+                    return;
+                }
+                oneProposal.selectionEvidence = selectionDialog.selection();
+                if (isManualContourChoiceStrategy(resolvedStrategyId)) {
+                    oneProposal.contourFeature.points = selectionDialog.selectedPoints();
+                } else if ((oneProposal.selectionEvidence.selectionMode == ChainSelectionMode::Edge ||
+                            oneProposal.selectionEvidence.selectionMode == ChainSelectionMode::PartialChain) &&
+                           !oneProposal.selectionEvidence.closed) {
+                    onErrorOccurred(tr("此加工策略需要完整边界或面；局部边请使用开放轮廓加工。"));
+                    return;
+                }
+                if (oneProposal.selectionEvidence.geometrySource == ChainGeometrySource::Stock) {
+                    if (resolvedStrategyId != QStringLiteral("mill_face")) {
+                        onErrorOccurred(tr("毛坯边界目前只支持平面铣；槽、型腔和轮廓请选取零件几何。"));
+                        return;
+                    }
+                    const StockBounds bounds = project->stockDefinition().resolvedBounds(
+                        project->mesh().bbMin, project->mesh().bbMax);
+                    oneProposal.contourFeature.center = (bounds.minimum + bounds.maximum) * 0.5f;
+                    oneProposal.contourFeature.center.setZ(bounds.maximum.z());
+                    oneProposal.contourFeature.length = bounds.size().x();
+                    oneProposal.contourFeature.width = bounds.size().y();
+                }
+            } else {
+                onErrorOccurred(zh ? QStringLiteral("缺少模型版本，无法确认几何选择。")
+                                   : QStringLiteral("A versioned model is required to confirm geometry selection."));
+                return;
             }
             confirmedProposals.append(oneProposal);
         }
@@ -4319,11 +4484,11 @@ void MainWindow::connectSignals()
             project ? project->sourceFileFingerprint() : QString(),
             project ? project->setupFingerprint() : QString(),
             currentWorkOffset()};
-        for (const ContourFeature &oneFeature : contourBatch) {
-            const QString oneSlotError = slotSetupRestrictionMessage(oneFeature,
+        for (const OperationProposal &oneProposal : confirmedProposals) {
+            const QString oneSlotError = slotSetupRestrictionMessage(oneProposal.contourFeature,
                                                                      resolvedStrategyId,
                                                                      tool,
-                                                                     generationParams,
+                                                                     oneProposal.params,
                                                                      isChineseUi());
             if (!oneSlotError.isEmpty()) {
                 onErrorOccurred(oneSlotError);
@@ -4357,19 +4522,15 @@ void MainWindow::connectSignals()
             confirmedOperations.append(confirmation.operation);
         }
 
-        for (const ContourFeature &oneFeature : contourBatch) {
-            const ToolpathResult result = s->generate(oneFeature, tool, generationParams);
-            if (!result.ok || result.gcode.isEmpty()) {
-                onErrorOccurred(result.errorMsg.isEmpty() ? tr("Milling failed.") : result.errorMsg);
-                return;
-            }
+        const MillingBatchCommitResult batch = validateAndCommitMillingBatch(confirmedOperations,
+            *s, tool, [this](const QList<MachiningOperation> &operations) {
+                return m_operationPanel->addConfirmedOperations(operations);
+            });
+        if (!batch.ok) {
+            onErrorOccurred(batch.error);
+            return;
         }
-
-        for (MachiningOperation &operation : confirmedOperations) {
-            operation.markToolpathValid();
-        }
-        const QStringList addedIds =
-            m_operationPanel->addConfirmedOperations(confirmedOperations);
+        const QStringList addedIds = batch.operationIds;
         if (!addedIds.isEmpty()) {
             m_operationPanel->selectOperationById(addedIds.constLast());
         }
@@ -4428,7 +4589,7 @@ void MainWindow::connectSignals()
             },
             [](int toolId) {
                 return ToolLibrary::instance().tool(toolId);
-            });
+            }, matchesCurrentSlotGeometry);
 
         ProjectManager *projectManager = AppController::instance().projectManager();
         if (!projectManager) {
@@ -4495,6 +4656,14 @@ void MainWindow::connectSignals()
         int succeeded = 0;
         int failed = 0;
         for (const MachiningOperation &operation : operations) {
+            if (isSlotMillingStrategy(operation.strategyId) &&
+                !matchesCurrentSlotGeometry(operation.contourFeature)) {
+                m_operationPanel->setToolpathResult(operation.id, false,
+                    zh ? QStringLiteral("槽源几何未验证或已变化，请重新选择源槽并重建工序。")
+                       : QStringLiteral("Slot source geometry is unverified or changed; reselect the source slot and rebuild the operation."));
+                ++failed;
+                continue;
+            }
             std::shared_ptr<StrategyBase> strategy =
                 StrategyFactory::instance().strategy(operation.strategyId);
             const ToolEntry tool = ToolLibrary::instance().tool(operation.toolId);
@@ -4583,7 +4752,9 @@ void MainWindow::onSaveProject()
         project->setWorkOffset(currentWorkOffset());
         syncCurrentProgramSnapshot();
     }
-    AppController::instance().saveProject(path);
+    if (!m_projectCommandController->saveProject(path)) {
+        m_bottomBar->setStatus(tr("Unable to save project"));
+    }
 }
 
 // 函数说明：onOpenProject负责当前模块的核心处理。
@@ -5267,9 +5438,7 @@ void MainWindow::retranslateUi()
                                                                    : QStringLiteral("Program Validation"));
         if (m_pageNav->count() > 2) m_pageNav->item(2)->setText(zh ? QStringLiteral("机床运行")
                                                                    : QStringLiteral("Machine Operation"));
-        if (m_workspaceTitleLabel && m_pageNav->currentRow() >= 0) {
-            m_workspaceTitleLabel->setText(m_pageNav->currentItem()->text());
-        }
+        if (m_workspaceRouter) m_workspaceRouter->refreshTitle();
     }
     if (m_machiningActionsGroup) {
         m_machiningActionsGroup->setTitle(zh ? QStringLiteral("程序快照")

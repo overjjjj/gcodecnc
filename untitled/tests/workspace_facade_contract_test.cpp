@@ -1,4 +1,6 @@
-#include "../src/workspaces/shared/WorkspaceFacades.h"
+#include "../src/workspaces/process_design/ProcessDesignWorkspaceFacade.h"
+#include "../src/workspaces/program_verification/ProgramVerificationWorkspaceFacade.h"
+#include "../src/workspaces/machine_operation/MachineOperationWorkspaceFacade.h"
 
 #include <iostream>
 

@@ -1,13 +1,13 @@
 #include "OperationProposal.h"
 
-#include "../workspaces/process_design/selection/FeatureIdentity.h"
+#include "../selection/FeatureIdentity.h"
 
 #include <QUuid>
 #include <cmath>
 
 namespace {
 
-// 函数说明：operationTypeForProposal负责当前模块的核心处理。
+// 将策略映射到工序类别，供后续生成分支和工序列表使用。
 OperationType operationTypeForProposal(const OperationProposal &proposal)
 {
     if (proposal.kind == OperationProposalKind::Hole) {
@@ -27,7 +27,7 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
     return OperationType::Contour;
 }
 
-// 函数说明：operationStageForProposal负责当前模块的核心处理。
+// 描述工序的加工阶段，不据此重排用户已经确认的工序顺序。
 OperationStage operationStageForProposal(const OperationProposal &proposal,
                                           OperationType operationType)
 {
@@ -55,7 +55,7 @@ OperationStage operationStageForProposal(const OperationProposal &proposal,
     return OperationStage::RoughCut;
 }
 
-// 函数说明：hasUsableContourGeometry负责当前模块的核心处理。
+// 这里只判断是否有几何输入；边界是否合法、刀具能否进入由具体策略继续校验。
 bool hasUsableContourGeometry(const ContourFeature &feature)
 {
     return feature.radius > 0.0 ||
@@ -63,7 +63,7 @@ bool hasUsableContourGeometry(const ContourFeature &feature)
            !feature.points.isEmpty();
 }
 
-// 函数说明：requiresClosedSelection负责当前模块的核心处理。
+// 这些策略依赖闭合加工区域，显式选择证据必须包含闭合外环且没有自由端。
 bool requiresClosedSelection(const QString &strategyId)
 {
     return strategyId == QStringLiteral("mill_pocket_rough") ||
@@ -76,7 +76,6 @@ bool requiresClosedSelection(const QString &strategyId)
 
 } // namespace
 
-// 函数说明：featureRegion负责当前模块的核心处理。
 FaceRegion OperationProposal::featureRegion() const
 {
     return kind == OperationProposalKind::Hole
@@ -84,7 +83,6 @@ FaceRegion OperationProposal::featureRegion() const
         : contourFeature.region;
 }
 
-// 函数说明：confirmOperationProposal负责当前模块的核心处理。
 OperationConfirmationResult confirmOperationProposal(
     const OperationProposal &proposal,
     OperationConfirmationIntent confirmationIntent,
@@ -93,7 +91,7 @@ OperationConfirmationResult confirmOperationProposal(
     return OperationFactory::confirm(proposal, confirmationIntent, context);
 }
 
-// 函数说明：confirm负责当前模块的核心处理。
+// 所有准入检查通过后才分配工序 ID；返回工序不写入项目，刀路状态保持 Empty。
 OperationConfirmationResult OperationFactory::confirm(
     const OperationProposal &proposal,
     OperationConfirmationIntent confirmationIntent,
@@ -122,6 +120,7 @@ OperationConfirmationResult OperationFactory::confirm(
         result.error = QStringLiteral("Contour geometry is invalid.");
         return result;
     }
+    // 有显式证据的轮廓和侧面轮廓需核对选择上下文；其余轮廓沿用基本几何检查。
     if (proposal.kind == OperationProposalKind::Contour &&
         (proposal.selectionEvidence.explicitUserSelection ||
          proposal.contourFeature.region == FaceRegion::Side)) {
@@ -138,6 +137,7 @@ OperationConfirmationResult OperationFactory::confirm(
         }
     }
     if (proposal.strategyId == QStringLiteral("mill_pocket_rough")) {
+        // 型腔粗加工的进刀方式必须由操作者提供，不能用参数缺省值替代选择。
         if (!proposal.params.values.contains(QStringLiteral("entryMode"))) {
             result.error = QStringLiteral("Pocket entry method requires explicit operator selection.");
             return result;

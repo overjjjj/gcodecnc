@@ -1,0 +1,11 @@
+{
+  "source": "D:\\yanggao\\gcodecnc\\tmp\\slot-b2v-implementation\\outputs\\slot-batch2-verification\\lifecycle-88b1efc2-e98b-47c2-9da0-37ab49976428.cnext",
+  "source_sha256": "6d3883bc9fbf97b2bd31c4569b9a68298bdd0c745b64c4bbfe59de0e25a828d0",
+  "fixture_sha256": "4df5a3d2f50df95347b8c47164c0b5296cbf4b0e606cdd976856a3d7e06de12a",
+  "only_changed_field": "sourceFilePath",
+  "old_value": "untitled/测试模型/槽.stp",
+  "new_value": "测试模型/槽.stp",
+  "model_relative_path": "测试模型/槽.stp",
+  "model_sha256": "39d1bb74350aa020ad1ad688bc3c32f12ce13c57db0c1278e9be79bbc7a38045",
+  "purpose": "Preserve legacy wrong-Z operation, selection, hashes and NC for real MainWindow open/output gates."
+}

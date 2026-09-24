@@ -7,11 +7,12 @@
 #include <QJsonObject>
 #include <QQuaternion>
 #include <QStringList>
+#include <QSet>
 #include "../workspaces/machine_operation/model/MachineProfile.h"
 #include "SetupOrigin.h"
 #include "StockDefinition.h"
 #include "../import/StepImporter.h"
-#include "../strategies/MachiningOperation.h"
+#include "../workspaces/process_design/operations/MachiningOperation.h"
 #include "../gcode/ParametricToolpathProgram.h"
 
 struct ProgramFileEntry
@@ -27,15 +28,17 @@ struct ProgramEntry
     QString id;
     QString name;
     QString postProcessorId;
+    // 记录生成来源及其顺序；工序、刀具和 Setup 分别保留摘要，供输出前核对。
     QStringList sourceOperationIds;
     QString sourceOperationFingerprint;
+    QString toolFingerprint;
     QString setupFingerprint;
     QString machineProfileId;
     QString machineProfileVersion;
     QStringList safeStartBlocks;
     QString sourceSummary;
-    QString gcodeText;
-    QString expandedGcodeText;
+    QString gcodeText;          // 面向目标控制器的主程序文本。
+    QString expandedGcodeText;  // 使用宏压缩时保留展开文本；与主程序相同时为空。
     QString macroText;
     QString mainProgramFileName;
     QList<ProgramFileEntry> packageFiles;
@@ -55,6 +58,7 @@ public:
     void setLoadedMesh(const MeshData &mesh);
     void setFeatures(const QVector<MachiningFeature> &features);
     void setOperations(const QList<MachiningOperation> &operations);
+    void invalidateToolOperations(const QSet<int> &toolIds);
     void setPrograms(const QList<ProgramEntry> &programs);
     void setCurrentProgramId(const QString &programId);
     void setSourceFilePath(const QString &path);
@@ -64,8 +68,8 @@ public:
     void setWorkOffset(const QString &workOffset);
     void setSetupOrigin(const SetupOrigin &origin);
     void setStockDefinition(const StockDefinition &stock);
-    // 中文说明：源模型变化时原子替换模型与特征，并使依赖旧几何的工序/程序失效。
-    // 不删除历史程序，便于追溯；调用方必须要求用户重新确认工艺。
+    // 替换模型、特征和来源指纹，清空旧工序、程序及当前程序 ID，再通知界面刷新。
+    // 保留当前 Setup 配置；新的工艺需重新确认。
     void replaceChangedSource(const MeshData &mesh,
                               const QVector<MachiningFeature> &features,
                               const QString &sourceFilePath,
@@ -89,13 +93,14 @@ public:
     const MachineProfile             &machineProfile() const { return m_machineProfile; }
     ProgramEntry programById(const QString &id) const;
 
-    // 中文说明：保存完整项目快照，包括模型指纹、Setup、毛坯、参数来源和程序状态。
+    // 保存源文件信息、特征、Setup、毛坯、工序和程序；网格由源 STEP 重建，不写入 JSON。
     bool saveToFile(const QString &path);
-    // 中文说明：加载后验证源文件指纹；缺失或变化时返回问题状态，不静默使用旧几何。
+    // 校验 JSON 基本结构并恢复项目字段；源文件校验和 STEP 重导入由 AppController 负责。
     bool loadFromFile(const QString &path);
     bool isModified() const { return m_modified; }
 
 signals:
+    void machiningContextChanged();
     void projectChanged();
     void operationsChanged();
     void programsChanged();

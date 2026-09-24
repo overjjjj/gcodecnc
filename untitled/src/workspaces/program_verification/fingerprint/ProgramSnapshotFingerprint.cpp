@@ -7,7 +7,7 @@
 
 namespace {
 
-// 函数说明：operationTypeId负责当前模块的核心处理。
+// 摘要使用稳定文本标签，不依赖枚举在内存中的数值。
 static QString operationTypeId(OperationType type)
 {
     switch (type) {
@@ -20,7 +20,6 @@ static QString operationTypeId(OperationType type)
     return QStringLiteral("hole");
 }
 
-// 函数说明：operationStageId负责当前模块的核心处理。
 static QString operationStageId(OperationStage stage)
 {
     switch (stage) {
@@ -33,7 +32,6 @@ static QString operationStageId(OperationStage stage)
     return QStringLiteral("rough_cut");
 }
 
-// 函数说明：faceRegionId负责当前模块的核心处理。
 static QString faceRegionId(FaceRegion region)
 {
     switch (region) {
@@ -45,13 +43,12 @@ static QString faceRegionId(FaceRegion region)
     return QStringLiteral("unknown");
 }
 
-// 函数说明：pointArray负责当前模块的核心处理。
 static QJsonArray pointArray(const QVector3D &point)
 {
     return QJsonArray{point.x(), point.y(), point.z()};
 }
 
-// 函数说明：pointLoopArray负责当前模块的核心处理。
+// 保留边界点顺序；方向或起点变化应反映到工序摘要中。
 static QJsonArray pointLoopArray(const QVector<QVector3D> &loop)
 {
     QJsonArray array;
@@ -61,7 +58,6 @@ static QJsonArray pointLoopArray(const QVector<QVector3D> &loop)
     return array;
 }
 
-// 函数说明：pointLoopsArray负责当前模块的核心处理。
 static QJsonArray pointLoopsArray(const QVector<QVector<QVector3D>> &loops)
 {
     QJsonArray array;
@@ -71,7 +67,6 @@ static QJsonArray pointLoopsArray(const QVector<QVector<QVector3D>> &loops)
     return array;
 }
 
-// 函数说明：serializeFeature负责当前模块的核心处理。
 static QJsonObject serializeFeature(const MachiningFeature &feature)
 {
     QJsonObject obj;
@@ -92,7 +87,6 @@ static QJsonObject serializeFeature(const MachiningFeature &feature)
     return obj;
 }
 
-// 函数说明：serializeContourFeature负责当前模块的核心处理。
 static QJsonObject serializeContourFeature(const ContourFeature &feature)
 {
     QJsonObject obj;
@@ -120,7 +114,7 @@ static QJsonObject serializeContourFeature(const ContourFeature &feature)
     return obj;
 }
 
-// 函数说明：serializeOperation负责当前模块的核心处理。
+// 将工序参数、几何及选择证据编码进摘要；缺失工序保留显式 missing 标记，不能静默略过。
 static QJsonObject serializeOperation(const MachiningOperation *operation,
                                       const QString &sourceOperationId)
 {
@@ -136,6 +130,11 @@ static QJsonObject serializeOperation(const MachiningOperation *operation,
     obj[QStringLiteral("stage")] = operationStageId(operation->stage);
     obj[QStringLiteral("featureRef")] = operation->featureRef;
     obj[QStringLiteral("strategyId")] = operation->strategyId;
+    if (operation->strategyId == QStringLiteral("mill_slot") ||
+        operation->strategyId == QStringLiteral("mill_blind_slot") ||
+        operation->strategyId == QStringLiteral("mill_tapered_slot")) {
+        obj[QStringLiteral("implementationRevision")] = QStringLiteral("slot-b2v-1");
+    }
     obj[QStringLiteral("toolId")] = operation->toolId;
     const SelectionChain &selection = operation->selectionEvidence;
     obj[QStringLiteral("selectionId")] = selection.id;
@@ -172,7 +171,6 @@ static QJsonObject serializeOperation(const MachiningOperation *operation,
     return obj;
 }
 
-// 函数说明：findOperation负责当前模块的核心处理。
 static const MachiningOperation *findOperation(const QList<MachiningOperation> &operations,
                                                const QString &operationId)
 {
@@ -186,7 +184,49 @@ static const MachiningOperation *findOperation(const QList<MachiningOperation> &
 
 } // namespace
 
-// 函数说明：calculate负责当前模块的核心处理。
+// 使用刀具几何和加工资料，不包含显示名称，单纯改名不会使程序过期。
+QString ProgramSnapshotFingerprint::toolFingerprint(const ToolEntry &tool)
+{
+    if (tool.id <= 0 || tool.diameter <= 0.0) return QString();
+    QJsonObject obj;
+    obj["id"] = tool.id;
+    obj["type"] = tool.type;
+    obj["diameter"] = tool.diameter;
+    obj["fluteLen"] = tool.fluteLen;
+    obj["totalLen"] = tool.totalLen;
+    obj["shankDia"] = tool.shankDia;
+    obj["flutes"] = tool.flutes;
+    obj["pointAngle"] = tool.pointAngle;
+    obj["pitch"] = tool.pitch;
+    obj["material"] = tool.material;
+    obj["coating"] = tool.coating;
+    obj["modelPath"] = tool.modelPath;
+    obj["extra"] = QJsonObject::fromVariantMap(tool.extra);
+    return QString::fromLatin1(QCryptographicHash::hash(
+        QJsonDocument(obj).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
+}
+
+// 按刀具 ID 去重；任一源工序或刀具无法核对时返回空值，交给快照状态检查阻断。
+// 此摘要不表达工序顺序，顺序由工序摘要及 ProgramSnapshotStatus 单独检查。
+QString ProgramSnapshotFingerprint::calculateTools(
+    const QList<MachiningOperation> &operations, const QStringList &sourceOperationIds,
+    const std::function<ToolEntry(int)> &toolLookup)
+{
+    if (sourceOperationIds.isEmpty() || !toolLookup) return QString();
+    QJsonObject tools;
+    for (const QString &id : sourceOperationIds) {
+        const MachiningOperation *operation = findOperation(operations, id);
+        if (!operation) return QString();
+        const ToolEntry tool = toolLookup(operation->toolId);
+        const QString fingerprint = toolFingerprint(tool);
+        if (tool.id != operation->toolId || fingerprint.isEmpty()) return QString();
+        tools[QString::number(tool.id)] = fingerprint;
+    }
+    return QString::fromLatin1(QCryptographicHash::hash(
+        QJsonDocument(tools).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
+}
+
+// 按来源 ID 的既定顺序序列化并散列，因此工序内容变化和顺序变化都会改变结果。
 QString ProgramSnapshotFingerprint::calculate(const QList<MachiningOperation> &operations,
                                                const QStringList &sourceOperationIds)
 {

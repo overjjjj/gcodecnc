@@ -1,7 +1,7 @@
 #include "AppController.h"
 
-#include "ProjectManager.h"
-#include "SourceFileFingerprint.h"
+#include "../core/ProjectManager.h"
+#include "../core/SourceFileFingerprint.h"
 #include "../import/StepImporter.h"
 #ifdef CNEXT_ENABLE_OCC
 #include "../import/FeatureRecognizer.h"
@@ -9,23 +9,19 @@
 
 #include <QFileInfo>
 
-// 函数说明：AppController负责当前模块的核心处理。
 AppController::AppController(QObject *parent)
-    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
-    // 函数说明：m_projectManager负责当前模块的核心处理。
     , m_projectManager(new ProjectManager(this))
 {}
 
-// 函数说明：instance负责当前模块的核心处理。
 AppController &AppController::instance()
 {
     static AppController s_instance;
     return s_instance;
 }
 
-// 中文说明：导入入口负责把文件读取、几何分类和项目状态更新串成原子流程；
-// 任何失败都通过 errorOccurred 通知界面，不覆盖上一份有效模型。
+// STEP 读取成功后才更新项目，并清空依赖旧模型的工序、程序和 Setup 确认状态。
+// 导入器返回失败时只通知界面，保留当前项目数据。
 void AppController::importStep(const QString &filePath)
 {
     emit statusMessage(tr("正在导入 STEP 文件：%1").arg(QFileInfo(filePath).fileName()));
@@ -73,7 +69,7 @@ void AppController::importStep(const QString &filePath)
 }
 
 #ifdef CNEXT_ENABLE_OCC
-// 函数说明：reclassifyFeatures负责当前模块的核心处理。
+// 使用当前导入器保留的拓扑，按新正面法向重新划分特征区域。
 void AppController::reclassifyFeatures(const QVector3D &frontNormal)
 {
     FeatureRecognizer recognizer;
@@ -86,7 +82,7 @@ void AppController::reclassifyFeatures(const QVector3D &frontNormal)
     emit featuresReclassified();
 }
 
-// 函数说明：reloadStepWithSetupRotation负责当前模块的核心处理。
+// 在临时导入器中旋转并重新识别；成功后替换模型，旧工序和程序需重新建立。
 bool AppController::reloadStepWithSetupRotation(const QQuaternion &rotation, QString *error)
 {
     const QString sourcePath = m_projectManager->sourceFilePath();
@@ -122,17 +118,16 @@ bool AppController::reloadStepWithSetupRotation(const QQuaternion &rotation, QSt
 }
 #endif
 
-// 中文说明：UI 的程序生成槽函数只做命令编排，实际安全校验和快照生成下沉到服务层。
+// 此入口目前仅提示状态，不生成程序，也不发出 gcodeReady。
 void AppController::generateGCode()
 {
     emit statusMessage(tr("正在生成 G 代码..."));
 }
 
-// 函数说明：saveProject负责当前模块的核心处理。
+// 首次保存缺少源指纹的项目时补录文件摘要；无法读取源文件则取消保存。
 bool AppController::saveProject(const QString &path)
 {
     if (m_projectManager->sourceFileFingerprint().isEmpty()
-        // 函数说明：sourceFilePath负责当前模块的核心处理。
         && !m_projectManager->sourceFilePath().isEmpty()) {
         QString fingerprintError;
         const QString fingerprint =
@@ -152,7 +147,7 @@ bool AppController::saveProject(const QString &path)
     return true;
 }
 
-// 函数说明：loadProject负责当前模块的核心处理。
+// 先在临时项目中读取来源和 Setup，再校验、重导入 STEP；这些步骤失败时保留当前项目。
 bool AppController::loadProject(const QString &path, const QString &replacementSourcePath)
 {
     m_lastProjectLoadIssue = ProjectLoadIssue::None;
@@ -188,6 +183,7 @@ bool AppController::loadProject(const QString &path, const QString &replacementS
         emit errorOccurred(tr("The source STEP file has changed. Re-recognition is required before old operations can be used."));
         return false;
     }
+    // 相同内容迁移路径可保留工序；显式换成不同内容或无法核对旧指纹时，清空派生数据。
     const bool invalidateDerivedData = hasReplacementSource
                                        && (staged.sourceFileFingerprint().isEmpty()
                                            || fingerprintChanged);

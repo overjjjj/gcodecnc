@@ -1,0 +1,593 @@
+{
+    "currentProgramId": "fa5e16f1-fd22-4191-a9c5-534c76692c60",
+    "features": [
+        {
+            "angle": 0,
+            "ax": -1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1.5,
+            "cy": 6.8288774490356445,
+            "cz": -2.905085325241089,
+            "depth": 3,
+            "faceIndices": [
+                7
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "hole",
+            "length": 0,
+            "pitch": 0,
+            "radius": 1.77365872555434,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "through_hole",
+            "width": 0
+        },
+        {
+            "angle": 0,
+            "ax": -1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 1.5707963249999999,
+            "cx": -1.4334796667099,
+            "cy": -6.502397060394287,
+            "cz": -5.462513446807861,
+            "depth": 3,
+            "faceIndices": [
+                8,
+                16
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "hole",
+            "length": 0,
+            "pitch": 0,
+            "radius": 0.94285975439639,
+            "region": "side",
+            "secondaryRadius": 4,
+            "type": "countersunk_through_hole",
+            "width": 0
+        },
+        {
+            "angle": -117.17517370237034,
+            "ax": 0,
+            "ay": 0,
+            "az": 1,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -2.3299999237060547,
+            "cy": 0.05000000074505806,
+            "cz": -5,
+            "depth": 5,
+            "faceIndices": [
+                13,
+                10,
+                11,
+                9
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "slot",
+            "length": 2.776853084564209,
+            "pitch": 0,
+            "radius": 0,
+            "region": "front",
+            "secondaryRadius": 0,
+            "type": "straight_slot",
+            "width": 1.9486024379730225
+        },
+        {
+            "angle": 0,
+            "ax": 1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 1.5707963249999999,
+            "cx": -2.530932903289795,
+            "cy": -6.7866926193237305,
+            "cz": -5.8172430992126465,
+            "depth": 1,
+            "faceIndices": [
+                16
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "chamfer",
+            "length": 0,
+            "pitch": 0,
+            "radius": 4,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "inner_chamfer",
+            "width": 0
+        },
+        {
+            "angle": 0,
+            "ax": 1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1,
+            "cy": -6.786014080047607,
+            "cz": -6.186014175415039,
+            "depth": 0,
+            "faceIndices": [
+                14
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "fillet",
+            "length": 2,
+            "pitch": 0,
+            "radius": 5,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "inner_fillet",
+            "width": 0
+        },
+        {
+            "angle": 0,
+            "ax": 0,
+            "ay": -1,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1,
+            "cy": -8.699999809265137,
+            "cz": -1.5499999523162842,
+            "depth": 0,
+            "faceIndices": [
+                1
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 3.100000023841858,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 2
+        },
+        {
+            "angle": -90.2164238785192,
+            "ax": 0,
+            "ay": 0,
+            "az": 1,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1.9649999141693115,
+            "cy": -0.6249998807907104,
+            "cz": 0,
+            "depth": 0,
+            "faceIndices": [
+                2
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 18.007426261901855,
+            "pitch": 0,
+            "radius": 0,
+            "region": "front",
+            "secondaryRadius": 0,
+            "type": "top_surface",
+            "width": 3.067970722913742
+        },
+        {
+            "angle": -180.00000500895632,
+            "ax": 0,
+            "ay": 1,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1.600000023841858,
+            "cy": 9.300000190734863,
+            "cz": -4.659999847412109,
+            "depth": 0,
+            "faceIndices": [
+                3
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 8.106842756271362,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 3.0278898114338517
+        },
+        {
+            "angle": -90.00000250447816,
+            "ax": 0,
+            "ay": 0,
+            "az": -1,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -1,
+            "cy": 2.8000001907348633,
+            "cz": -8.100000381469727,
+            "depth": 0,
+            "faceIndices": [
+                4
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 13.000000238418579,
+            "pitch": 0,
+            "radius": 0,
+            "region": "back",
+            "secondaryRadius": 0,
+            "type": "bottom_surface",
+            "width": 2
+        },
+        {
+            "angle": -90.00000250447816,
+            "ax": -1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -3,
+            "cy": 0.988773763179779,
+            "cz": -3.7549352645874023,
+            "depth": 0,
+            "faceIndices": [
+                5
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 17.310197353363037,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 9.468662977218628
+        },
+        {
+            "angle": -90.00000250447816,
+            "ax": 1,
+            "ay": 0,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": 0,
+            "cy": -0.5698354840278625,
+            "cz": -4.367392063140869,
+            "depth": 0,
+            "faceIndices": [
+                6
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 18.331411361694336,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 11.054088592529297
+        },
+        {
+            "angle": 0,
+            "ax": 0,
+            "ay": 1,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -2.924999952316284,
+            "cy": -1.100000023841858,
+            "cz": -2.5,
+            "depth": 0,
+            "faceIndices": [
+                12
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 5,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 0.15000009536743164
+        },
+        {
+            "angle": 90.00000250447816,
+            "ax": -0.7071067690849304,
+            "ay": 0,
+            "az": -0.7071067690849304,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -2.5,
+            "cy": 2.8000001907348633,
+            "cz": -7.599999904632568,
+            "depth": 0,
+            "faceIndices": [
+                15
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 13.000000238418579,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 1.4142134189605713
+        },
+        {
+            "angle": 0,
+            "ax": -0.7071067690849304,
+            "ay": -0.7071067690849304,
+            "az": 0,
+            "boundaryPoints": [
+            ],
+            "coneAngle": 0,
+            "cx": -2.5,
+            "cy": -8.199999809265137,
+            "cz": -1.5499999523162842,
+            "depth": 0,
+            "faceIndices": [
+                17
+            ],
+            "islandBoundaries": [
+            ],
+            "kind": "flat_surface",
+            "length": 3.100000023841858,
+            "pitch": 0,
+            "radius": 0,
+            "region": "side",
+            "secondaryRadius": 0,
+            "type": "side_surface",
+            "width": 1.4142131805419922
+        }
+    ],
+    "machineProfile": {
+        "controllerId": "siemens-840d",
+        "id": "siemens-840d-default",
+        "safeStartBlocks": [
+            "G17 G40 G49 G80",
+            "G21",
+            "G90",
+            "G54",
+            "G94"
+        ],
+        "version": "1"
+    },
+    "operations": [
+        {
+            "contourFeature": {
+                "angle": -117.17517370237034,
+                "ax": 0,
+                "ay": 0,
+                "az": 1,
+                "cx": -2.3299999237060547,
+                "cy": 0.05000000074505806,
+                "cz": -2.5,
+                "depth": 5,
+                "islands": [
+                ],
+                "length": 2.776853084564209,
+                "openSide": 1,
+                "points": [
+                ],
+                "radius": 0,
+                "region": "front",
+                "slopeEndLength": 0.059372663497924805,
+                "slopeMaxWidth": 0.14695990085601807,
+                "slopeMinWidth": 0,
+                "slopeStartLength": 0,
+                "type": "open_slot",
+                "width": 1.9486024379730225
+            },
+            "enabled": true,
+            "featureRef": "mill_blind_slot L2.8 W1.9 D5.0 / Z-0.3",
+            "geometryRefs": [
+                "contour:9a5684ed9cdf20aff628b108546f28b2f55e560a89cad79df3219737b8052bca"
+            ],
+            "id": "88b1efc2-e98b-47c2-9da0-37ab49976428",
+            "opType": "contour",
+            "params": {
+                "compensation": 0,
+                "coolantMode": 1,
+                "depth": 0.3,
+                "depthMode": 0,
+                "feedHeight": 3,
+                "feedRate": 456,
+                "helixPitch": 0,
+                "helixRadius": 0,
+                "plungeRate": 200,
+                "rampAngle": 3,
+                "safeHeight": 50,
+                "spindleSpeed": 2000,
+                "stepDown": 0.1,
+                "stepover": 5,
+                "stockToLeave": 0.1,
+                "workOffset": 54
+            },
+            "selectionEvidence": {
+                "closed": true,
+                "coordinateSystemId": "G54",
+                "explicitUserSelection": true,
+                "freeEndCount": 0,
+                "geometrySource": 0,
+                "hasStartPoint": false,
+                "id": "selection:v1:4885fd911194d863ac2c1a1f087e8c84aeba20911da641b3d41b467c97a16fa8",
+                "islandCount": 0,
+                "machiningSide": 0,
+                "orderedGeometryIds": [
+                    "contour:9a5684ed9cdf20aff628b108546f28b2f55e560a89cad79df3219737b8052bca/edge:0",
+                    "contour:9a5684ed9cdf20aff628b108546f28b2f55e560a89cad79df3219737b8052bca/edge:1",
+                    "contour:9a5684ed9cdf20aff628b108546f28b2f55e560a89cad79df3219737b8052bca/edge:2",
+                    "contour:9a5684ed9cdf20aff628b108546f28b2f55e560a89cad79df3219737b8052bca/edge:3"
+                ],
+                "outerLoopPointCount": 4,
+                "reversed": false,
+                "selectedSurfaceNormal": [
+                    0,
+                    0,
+                    1
+                ],
+                "selectionMode": 1,
+                "setupFingerprint": "2c5dc002e0ff0e754e505cc721139345a2179815a0d88ac07effce987a92c28e",
+                "sortStrategy": 0,
+                "sourceFingerprint": "sha256:39d1bb74350aa020ad1ad688bc3c32f12ce13c57db0c1278e9be79bbc7a38045",
+                "startPoint": [
+                    0,
+                    0,
+                    0
+                ],
+                "toolAxis": [
+                    0,
+                    0,
+                    1
+                ]
+            },
+            "stage": "rough_cut",
+            "strategyId": "mill_blind_slot",
+            "toolId": 9001,
+            "toolpathState": "valid",
+            "warnings": [
+            ]
+        }
+    ],
+    "programs": [
+        {
+            "createdAt": "2026-09-22T16:16:34",
+            "expandedGcodeText": "",
+            "expandedLineCount": 252,
+            "gcodeText": "; Generated by CNEXT-CAM  2026-09-22 16:16:34\n; Post-processor: Siemens 840D\n;\nO0001\nG17 G40 G49 G80\nG21\nG90\nG54\nG94\n\n; ---- Operation 1 [op:88b1efc2-e98b-47c2-9da0-37ab49976428] ----\n; mill_blind_slot | Z-5.000 | T9001\nG54\nT9001 M6\nS2000 M3\nM8\n; Blind slot geometry: L=2.777 W=1.949 D=0.500 A=-117.175\n; Blind slot slopes: startU=0.000 endU=0.059 minV=0.000 maxV=0.147\n; Blind slot finish range: U[-0.888,0.882] V[-0.474,0.460]\n; Blind slot rough stock to leave: 0.100\n; Blind slot stepdown limited by 3.000 deg ramp: requested=0.100 effective=0.041\nG0 Z50.000\n; Blind slot rough layer 1/13 Z=-2.541 U[-0.788,0.788] V[-0.374,0.373]\nZ0.500\nX-1.970 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.330 Y0.050 Z-2.541\nX-2.303 Y0.922 F100\nX-3.023 Y-0.480\nX-2.690 Y-0.651\nX-1.970 Y0.752\nX-1.903 Y0.717\nX-2.623 Y-0.686\nX-2.358 Y-0.821\nX-1.638 Y0.581\nG0 Z0.500\n; Blind slot rough layer 2/13 Z=-2.583 U[-0.788,0.787] V[-0.374,0.372]\nZ0.500\nX-1.971 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.583\nX-2.303 Y0.922 F100\nX-3.023 Y-0.480\nX-2.691 Y-0.650\nX-1.971 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.359 Y-0.820\nX-1.639 Y0.582\nG0 Z0.500\n; Blind slot rough layer 3/13 Z=-2.624 U[-0.788,0.787] V[-0.374,0.371]\nZ0.500\nX-1.972 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.624\nX-2.303 Y0.922 F100\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.360 Y-0.819\nX-1.640 Y0.582\nG0 Z0.500\n; Blind slot rough layer 4/13 Z=-2.665 U[-0.788,0.786] V[-0.374,0.369]\nZ0.500\nX-1.972 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.665\nX-2.303 Y0.922 F100\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.818\nX-1.641 Y0.583\nG0 Z0.500\n; Blind slot rough layer 5/13 Z=-2.707 U[-0.788,0.786] V[-0.374,0.368]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.707\nX-2.303 Y0.922 F100\nX-3.022 Y-0.478\nX-2.692 Y-0.648\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.817\nX-1.642 Y0.583\nG0 Z0.500\n; Blind slot rough layer 6/13 Z=-2.748 U[-0.788,0.785] V[-0.374,0.367]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.748\nX-2.303 Y0.922 F100\nX-3.022 Y-0.478\nX-2.692 Y-0.647\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.362 Y-0.816\nX-1.643 Y0.584\nG0 Z0.500\n; Blind slot rough layer 7/13 Z=-2.789 U[-0.788,0.785] V[-0.374,0.366]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.789\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.644 Y0.584\nG0 Z0.500\n; Blind slot rough layer 8/13 Z=-2.831 U[-0.788,0.785] V[-0.374,0.365]\nZ0.500\nX-1.974 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.054 Z-2.831\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.693 Y-0.646\nX-1.974 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.364 Y-0.814\nX-1.646 Y0.585\nG0 Z0.500\n; Blind slot rough layer 9/13 Z=-2.872 U[-0.788,0.784] V[-0.374,0.363]\nZ0.500\nX-1.975 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.334 Y0.054 Z-2.872\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.693 Y-0.645\nX-1.975 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.365 Y-0.813\nX-1.647 Y0.585\nG0 Z0.500\n; Blind slot rough layer 10/13 Z=-2.913 U[-0.788,0.784] V[-0.374,0.362]\nZ0.500\nX-1.975 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.334 Y0.055 Z-2.913\nX-2.303 Y0.922 F100\nX-3.021 Y-0.476\nX-2.693 Y-0.644\nX-1.975 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.366 Y-0.812\nX-1.648 Y0.586\nG0 Z0.500\n; Blind slot rough layer 11/13 Z=-2.955 U[-0.788,0.783] V[-0.374,0.361]\nZ0.500\nX-1.976 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.055 Z-2.955\nX-2.303 Y0.922 F100\nX-3.021 Y-0.476\nX-2.694 Y-0.644\nX-1.976 Y0.754\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.811\nX-1.649 Y0.587\nG0 Z0.500\n; Blind slot rough layer 12/13 Z=-2.996 U[-0.788,0.783] V[-0.374,0.360]\nZ0.500\nX-1.976 Y0.755\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.056 Z-2.996\nX-2.303 Y0.922 F100\nX-3.020 Y-0.475\nX-2.694 Y-0.643\nX-1.976 Y0.755\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.810\nX-1.650 Y0.587\nG0 Z0.500\n; Blind slot rough layer 13/13 Z=-3.000 U[-0.788,0.782] V[-0.374,0.360]\nZ0.500\nX-1.976 Y0.755\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.056 Z-3.000\nX-2.303 Y0.922 F100\nX-3.020 Y-0.475\nX-2.694 Y-0.643\nX-1.976 Y0.755\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.810\nX-1.650 Y0.587\n; Blind slot bottom finish\nG0 Z0.500\nX-3.155 Y-0.518\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.346 Y1.057 Z-3.000\nX-3.155 Y-0.518 F100\nX-2.844 Y-0.678\nX-2.035 Y0.897\nX-1.931 Y0.844\nX-2.740 Y-0.732\nX-2.532 Y-0.838\nX-1.723 Y0.737\nX-1.515 Y0.630\nX-2.324 Y-0.945\n; Blind slot wall finish\nG0 Z0.500\nX-2.733 Y-0.735\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.153 Y0.396 Z-3.000\nG40\nX-2.346 Y1.057 F100\nX-3.155 Y-0.518\nX-2.324 Y-0.945\nX-1.515 Y0.630\nX-2.346 Y1.057\nX-2.153 Y0.396\nG40\nX-2.330 Y0.050\nG0 Z50.000\n\nM5\nM9\nM30\n",
+            "id": "96500a90-4e64-4535-97c6-56b3b42d3240",
+            "lineCount": 252,
+            "machineProfileId": "siemens-840d-default",
+            "machineProfileVersion": "1",
+            "macroText": "",
+            "name": "Batch Program 1",
+            "parametricPrograms": [
+            ],
+            "postProcessorId": "siemens",
+            "programPackage": {
+                "files": [
+                    {
+                        "content": "; Generated by CNEXT-CAM  2026-09-22 16:16:34\n; Post-processor: Siemens 840D\n;\nO0001\nG17 G40 G49 G80\nG21\nG90\nG54\nG94\n\n; ---- Operation 1 [op:88b1efc2-e98b-47c2-9da0-37ab49976428] ----\n; mill_blind_slot | Z-5.000 | T9001\nG54\nT9001 M6\nS2000 M3\nM8\n; Blind slot geometry: L=2.777 W=1.949 D=0.500 A=-117.175\n; Blind slot slopes: startU=0.000 endU=0.059 minV=0.000 maxV=0.147\n; Blind slot finish range: U[-0.888,0.882] V[-0.474,0.460]\n; Blind slot rough stock to leave: 0.100\n; Blind slot stepdown limited by 3.000 deg ramp: requested=0.100 effective=0.041\nG0 Z50.000\n; Blind slot rough layer 1/13 Z=-2.541 U[-0.788,0.788] V[-0.374,0.373]\nZ0.500\nX-1.970 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.330 Y0.050 Z-2.541\nX-2.303 Y0.922 F100\nX-3.023 Y-0.480\nX-2.690 Y-0.651\nX-1.970 Y0.752\nX-1.903 Y0.717\nX-2.623 Y-0.686\nX-2.358 Y-0.821\nX-1.638 Y0.581\nG0 Z0.500\n; Blind slot rough layer 2/13 Z=-2.583 U[-0.788,0.787] V[-0.374,0.372]\nZ0.500\nX-1.971 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.583\nX-2.303 Y0.922 F100\nX-3.023 Y-0.480\nX-2.691 Y-0.650\nX-1.971 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.359 Y-0.820\nX-1.639 Y0.582\nG0 Z0.500\n; Blind slot rough layer 3/13 Z=-2.624 U[-0.788,0.787] V[-0.374,0.371]\nZ0.500\nX-1.972 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.624\nX-2.303 Y0.922 F100\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.360 Y-0.819\nX-1.640 Y0.582\nG0 Z0.500\n; Blind slot rough layer 4/13 Z=-2.665 U[-0.788,0.786] V[-0.374,0.369]\nZ0.500\nX-1.972 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.665\nX-2.303 Y0.922 F100\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.818\nX-1.641 Y0.583\nG0 Z0.500\n; Blind slot rough layer 5/13 Z=-2.707 U[-0.788,0.786] V[-0.374,0.368]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.707\nX-2.303 Y0.922 F100\nX-3.022 Y-0.478\nX-2.692 Y-0.648\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.817\nX-1.642 Y0.583\nG0 Z0.500\n; Blind slot rough layer 6/13 Z=-2.748 U[-0.788,0.785] V[-0.374,0.367]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.748\nX-2.303 Y0.922 F100\nX-3.022 Y-0.478\nX-2.692 Y-0.647\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.362 Y-0.816\nX-1.643 Y0.584\nG0 Z0.500\n; Blind slot rough layer 7/13 Z=-2.789 U[-0.788,0.785] V[-0.374,0.366]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.789\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.644 Y0.584\nG0 Z0.500\n; Blind slot rough layer 8/13 Z=-2.831 U[-0.788,0.785] V[-0.374,0.365]\nZ0.500\nX-1.974 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.054 Z-2.831\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.693 Y-0.646\nX-1.974 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.364 Y-0.814\nX-1.646 Y0.585\nG0 Z0.500\n; Blind slot rough layer 9/13 Z=-2.872 U[-0.788,0.784] V[-0.374,0.363]\nZ0.500\nX-1.975 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.334 Y0.054 Z-2.872\nX-2.303 Y0.922 F100\nX-3.021 Y-0.477\nX-2.693 Y-0.645\nX-1.975 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.365 Y-0.813\nX-1.647 Y0.585\nG0 Z0.500\n; Blind slot rough layer 10/13 Z=-2.913 U[-0.788,0.784] V[-0.374,0.362]\nZ0.500\nX-1.975 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.334 Y0.055 Z-2.913\nX-2.303 Y0.922 F100\nX-3.021 Y-0.476\nX-2.693 Y-0.644\nX-1.975 Y0.754\nX-1.903 Y0.717\nX-2.621 Y-0.682\nX-2.366 Y-0.812\nX-1.648 Y0.586\nG0 Z0.500\n; Blind slot rough layer 11/13 Z=-2.955 U[-0.788,0.783] V[-0.374,0.361]\nZ0.500\nX-1.976 Y0.754\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.055 Z-2.955\nX-2.303 Y0.922 F100\nX-3.021 Y-0.476\nX-2.694 Y-0.644\nX-1.976 Y0.754\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.811\nX-1.649 Y0.587\nG0 Z0.500\n; Blind slot rough layer 12/13 Z=-2.996 U[-0.788,0.783] V[-0.374,0.360]\nZ0.500\nX-1.976 Y0.755\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.056 Z-2.996\nX-2.303 Y0.922 F100\nX-3.020 Y-0.475\nX-2.694 Y-0.643\nX-1.976 Y0.755\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.810\nX-1.650 Y0.587\nG0 Z0.500\n; Blind slot rough layer 13/13 Z=-3.000 U[-0.788,0.782] V[-0.374,0.360]\nZ0.500\nX-1.976 Y0.755\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.335 Y0.056 Z-3.000\nX-2.303 Y0.922 F100\nX-3.020 Y-0.475\nX-2.694 Y-0.643\nX-1.976 Y0.755\nX-1.903 Y0.717\nX-2.620 Y-0.681\nX-2.367 Y-0.810\nX-1.650 Y0.587\n; Blind slot bottom finish\nG0 Z0.500\nX-3.155 Y-0.518\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.346 Y1.057 Z-3.000\nX-3.155 Y-0.518 F100\nX-2.844 Y-0.678\nX-2.035 Y0.897\nX-1.931 Y0.844\nX-2.740 Y-0.732\nX-2.532 Y-0.838\nX-1.723 Y0.737\nX-1.515 Y0.630\nX-2.324 Y-0.945\n; Blind slot wall finish\nG0 Z0.500\nX-2.733 Y-0.735\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.153 Y0.396 Z-3.000\nG40\nX-2.346 Y1.057 F100\nX-3.155 Y-0.518\nX-2.324 Y-0.945\nX-1.515 Y0.630\nX-2.346 Y1.057\nX-2.153 Y0.396\nG40\nX-2.330 Y0.050\nG0 Z50.000\n\nM5\nM9\nM30\n",
+                        "fileName": "CNEXT_BATCH_1.MPF",
+                        "kind": "main",
+                        "sha256": "58B1DE4EDD857A7B70F53266085851512823B2CBB190061C9AFB0685FA6E70CB"
+                    }
+                ],
+                "mainProgramFileName": "CNEXT_BATCH_1.MPF"
+            },
+            "safeStartBlocks": [
+                "G17 G40 G49 G80",
+                "G21",
+                "G90",
+                "G54",
+                "G94"
+            ],
+            "setupFingerprint": "2c5dc002e0ff0e754e505cc721139345a2179815a0d88ac07effce987a92c28e",
+            "sourceOperationFingerprint": "d2edaf93b5a0814ea35d5947978a1d556bedb6fdad95816e9a9c6a81de04a28a",
+            "sourceOperationIds": [
+                "88b1efc2-e98b-47c2-9da0-37ab49976428"
+            ],
+            "sourceSummary": "batch",
+            "toolFingerprint": "1f3122c58e926ed57bbf4a48ef2c59dff5b8209bb5b322c2c8e998a917569b17"
+        },
+        {
+            "createdAt": "2026-09-22T16:16:37",
+            "expandedGcodeText": "",
+            "expandedLineCount": 177,
+            "gcodeText": "; Generated by CNEXT-CAM  2026-09-22 16:16:37\n; Post-processor: Siemens 840D\n;\nO0001\nG17 G40 G49 G80\nG21\nG90\nG54\nG94\n\n; ---- Operation 1 [op:88b1efc2-e98b-47c2-9da0-37ab49976428] ----\n; mill_blind_slot | Z-5.000 | T9001\nG54\nT9001 M6\nS2000 M3\nM8\n; Blind slot geometry: L=2.777 W=1.949 D=0.300 A=-117.175\n; Blind slot slopes: startU=0.000 endU=0.059 minV=0.000 maxV=0.147\n; Blind slot finish range: U[-0.888,0.885] V[-0.474,0.465]\n; Blind slot rough stock to leave: 0.100\n; Blind slot stepdown limited by 3.000 deg ramp: requested=0.100 effective=0.041\nG0 Z50.000\n; Blind slot rough layer 1/8 Z=-2.541 U[-0.788,0.788] V[-0.374,0.373]\nZ0.500\nX-1.970 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.330 Y0.050 Z-2.541\nX-2.303 Y0.922 F456\nX-3.023 Y-0.480\nX-2.690 Y-0.651\nX-1.970 Y0.752\nX-1.903 Y0.717\nX-2.623 Y-0.686\nX-2.358 Y-0.821\nX-1.638 Y0.581\nG0 Z0.500\n; Blind slot rough layer 2/8 Z=-2.583 U[-0.788,0.787] V[-0.374,0.372]\nZ0.500\nX-1.971 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.583\nX-2.303 Y0.922 F456\nX-3.023 Y-0.480\nX-2.691 Y-0.650\nX-1.971 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.359 Y-0.820\nX-1.639 Y0.582\nG0 Z0.500\n; Blind slot rough layer 3/8 Z=-2.624 U[-0.788,0.787] V[-0.374,0.371]\nZ0.500\nX-1.972 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.624\nX-2.303 Y0.922 F456\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.360 Y-0.819\nX-1.640 Y0.582\nG0 Z0.500\n; Blind slot rough layer 4/8 Z=-2.665 U[-0.788,0.786] V[-0.374,0.369]\nZ0.500\nX-1.972 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.665\nX-2.303 Y0.922 F456\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.818\nX-1.641 Y0.583\nG0 Z0.500\n; Blind slot rough layer 5/8 Z=-2.707 U[-0.788,0.786] V[-0.374,0.368]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.707\nX-2.303 Y0.922 F456\nX-3.022 Y-0.478\nX-2.692 Y-0.648\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.817\nX-1.642 Y0.583\nG0 Z0.500\n; Blind slot rough layer 6/8 Z=-2.748 U[-0.788,0.785] V[-0.374,0.367]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.748\nX-2.303 Y0.922 F456\nX-3.022 Y-0.478\nX-2.692 Y-0.647\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.362 Y-0.816\nX-1.643 Y0.584\nG0 Z0.500\n; Blind slot rough layer 7/8 Z=-2.789 U[-0.788,0.785] V[-0.374,0.366]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.789\nX-2.303 Y0.922 F456\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.644 Y0.584\nG0 Z0.500\n; Blind slot rough layer 8/8 Z=-2.800 U[-0.788,0.785] V[-0.374,0.365]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.054 Z-2.800\nX-2.303 Y0.922 F456\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.645 Y0.584\n; Blind slot bottom finish\nG0 Z0.500\nX-3.156 Y-0.521\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.346 Y1.057 Z-2.800\nX-3.156 Y-0.521 F456\nX-2.845 Y-0.680\nX-2.035 Y0.897\nX-1.928 Y0.842\nX-2.738 Y-0.735\nX-2.533 Y-0.840\nX-1.723 Y0.737\nX-1.510 Y0.628\nX-2.320 Y-0.950\n; Blind slot wall finish\nG0 Z0.500\nX-2.734 Y-0.737\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.153 Y0.396 Z-2.800\nG40\nX-2.346 Y1.057 F456\nX-3.156 Y-0.521\nX-2.320 Y-0.950\nX-1.510 Y0.628\nX-2.346 Y1.057\nX-2.153 Y0.396\nG40\nX-2.330 Y0.050\nG0 Z50.000\n\nM5\nM9\nM30\n",
+            "id": "fa5e16f1-fd22-4191-a9c5-534c76692c60",
+            "lineCount": 177,
+            "machineProfileId": "siemens-840d-default",
+            "machineProfileVersion": "1",
+            "macroText": "",
+            "name": "Batch Program 2",
+            "parametricPrograms": [
+            ],
+            "postProcessorId": "siemens",
+            "programPackage": {
+                "files": [
+                    {
+                        "content": "; Generated by CNEXT-CAM  2026-09-22 16:16:37\n; Post-processor: Siemens 840D\n;\nO0001\nG17 G40 G49 G80\nG21\nG90\nG54\nG94\n\n; ---- Operation 1 [op:88b1efc2-e98b-47c2-9da0-37ab49976428] ----\n; mill_blind_slot | Z-5.000 | T9001\nG54\nT9001 M6\nS2000 M3\nM8\n; Blind slot geometry: L=2.777 W=1.949 D=0.300 A=-117.175\n; Blind slot slopes: startU=0.000 endU=0.059 minV=0.000 maxV=0.147\n; Blind slot finish range: U[-0.888,0.885] V[-0.474,0.465]\n; Blind slot rough stock to leave: 0.100\n; Blind slot stepdown limited by 3.000 deg ramp: requested=0.100 effective=0.041\nG0 Z50.000\n; Blind slot rough layer 1/8 Z=-2.541 U[-0.788,0.788] V[-0.374,0.373]\nZ0.500\nX-1.970 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.330 Y0.050 Z-2.541\nX-2.303 Y0.922 F456\nX-3.023 Y-0.480\nX-2.690 Y-0.651\nX-1.970 Y0.752\nX-1.903 Y0.717\nX-2.623 Y-0.686\nX-2.358 Y-0.821\nX-1.638 Y0.581\nG0 Z0.500\n; Blind slot rough layer 2/8 Z=-2.583 U[-0.788,0.787] V[-0.374,0.372]\nZ0.500\nX-1.971 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.583\nX-2.303 Y0.922 F456\nX-3.023 Y-0.480\nX-2.691 Y-0.650\nX-1.971 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.359 Y-0.820\nX-1.639 Y0.582\nG0 Z0.500\n; Blind slot rough layer 3/8 Z=-2.624 U[-0.788,0.787] V[-0.374,0.371]\nZ0.500\nX-1.972 Y0.752\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.331 Y0.051 Z-2.624\nX-2.303 Y0.922 F456\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.752\nX-1.903 Y0.717\nX-2.622 Y-0.685\nX-2.360 Y-0.819\nX-1.640 Y0.582\nG0 Z0.500\n; Blind slot rough layer 4/8 Z=-2.665 U[-0.788,0.786] V[-0.374,0.369]\nZ0.500\nX-1.972 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.665\nX-2.303 Y0.922 F456\nX-3.022 Y-0.479\nX-2.691 Y-0.649\nX-1.972 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.818\nX-1.641 Y0.583\nG0 Z0.500\n; Blind slot rough layer 5/8 Z=-2.707 U[-0.788,0.786] V[-0.374,0.368]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.332 Y0.052 Z-2.707\nX-2.303 Y0.922 F456\nX-3.022 Y-0.478\nX-2.692 Y-0.648\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.622 Y-0.684\nX-2.361 Y-0.817\nX-1.642 Y0.583\nG0 Z0.500\n; Blind slot rough layer 6/8 Z=-2.748 U[-0.788,0.785] V[-0.374,0.367]\nZ0.500\nX-1.973 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.748\nX-2.303 Y0.922 F456\nX-3.022 Y-0.478\nX-2.692 Y-0.647\nX-1.973 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.362 Y-0.816\nX-1.643 Y0.584\nG0 Z0.500\n; Blind slot rough layer 7/8 Z=-2.789 U[-0.788,0.785] V[-0.374,0.366]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.053 Z-2.789\nX-2.303 Y0.922 F456\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.644 Y0.584\nG0 Z0.500\n; Blind slot rough layer 8/8 Z=-2.800 U[-0.788,0.785] V[-0.374,0.365]\nZ0.500\nX-1.974 Y0.753\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.333 Y0.054 Z-2.800\nX-2.303 Y0.922 F456\nX-3.021 Y-0.477\nX-2.692 Y-0.646\nX-1.974 Y0.753\nX-1.903 Y0.717\nX-2.621 Y-0.683\nX-2.363 Y-0.815\nX-1.645 Y0.584\n; Blind slot bottom finish\nG0 Z0.500\nX-3.156 Y-0.521\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.346 Y1.057 Z-2.800\nX-3.156 Y-0.521 F456\nX-2.845 Y-0.680\nX-2.035 Y0.897\nX-1.928 Y0.842\nX-2.738 Y-0.735\nX-2.533 Y-0.840\nX-1.723 Y0.737\nX-1.510 Y0.628\nX-2.320 Y-0.950\n; Blind slot wall finish\nG0 Z0.500\nX-2.734 Y-0.737\nG1 Z-2.500 F200\n; Blind slot ramp plunge angle 3.000\nX-2.153 Y0.396 Z-2.800\nG40\nX-2.346 Y1.057 F456\nX-3.156 Y-0.521\nX-2.320 Y-0.950\nX-1.510 Y0.628\nX-2.346 Y1.057\nX-2.153 Y0.396\nG40\nX-2.330 Y0.050\nG0 Z50.000\n\nM5\nM9\nM30\n",
+                        "fileName": "CNEXT_BATCH_2.MPF",
+                        "kind": "main",
+                        "sha256": "A09711FD7579D8D0D0126896E345879ABC1296976FBAC02AA1766AEA36395B79"
+                    }
+                ],
+                "mainProgramFileName": "CNEXT_BATCH_2.MPF"
+            },
+            "safeStartBlocks": [
+                "G17 G40 G49 G80",
+                "G21",
+                "G90",
+                "G54",
+                "G94"
+            ],
+            "setupFingerprint": "2c5dc002e0ff0e754e505cc721139345a2179815a0d88ac07effce987a92c28e",
+            "sourceOperationFingerprint": "04a8fe277bfafce5585767e8f02855f08e87c7bc44133eec37f21fb5007f8548",
+            "sourceOperationIds": [
+                "88b1efc2-e98b-47c2-9da0-37ab49976428"
+            ],
+            "sourceSummary": "batch",
+            "toolFingerprint": "1f3122c58e926ed57bbf4a48ef2c59dff5b8209bb5b322c2c8e998a917569b17"
+        }
+    ],
+    "setup": {
+        "activeRegion": "front",
+        "originAnchor": "top_center",
+        "originConfirmed": true,
+        "originCustomX": 0,
+        "originCustomY": 0,
+        "originCustomZ": 0,
+        "originOffsetX": 0,
+        "originOffsetY": 0,
+        "originOffsetZ": 0,
+        "rotationW": 0,
+        "rotationX": 0,
+        "rotationY": 1,
+        "rotationZ": 0,
+        "workOffset": "G54"
+    },
+    "sourceFileFingerprint": "sha256:39d1bb74350aa020ad1ad688bc3c32f12ce13c57db0c1278e9be79bbc7a38045",
+    "sourceFilePath": "测试模型/槽.stp",
+    "stock": {
+        "confirmed": true,
+        "minusX": 0,
+        "minusY": 0,
+        "minusZ": 0,
+        "plusX": 0,
+        "plusY": 0,
+        "plusZ": 0,
+        "type": "rectangular"
+    },
+    "version": "2.0"
+}
