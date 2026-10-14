@@ -1,4 +1,4 @@
-#include "CircleMillDialog.h"
+﻿#include "CircleMillDialog.h"
 
 #include <QComboBox>
 #include <QDialogButtonBox>

@@ -1,4 +1,5 @@
 #include "BlindSlotMillingStrategy.h"
+#include "SlotMachiningGeometry.h"
 
 #include <QObject>
 #include <algorithm>
@@ -7,11 +8,13 @@
 
 namespace {
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -20,6 +23,7 @@ static QString feedXY(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：feedXYZ负责当前模块的核心处理。
 static QString feedXYZ(double x, double y, double z, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 Z%3 F%4\n")
@@ -29,23 +33,27 @@ static QString feedXYZ(double x, double y, double z, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：slotLength负责当前模块的核心处理。
 static double slotLength(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotLength"),
                       feature.length > 0.0 ? feature.length : feature.radius * 2.0);
 }
 
+// 函数说明：slotWidth负责当前模块的核心处理。
 static double slotWidth(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotWidth"),
                       feature.width > 0.0 ? feature.width : feature.radius);
 }
 
+// 函数说明：slotAngleDeg负责当前模块的核心处理。
 static double slotAngleDeg(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("angle"), feature.angle);
 }
 
+// 函数说明：roughScanOffsets负责当前模块的核心处理。
 static std::vector<double> roughScanOffsets(double halfWidth, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -70,6 +78,7 @@ static std::vector<double> roughScanOffsets(double halfWidth, double stepover, d
     return offsets;
 }
 
+// 函数说明：finishScanOffsets负责当前模块的核心处理。
 static std::vector<double> finishScanOffsets(double halfWidth, double stepover, double toolDiameter)
 {
     std::vector<double> offsets;
@@ -94,6 +103,7 @@ static std::vector<double> finishScanOffsets(double halfWidth, double stepover, 
     return offsets;
 }
 
+// 函数说明：slotLayerRange负责当前模块的核心处理。
 static void slotLayerRange(double halfLength,
                            double slopeStartLength,
                            double slopeEndLength,
@@ -107,6 +117,7 @@ static void slotLayerRange(double halfLength,
     maxU =  halfLength - std::max(0.0, slopeEndLength) * clampedRatio - centerInset;
 }
 
+// 函数说明：slotLayerWidthRange负责当前模块的核心处理。
 static void slotLayerWidthRange(double halfWidth,
                                 double slopeMinWidth,
                                 double slopeMaxWidth,
@@ -120,24 +131,9 @@ static void slotLayerWidthRange(double halfWidth,
     maxV =  halfWidth - std::max(0.0, slopeMaxWidth) * clampedRatio - centerInset;
 }
 
-static void clampSlopePair(double &first, double &second, double maxTotal)
-{
-    first = std::max(0.0, first);
-    second = std::max(0.0, second);
-    maxTotal = std::max(0.0, maxTotal);
-
-    const double sum = first + second;
-    if (sum <= maxTotal || sum <= 1.0e-9) {
-        return;
-    }
-
-    const double scale = maxTotal / sum;
-    first *= scale;
-    second *= scale;
-}
-
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams BlindSlotMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -160,6 +156,7 @@ StrategyParams BlindSlotMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult BlindSlotMillingStrategy::generate(const HoleFeature &,
                                                   const ToolEntry &,
                                                   const StrategyParams &) const
@@ -167,12 +164,17 @@ ToolpathResult BlindSlotMillingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("Blind slot milling requires a contour feature."), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
                                                   const ToolEntry      &tool,
                                                   const StrategyParams &params) const
 {
     ToolpathResult res;
 
+    if (!slotAxisSupportsZMachining(feature.axis)) {
+        res.errorMsg = QObject::tr("Slot axis requires a transformed Z-aligned Setup.");
+        return res;
+    }
     if (tool.diameter <= 0.0) {
         res.errorMsg = QObject::tr("The selected tool diameter is invalid.");
         return res;
@@ -252,17 +254,26 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
         res.errorMsg = QObject::tr("Slot is too short for ramp plunging with the selected tool and stock allowance.");
         return res;
     }
-    double slopeStartLength = feature.slopeStartLength;
-    double slopeEndLength = feature.slopeEndLength;
-    double slopeMinWidth = feature.slopeMinWidth;
-    double slopeMaxWidth = feature.slopeMaxWidth;
-    const double minCenterSpan = std::max(0.05, tool.diameter * 0.25);
-    clampSlopePair(slopeStartLength,
-                   slopeEndLength,
-                   fullLength - 2.0 * roughCenterInset - minCenterSpan);
-    clampSlopePair(slopeMinWidth,
-                   slopeMaxWidth,
-                   fullWidth - 2.0 * roughCenterInset - minCenterSpan);
+    // Intersect the original linear slopes at the requested depth; never resize the geometry to fit a tool.
+    const double targetRatio = targetDepth / feature.depth;
+    const double slopeStartLength = feature.slopeStartLength * targetRatio;
+    const double slopeEndLength = feature.slopeEndLength * targetRatio;
+    const double slopeMinWidth = feature.slopeMinWidth * targetRatio;
+    const double slopeMaxWidth = feature.slopeMaxWidth * targetRatio;
+    const double roughBottomMinU = -halfLen + slopeStartLength + roughCenterInset;
+    const double roughBottomMaxU = halfLen - slopeEndLength - roughCenterInset;
+    const double roughBottomMinV = -halfWid + slopeMinWidth + roughCenterInset;
+    const double roughBottomMaxV = halfWid - slopeMaxWidth - roughCenterInset;
+    if (roughBottomMaxU <= roughBottomMinU || roughBottomMaxV <= roughBottomMinV) {
+        res.errorMsg = QObject::tr("The original slot slopes cannot fit the tool and rough allowance at the requested depth.");
+        return res;
+    }
+    if (helixRadius > 1.0e-6 &&
+        (-helixRadius < roughBottomMinU || helixRadius > roughBottomMaxU ||
+         -helixRadius < roughBottomMinV || helixRadius > roughBottomMaxV)) {
+        res.errorMsg = QObject::tr("The helix entry does not fit the original slot slopes at the requested depth.");
+        return res;
+    }
     double finishMinU = 0.0;
     double finishMaxU = 0.0;
     slotLayerRange(halfLen,
@@ -309,6 +320,15 @@ ToolpathResult BlindSlotMillingStrategy::generate(const ContourFeature &feature,
     const double topFinishMinV = -halfWid + tool.diameter * 0.5;
     const double topFinishMaxV =  halfWid - tool.diameter * 0.5;
     const double slopeFinishMinLength = std::max(0.05, tool.diameter * 0.05);
+    // The existing wall entry and exit use local V=0 and return to the slot center.
+    // Reject a shifted cross-section that cannot contain those moves instead of changing its slopes.
+    const double wallLeadU = finishMinU + tool.diameter * 0.5;
+    if (bottomFinishMinU > 0.0 || bottomFinishMaxU < 0.0 ||
+        bottomFinishMinV > 0.0 || bottomFinishMaxV < 0.0 ||
+        wallLeadU < bottomFinishMinU || wallLeadU > bottomFinishMaxU) {
+        res.errorMsg = QObject::tr("The existing wall entry and exit do not fit the original slot slopes at the requested depth.");
+        return res;
+    }
 
     auto slotToWorld = [&](double u, double v, double &x, double &y) {
         x = cx + u * cosA - v * sinA;

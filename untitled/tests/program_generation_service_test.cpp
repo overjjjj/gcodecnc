@@ -1,16 +1,36 @@
-#include "../src/services/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
 #include "../src/postprocessor/SiemensPostProcessor.h"
+#include "../src/postprocessor/FanucPostProcessor.h"
 #include "../src/postprocessor/Cq8PostProcessor.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include <QCoreApplication>
+#include <cmath>
 #include <QDebug>
 
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <utility>
 
 namespace {
+bool numericArgumentEquals(const QString &argument, double expected)
+{
+    bool ok = false;
+    const double value = argument.toDouble(&ok);
+    return ok && std::isfinite(value) && std::abs(value - expected) < 1e-9;
+}
+
+bool hasCuttingPosition(const QString &gcode, double x, double y)
+{
+    SimulationController simulation;simulation.loadGCode(gcode,false);
+    if(!simulation.motionError().isEmpty())return false;
+    for(const auto &move:simulation.moves())
+        if(!move.isRapid && move.toKnownAxes==7 && std::abs(move.to.x()-x)<1e-9 && std::abs(move.to.y()-y)<1e-9)return true;
+    return false;
+}
+
 
 class FixedStrategy final : public StrategyBase
 {
@@ -70,6 +90,7 @@ MachiningOperation holeOperation(const QString &id,
     operation.holeFeature.center = QVector3D(10.0f, 20.0f, 0.0f);
     operation.holeFeature.radius = 3.0;
     operation.holeFeature.depth = 5.0;
+    operation.holeFeature.region = FaceRegion::Front;
     return operation;
 }
 
@@ -129,8 +150,9 @@ int main(int argc, char **argv)
     snapshotOptions.name = QStringLiteral("Batch Program 1");
     snapshotOptions.sourceSummary = QStringLiteral("batch");
     snapshotOptions.mainProgramName = QStringLiteral("CNEXT batch 1");
-    snapshotOptions.machineProfile.id = QStringLiteral("profile-test");
-    snapshotOptions.machineProfile.version = QStringLiteral("7");
+    snapshotOptions.machineProfile.id = QStringLiteral("siemens-840d-pgz-1102");
+    snapshotOptions.machineProfile.version = QStringLiteral("sw6");
+    snapshotOptions.machineProfile.controllerId = QStringLiteral("siemens-840d");
     snapshotOptions.machineProfile.safeStartBlocks = options.safeStartBlocks;
 
     const MachiningOperation valid =
@@ -151,11 +173,12 @@ int main(int argc, char **argv)
                 QStringLiteral("final G-code should retain the operation trace marker")) ||
         !expect(success.snapshot.sourceOperationIds ==
                     QStringList{QStringLiteral("op-valid")} &&
-                    !success.snapshot.sourceOperationFingerprint.isEmpty(),
+                    !success.snapshot.sourceOperationFingerprint.isEmpty() &&
+                    !success.snapshot.toolFingerprint.isEmpty(),
                 QStringLiteral("the snapshot should fingerprint every source operation")) ||
         !expect(success.snapshot.postProcessorId == QStringLiteral("siemens") &&
-                    success.snapshot.machineProfileId == QStringLiteral("profile-test") &&
-                    success.snapshot.machineProfileVersion == QStringLiteral("7") &&
+                    success.snapshot.machineProfileId == QStringLiteral("siemens-840d-pgz-1102") &&
+                    success.snapshot.machineProfileVersion == QStringLiteral("sw6") &&
                     success.snapshot.safeStartBlocks == snapshotOptions.machineProfile.safeStartBlocks,
                 QStringLiteral("the snapshot should retain the controller and machine profile")) ||
         !expect(success.snapshot.mainProgramFileName ==
@@ -174,6 +197,43 @@ int main(int argc, char **argv)
     if (!expect(success.snapshot.gcodeText.contains(
                     QStringLiteral("G1 Z-5.000 F100\nX15 Y20\nG0 Z5")),
                 QStringLiteral("final program should omit only repeated modal words"))) {
+        return 1;
+    }
+
+    MachiningOperation offsetOperation = valid;
+    offsetOperation.id = QStringLiteral("op-g56");
+    offsetOperation.params.set(QStringLiteral("workOffset"), 56.0);
+    const ProgramGenerationResult offsetSuccess =
+        service.generate({offsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(offsetSuccess.ok,
+                QStringLiteral("a valid per-operation work offset should generate")) ||
+        !expect(offsetSuccess.snapshot.gcodeText.contains(
+                    QStringLiteral("[op:op-g56] ----\n; safe_hole | D6.000 Z-5.000 | T1\nG56")),
+                QStringLiteral("each operation should emit its configured G54-G59 work offset"))) {
+        return 1;
+    }
+
+    MachiningOperation invalidOffsetOperation = valid;
+    invalidOffsetOperation.params.set(QStringLiteral("workOffset"), 60.0);
+    const ProgramGenerationResult invalidOffset =
+        service.generate({invalidOffsetOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!invalidOffset.ok,
+                QStringLiteral("an invalid per-operation work offset must be rejected")) ||
+        !expect(!invalidOffset.errors.isEmpty() &&
+                    invalidOffset.errors.first().contains(QStringLiteral("G54-G59")),
+                QStringLiteral("the invalid work-offset error should identify the supported range"))) {
+        return 1;
+    }
+
+    MachiningOperation incrementalDepthOperation = valid;
+    incrementalDepthOperation.params.set(QStringLiteral("depthMode"), 1.0);
+    const ProgramGenerationResult incrementalDepth =
+        service.generate({incrementalDepthOperation}, postProcessor, options, snapshotOptions);
+    if (!expect(!incrementalDepth.ok,
+                QStringLiteral("incremental depth mode must be rejected until it is generated safely")) ||
+        !expect(!incrementalDepth.errors.isEmpty() &&
+                    incrementalDepth.errors.first().contains(QStringLiteral("depth mode")),
+                QStringLiteral("the incremental-depth error should identify the unsupported mode"))) {
         return 1;
     }
     if (!expect(success.snapshot.parametricPrograms.size() == 1 &&
@@ -367,10 +427,8 @@ int main(int argc, char **argv)
         !expect(repeatedHoles.snapshot.gcodeText.count(
                     QStringLiteral("MCALL CYCLE83(")) == 1,
                 QStringLiteral("compatible holes should share one Siemens cycle definition")) ||
-        !expect(repeatedHoles.snapshot.gcodeText.contains(
-                    QStringLiteral("X10.000 Y20.000")) &&
-                    repeatedHoles.snapshot.gcodeText.contains(
-                        QStringLiteral("X30.000 Y40.000")),
+        !expect(hasCuttingPosition(repeatedHoles.snapshot.gcodeText,10,20) &&
+                    hasCuttingPosition(repeatedHoles.snapshot.gcodeText,30,40),
                 QStringLiteral("the shared cycle should call both hole positions")) ||
         !expect(repeatedHoles.snapshot.gcodeText.contains(
                     QStringLiteral("[op:op-hole-1]")) &&
@@ -381,6 +439,144 @@ int main(int argc, char **argv)
                     repeatedHoles.snapshot.packageFiles.first().content ==
                         repeatedHoles.snapshot.gcodeText,
                 QStringLiteral("the validated cycle program should remain the exported main MPF"))) {
+        return 1;
+    }
+
+    const QStringList invalidG76Markers{
+        QStringLiteral(";CNEXT_HOLE_CYCLE code=G76 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 q=0 f=100"),
+        QStringLiteral(";CNEXT_HOLE_CYCLE code=G76 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 q=-0.1 f=100"),
+        QStringLiteral(";CNEXT_HOLE_CYCLE code=G76 rtp=5 rfp=0 sdis=2 x=10 y=20 z=-5 f=100")};
+    FanucPostProcessor fanuc;
+    for (int invalidIndex = 0; invalidIndex < invalidG76Markers.size(); ++invalidIndex) {
+        const ToolpathResult invalidG76Toolpath{
+            QStringLiteral("T1 M6\nS1200 M3\nG0 Z5\n") + invalidG76Markers.at(invalidIndex) +
+                QStringLiteral("\nG0 Z5"),
+            true, QString(), 1.0};
+        const auto invalidG76Strategy = std::make_shared<FixedStrategy>(
+            QStringLiteral("invalid_g76_%1").arg(invalidIndex), invalidG76Toolpath);
+        ProgramGenerationService invalidG76Service(
+            [invalidG76Strategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+                return id == invalidG76Strategy->id() ? invalidG76Strategy
+                                                      : std::shared_ptr<StrategyBase>();
+            },
+            [](int id) { ToolEntry tool; tool.id = id; tool.diameter = 6.0; return tool; });
+        const ProgramGenerationResult invalidG76 = invalidG76Service.generate(
+            {holeOperation(QStringLiteral("op-invalid-g76-%1").arg(invalidIndex),
+                           invalidG76Strategy->id(), 1)},
+            fanuc, options, snapshotOptions);
+        if (!expect(!invalidG76.ok && invalidG76.snapshot.gcodeText.isEmpty(),
+                    QStringLiteral("invalid G76 Q must fail atomically")) ||
+            !expect(invalidG76.errors.join('\n').contains(QStringLiteral("G76")) &&
+                        invalidG76.errors.join('\n').contains(QStringLiteral("Q")),
+                    QStringLiteral("invalid G76 error must name G76 and Q"))) {
+            return 1;
+        }
+    }
+
+    const ToolpathResult validG76Toolpath{
+        QStringLiteral("T17 M6\nS400 M3\nG0 Z20\n"
+                       ";CNEXT_HOLE_CYCLE code=G76 rtp=20 rfp=0 sdis=3 x=10 y=20 z=-5 q=0.1 f=40\n"
+                       "G0 Z20"),
+        true, QString(), 1.0};
+    const auto validG76Strategy = std::make_shared<FixedStrategy>(
+        QStringLiteral("hole_g76"), validG76Toolpath);
+    MachiningOperation boringOperation = holeOperation(
+        QStringLiteral("op-g76-tool-reach"), QStringLiteral("hole_g76"), 17);
+    boringOperation.params.set(QStringLiteral("depth"), 5.0);
+    for (const ToolEntry &boringTool : QList<ToolEntry>{
+             [] { ToolEntry t; t.id = 17; t.type = QStringLiteral("boring_bar"); t.diameter = 8.0; return t; }(),
+             [] { ToolEntry t; t.id = 17; t.type = QStringLiteral("boring_bar"); t.diameter = 8.0; t.fluteLen = 4.0; t.totalLen = 70.0; return t; }(),
+             [] { ToolEntry t; t.id = 17; t.type = QStringLiteral("boring_bar"); t.diameter = 8.0; t.fluteLen = 30.0; t.totalLen = 5.0; return t; }()}) {
+        ProgramGenerationService boringReachService(
+            [validG76Strategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+                return id == validG76Strategy->id() ? validG76Strategy
+                                                    : std::shared_ptr<StrategyBase>();
+            },
+            [boringTool](int) { return boringTool; });
+        const ProgramGenerationResult reachFailure = boringReachService.generate(
+            {boringOperation}, fanuc, options, snapshotOptions);
+        if (!expect(!reachFailure.ok && reachFailure.snapshot.gcodeText.isEmpty(),
+                    QStringLiteral("G76 must fail atomically when boring-bar reach is missing or insufficient"))) {
+            return 1;
+        }
+    }
+
+    struct FanucCycleCase {
+        QString strategyId;
+        QString cycleCode;
+        QString qWord;
+        QString toolType;
+    };
+    const QList<FanucCycleCase> fanucCycleCases{
+        {QStringLiteral("hole_g73"), QStringLiteral("G73"), QStringLiteral(" q=2"), QStringLiteral("drill")},
+        {QStringLiteral("hole_g76"), QStringLiteral("G76"), QStringLiteral(" q=0.1"), QStringLiteral("boring_bar")},
+        {QStringLiteral("hole_g81"), QStringLiteral("G81"), QString(), QStringLiteral("drill")},
+        {QStringLiteral("hole_deephole"), QStringLiteral("G83"), QStringLiteral(" q=2"), QStringLiteral("drill")},
+        {QStringLiteral("hole_g86"), QStringLiteral("G86"), QString(), QStringLiteral("boring_bar")}};
+    for (const FanucCycleCase &cycleCase : fanucCycleCases) {
+        const ToolpathResult cycleToolpath{
+            QStringLiteral("T17 M6\nS400 M3\nG0 Z20\n"
+                           ";CNEXT_HOLE_CYCLE code=%1 rtp=20 rfp=0 sdis=3 x=10 y=20 z=-5%2 f=40\n"
+                           ";CNEXT_HOLE_CYCLE code=%1 rtp=20 rfp=0 sdis=3 x=30 y=20 z=-5%2 f=40\n"
+                           "G0 Z20")
+                .arg(cycleCase.cycleCode, cycleCase.qWord),
+            true, QString(), 1.0};
+        const auto cycleStrategy = std::make_shared<FixedStrategy>(
+            cycleCase.strategyId, cycleToolpath);
+        ProgramGenerationService cycleService(
+            [cycleStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+                return id == cycleStrategy->id() ? cycleStrategy
+                                                 : std::shared_ptr<StrategyBase>();
+            },
+            [cycleCase](int id) {
+                ToolEntry tool;
+                tool.id = id;
+                tool.type = cycleCase.toolType;
+                tool.diameter = cycleCase.toolType == QStringLiteral("boring_bar") ? 8.0 : 3.0;
+                tool.fluteLen = 30.0;
+                tool.totalLen = 70.0;
+                return tool;
+            });
+        MachiningOperation cycleOperation = holeOperation(
+            QStringLiteral("op-pipeline-%1").arg(cycleCase.cycleCode),
+            cycleCase.strategyId, 17);
+        cycleOperation.params.set(QStringLiteral("depth"), 5.0);
+        const ProgramGenerationResult cycleProgram = cycleService.generate(
+            {cycleOperation}, fanuc, options, snapshotOptions);
+        if (!cycleProgram.ok) {
+            std::cerr << cycleCase.cycleCode.toStdString() << " pipeline errors: "
+                      << cycleProgram.errors.join(QStringLiteral(" | ")).toStdString() << '\n';
+        }
+        if (cycleProgram.ok && !cycleProgram.snapshot.gcodeText.contains(
+                                   QStringLiteral("G80\nG0 Z20"))) {
+            std::cerr << cycleCase.cycleCode.toStdString() << " pipeline output:\n"
+                      << cycleProgram.snapshot.gcodeText.toStdString() << '\n';
+        }
+        if (!expect(cycleProgram.ok,
+                    QStringLiteral("%1 two-hole final Fanuc pipeline must pass")
+                        .arg(cycleCase.cycleCode)) ||
+            !expect(hasCuttingPosition(cycleProgram.snapshot.gcodeText,10,20) &&
+                        hasCuttingPosition(cycleProgram.snapshot.gcodeText,30,20),
+                    QStringLiteral("%1 final Fanuc pipeline must retain both hole positions")
+                        .arg(cycleCase.cycleCode)) ||
+            !expect(cycleProgram.snapshot.gcodeText.contains(QStringLiteral("G80\nG0 Z20")),
+                    QStringLiteral("%1 final Fanuc pipeline must keep explicit G0 after G80")
+                        .arg(cycleCase.cycleCode))) {
+            return 1;
+        }
+    }
+    const int g83Open = repeatedHoles.snapshot.gcodeText.indexOf(QStringLiteral("CYCLE83("));
+    const int g83Close = repeatedHoles.snapshot.gcodeText.indexOf(QLatin1Char(')'), g83Open);
+    const QStringList g83Args = repeatedHoles.snapshot.gcodeText
+        .mid(g83Open + QStringLiteral("CYCLE83(").size(),
+             g83Close - g83Open - QStringLiteral("CYCLE83(").size())
+        .split(QLatin1Char(','), Qt::KeepEmptyParts);
+    if (!expect(g83Args.size() >= 17 && numericArgumentEquals(g83Args.at(6), 3.0) &&
+                    numericArgumentEquals(g83Args.at(7), 0.0) &&
+                    numericArgumentEquals(g83Args.at(10), 1.0) &&
+                    numericArgumentEquals(g83Args.at(11), 1.0) &&
+                    g83Args.at(14).isEmpty(),
+                QStringLiteral("Siemens G83 must populate FDPR/DAM/FRF/VARI without putting Q in FRF"))) {
         return 1;
     }
 
@@ -410,6 +606,53 @@ int main(int argc, char **argv)
                 QStringLiteral("the generation-service tool rejection should name the required drill type")) ||
         !expect(wrongToolPeckFailure.snapshot.gcodeText.isEmpty(),
                 QStringLiteral("a rejected tool type must not expose a partial G-code snapshot"))) {
+        return 1;
+    }
+
+    MachiningOperation nonfiniteParameterHole = firstHole;
+    nonfiniteParameterHole.id = QStringLiteral("op-nonfinite-hole-parameter");
+    nonfiniteParameterHole.params.set(
+        QStringLiteral("feedRate"), std::numeric_limits<double>::quiet_NaN());
+    const ProgramGenerationResult nonfiniteParameterFailure =
+        service.generate({nonfiniteParameterHole},
+                         postProcessor,
+                         options,
+                         holeSnapshotOptions);
+    if (!expect(!nonfiniteParameterFailure.ok &&
+                    nonfiniteParameterFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a non-finite hole parameter must fail atomically")) ||
+        !expect(nonfiniteParameterFailure.errors.join('\n').contains(
+                    QStringLiteral("finite"), Qt::CaseInsensitive),
+                QStringLiteral("a non-finite parameter rejection should identify the invalid value"))) {
+        return 1;
+    }
+
+    ProgramGenerationService nonfiniteToolService(
+        [peckStrategy](const QString &id) -> std::shared_ptr<StrategyBase> {
+            return id == peckStrategy->id()
+                ? peckStrategy
+                : std::shared_ptr<StrategyBase>();
+        },
+        [](int id) {
+            ToolEntry tool;
+            tool.id = id;
+            tool.type = QStringLiteral("drill");
+            tool.diameter = std::numeric_limits<double>::quiet_NaN();
+            tool.fluteLen = 30.0;
+            tool.totalLen = 70.0;
+            return tool;
+        });
+    const ProgramGenerationResult nonfiniteToolFailure =
+        nonfiniteToolService.generate({firstHole},
+                                      postProcessor,
+                                      options,
+                                      holeSnapshotOptions);
+    if (!expect(!nonfiniteToolFailure.ok &&
+                    nonfiniteToolFailure.snapshot.gcodeText.isEmpty(),
+                QStringLiteral("a non-finite tool dimension must fail atomically")) ||
+        !expect(nonfiniteToolFailure.errors.join('\n').contains(
+                    QStringLiteral("finite"), Qt::CaseInsensitive),
+                QStringLiteral("a non-finite tool rejection should identify the invalid value"))) {
         return 1;
     }
 
@@ -706,6 +949,66 @@ int main(int argc, char **argv)
         !expect(sidePocketFailure.errors.join('\n').contains(QStringLiteral("Side-face pocket")),
                 QStringLiteral("side-pocket rejection should identify the required Setup change"))) {
         return 1;
+    }
+
+    MachiningOperation accessibleSidePocket = sidePocket;
+    accessibleSidePocket.id = QStringLiteral("op-accessible-side-pocket");
+    accessibleSidePocket.contourFeature.width = 20.0;
+    accessibleSidePocket.selectionEvidence.sourceFingerprint = QStringLiteral("source-test");
+    accessibleSidePocket.selectionEvidence.setupFingerprint = QStringLiteral("setup-test");
+    accessibleSidePocket.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    accessibleSidePocket.selectionEvidence.orderedGeometryIds =
+        QStringList{QStringLiteral("face:42")};
+    accessibleSidePocket.selectionEvidence.selectedSurfaceNormal = QVector3D(0, 0, 1);
+    accessibleSidePocket.selectionEvidence.toolAxis = QVector3D(0, 0, 1);
+    accessibleSidePocket.selectionEvidence.closed = true;
+    accessibleSidePocket.selectionEvidence.outerLoopPointCount = 4;
+    accessibleSidePocket.selectionEvidence.explicitUserSelection = true;
+    const ProgramGenerationResult accessibleSidePocketResult =
+        oversizedPocketToolService.generate({accessibleSidePocket},
+                                             postProcessor,
+                                             options,
+                                             snapshotOptions);
+    if (!expect(accessibleSidePocketResult.ok,
+                QStringLiteral("a side-labeled pocket with explicit Z-facing selection evidence should generate"))) {
+        std::cerr << accessibleSidePocketResult.errors.join('\n').toStdString() << '\n';
+        return 1;
+    }
+
+    // Confirmed front-face selections must be checked too, including after edits.
+    for (const QString &strategyId : {QStringLiteral("mill_face"), QStringLiteral("mill_slot"),
+                                     QStringLiteral("mill_pocket_rough"), QStringLiteral("mill_closed_contour")}) {
+      for (int invalidation = 0; invalidation < 4; ++invalidation) {
+        MachiningOperation selected = accessibleSidePocket;
+        selected.strategyId = strategyId;
+        selected.opType = strategyId == QStringLiteral("mill_closed_contour")
+            ? OperationType::Finish : OperationType::Contour;
+        selected.contourFeature.region = FaceRegion::Front;
+        ProgramGenerationSnapshotOptions current = snapshotOptions;
+        current.sourceFingerprint = QStringLiteral("source-test");
+        current.setupFingerprint = QStringLiteral("setup-test");
+        QString code;
+        if (invalidation == 0) {
+            current.setupFingerprint = QStringLiteral("setup-new");
+            code = QStringLiteral("SELECTION_SETUP_MISMATCH");
+        } else if (invalidation == 1) {
+            selected.params.set(QStringLiteral("workOffset"), 55);
+            code = QStringLiteral("SELECTION_SETUP_MISMATCH");
+        } else if (invalidation == 2) {
+            selected.selectionEvidence.selectedSurfaceNormal = QVector3D(1, 0, 0);
+            code = QStringLiteral("SELECTION_DIRECTION_UNREACHABLE");
+        } else {
+            current.sourceFingerprint = QStringLiteral("source-new");
+            code = QStringLiteral("SELECTION_SOURCE_STALE");
+        }
+        const auto blocked = oversizedPocketToolService.generate(
+            {selected}, postProcessor, options, current);
+        if (!expect(!blocked.ok && blocked.snapshot.gcodeText.isEmpty() &&
+                        blocked.errors.join('\n').contains(code),
+                    QStringLiteral("invalid confirmed selection must block front-face generation: ") + code)) {
+            return 1;
+        }
+      }
     }
 
     const auto faceStrategy = std::make_shared<FixedStrategy>(

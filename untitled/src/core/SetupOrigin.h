@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QString>
-#include <QVector3D>
+#include "Coordinate3D.h"
 
 enum class SetupOriginAnchor {
     TopMinXMinY,
@@ -19,11 +19,11 @@ enum class SetupOriginAnchor {
 struct SetupOrigin
 {
     SetupOriginAnchor anchor = SetupOriginAnchor::TopCenter;
-    QVector3D customPoint;
-    QVector3D offset;
+    Coordinate3D customPoint;
+    Coordinate3D offset;
     bool confirmed = false;
 
-    QVector3D resolvedPoint(const QVector3D &bbMin, const QVector3D &bbMax) const;
+    Coordinate3D resolvedPoint(const Coordinate3D &bbMin, const Coordinate3D &bbMax) const;
     QString fingerprint(const QString &workOffset) const;
 };
 

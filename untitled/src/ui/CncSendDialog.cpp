@@ -1,4 +1,4 @@
-#include "CncSendDialog.h"
+﻿#include "CncSendDialog.h"
 #include "../communication/CncCommInterface.h"
 
 #include <QComboBox>

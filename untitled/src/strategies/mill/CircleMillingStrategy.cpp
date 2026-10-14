@@ -3,6 +3,7 @@
 #include <QObject>
 #include <cmath>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams CircleMillingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -17,6 +18,7 @@ StrategyParams CircleMillingStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult CircleMillingStrategy::generate(const HoleFeature &/*feature*/,
                                                const ToolEntry &/*tool*/,
                                                const StrategyParams &/*params*/) const
@@ -24,6 +26,7 @@ ToolpathResult CircleMillingStrategy::generate(const HoleFeature &/*feature*/,
     return {QString(), false, QObject::tr("铣边策略需要轮廓特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult CircleMillingStrategy::generate(const ContourFeature &feature,
                                                const ToolEntry &tool,
                                                const StrategyParams &params) const

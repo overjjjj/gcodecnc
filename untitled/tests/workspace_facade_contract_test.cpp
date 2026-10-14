@@ -1,0 +1,43 @@
+#include "../src/workspaces/process_design/ProcessDesignWorkspaceFacade.h"
+#include "../src/workspaces/program_verification/ProgramVerificationWorkspaceFacade.h"
+#include "../src/workspaces/machine_operation/MachineOperationWorkspaceFacade.h"
+
+#include <iostream>
+
+int main()
+{
+    OperationProposal proposal;
+    proposal.strategyId = QStringLiteral("contour");
+    proposal.toolId = 1;
+    if (!ProcessDesignWorkspaceFacade::candidateCanBeConfirmed(proposal)) {
+        std::cerr << "valid candidate rejected\n";
+        return 1;
+    }
+
+    MachiningOperation operation;
+    operation.enabled = true;
+    operation.toolpathState = ToolpathState::Valid;
+    if (!ProgramVerificationWorkspaceFacade::canGenerate(operation)) {
+        std::cerr << "valid operation rejected\n";
+        return 1;
+    }
+    operation.toolpathState = ToolpathState::Stale;
+    if (ProgramVerificationWorkspaceFacade::canGenerate(operation)) {
+        std::cerr << "stale operation accepted\n";
+        return 1;
+    }
+
+    ProgramEntry program;
+    program.gcodeText = QStringLiteral("G90");
+    program.sourceOperationIds = QStringList{QStringLiteral("op-1")};
+    if (!MachineOperationWorkspaceFacade::canSend(program)) {
+        std::cerr << "valid program rejected\n";
+        return 1;
+    }
+    program.sourceOperationIds.clear();
+    if (MachineOperationWorkspaceFacade::canSend(program)) {
+        std::cerr << "program without operation provenance accepted\n";
+        return 1;
+    }
+    return 0;
+}

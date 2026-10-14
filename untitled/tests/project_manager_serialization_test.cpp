@@ -1,5 +1,5 @@
 #include "../src/core/ProjectManager.h"
-#include "../src/gcode/ProgramSnapshotFingerprint.h"
+#include "../src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -32,6 +32,35 @@ static MachiningOperation sampleOperation()
     operation.toolId = 1;
     operation.params.set(QStringLiteral("safeHeight"), 50.0);
     operation.params.set(QStringLiteral("feedRate"), 120.0);
+    operation.enabled = false;
+    operation.geometryRefs = QStringList{QStringLiteral("feature:stable-hole")};
+    operation.selectionEvidence.sourceFingerprint = QStringLiteral("sha256:test-source");
+    operation.selectionEvidence.setupFingerprint = QStringLiteral("setup:test");
+    operation.selectionEvidence.coordinateSystemId = QStringLiteral("G54");
+    operation.selectionEvidence.orderedGeometryIds = QStringList{QStringLiteral("face:12")};
+    operation.selectionEvidence.evidenceVersion = 2;
+    operation.selectionEvidence.orderedTopologyRefs = {
+        {QStringLiteral("edge:18"), SelectionTopologyKind::Edge, true},
+        {QStringLiteral("edge:19"), SelectionTopologyKind::Edge, false}
+    };
+    operation.selectionEvidence.startAnchor = {
+        QStringLiteral("vertex:7"), QVector3D(1.0f, 2.0f, 3.0f), false, 0.0};
+    operation.selectionEvidence.hasStartAnchor = true;
+    operation.selectionEvidence.endAnchor = {
+        QStringLiteral("vertex:9"), QVector3D(4.0f, 5.0f, 6.0f), false, 0.0};
+    operation.selectionEvidence.hasEndAnchor = true;
+    operation.selectionEvidence.startPoint = operation.selectionEvidence.startAnchor.point;
+    operation.selectionEvidence.hasStartPoint = true;
+    operation.selectionEvidence.reversed = true;
+    operation.selectionEvidence.closed = false;
+    operation.selectionEvidence.boundaryLoops = {{
+        QStringLiteral("face:12"), true,
+        QStringList{QStringLiteral("edge:18"), QStringLiteral("edge:19")},
+        QVector<bool>{true, false}
+    }};
+    operation.selectionEvidence.explicitUserSelection = true;
+    operation.toolpathState = ToolpathState::Stale;
+    operation.warnings = QStringList{QStringLiteral("stock changed")};
     operation.holeFeature.radius = 5.0;
     operation.holeFeature.depth = 12.0;
     operation.holeFeature.center = QVector3D(10.0f, 20.0f, 0.0f);
@@ -162,6 +191,9 @@ int main(int argc, char **argv)
     stock.confirmed = true;
     project.setStockDefinition(stock);
     program.setupFingerprint = project.setupFingerprint();
+    program.coordinateVersion = 1;
+    program.modelOrigin = QVector3D(10,-5,2);
+    program.coordinateEvidence = program.coordinateFingerprint();
     MachineProfile profile;
     profile.id = QStringLiteral("siemens-840d-shop");
     profile.version = QStringLiteral("3");
@@ -235,6 +267,8 @@ int main(int argc, char **argv)
         return 1;
     }
     const ProgramEntry loadedProgram = loaded.programById(program.id);
+    if (expect(loadedProgram.coordinatesVerified() && loadedProgram.modelOrigin==program.modelOrigin,
+               "verified work origin must round-trip with its Setup evidence")) return 1;
     if (expect(loaded.currentProgramId() == program.id, "current program id should round-trip")) {
         return 1;
     }
@@ -274,6 +308,39 @@ int main(int argc, char **argv)
     }
     if (expect(!loaded.operations().isEmpty() && loaded.operations().first().id == operation.id,
                "operation id should round-trip")) {
+        return 1;
+    }
+    const MachiningOperation loadedOperation = loaded.operations().first();
+    if (expect(!loadedOperation.enabled,
+               "operation enabled state should round-trip") ||
+        expect(loadedOperation.geometryRefs == operation.geometryRefs,
+               "stable geometry references should round-trip") ||
+        expect(loadedOperation.toolpathState == ToolpathState::Stale,
+               "toolpath state should round-trip") ||
+        expect(loadedOperation.warnings == operation.warnings,
+               "operation warnings should round-trip") ||
+        expect(loadedOperation.selectionEvidence.sourceFingerprint ==
+                   operation.selectionEvidence.sourceFingerprint &&
+                   loadedOperation.selectionEvidence.orderedGeometryIds ==
+                       operation.selectionEvidence.orderedGeometryIds &&
+                   loadedOperation.selectionEvidence.evidenceVersion == 2 &&
+                   loadedOperation.selectionEvidence.orderedTopologyRefs ==
+                       operation.selectionEvidence.orderedTopologyRefs &&
+                   loadedOperation.selectionEvidence.startAnchor ==
+                       operation.selectionEvidence.startAnchor &&
+                   loadedOperation.selectionEvidence.hasStartAnchor &&
+                   loadedOperation.selectionEvidence.endAnchor ==
+                       operation.selectionEvidence.endAnchor &&
+                   loadedOperation.selectionEvidence.hasEndAnchor &&
+                   loadedOperation.selectionEvidence.startPoint ==
+                       operation.selectionEvidence.startPoint &&
+                   loadedOperation.selectionEvidence.hasStartPoint &&
+                   loadedOperation.selectionEvidence.reversed &&
+                   !loadedOperation.selectionEvidence.closed &&
+                   loadedOperation.selectionEvidence.boundaryLoops ==
+                       operation.selectionEvidence.boundaryLoops &&
+                   loadedOperation.selectionEvidence.explicitUserSelection,
+               "v2 topology selection evidence should round-trip")) {
         return 1;
     }
     if (expect(loaded.sourceFileFingerprint() == QStringLiteral("sha256:test-source"),
@@ -425,6 +492,12 @@ int main(int argc, char **argv)
         return 1;
     }
     const ProgramEntry legacyProgram = legacy.programById(QStringLiteral("program-legacy"));
+    if (expect(legacy.operations().first().enabled &&
+                   legacy.operations().first().toolpathState == ToolpathState::Empty &&
+                   legacy.operations().first().geometryRefs.isEmpty(),
+               "legacy operations should receive safe workflow defaults")) {
+        return 1;
+    }
     if (expect(legacyProgram.id == QStringLiteral("program-legacy"), "legacy program should load")) {
         return 1;
     }

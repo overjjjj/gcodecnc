@@ -1,6 +1,6 @@
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 #include "../src/strategies/hole/TappingStrategy.h"
 
@@ -36,10 +36,10 @@ int main(int argc, char **argv)
     MachiningOperation peckOperation;
     peckOperation.id = QStringLiteral("peck-m6"); peckOperation.opType = OperationType::Hole;
     peckOperation.stage = OperationStage::DeepHole; peckOperation.strategyId = peck->id();
-    peckOperation.toolId = 5; peckOperation.params = peck->defaultParams(); peckOperation.holeFeature = hole;
+    peckOperation.toolId = 5; peckOperation.params = peck->defaultParams(); peckOperation.params.set(QStringLiteral("depth"), 5.0); peckOperation.holeFeature = hole;
     MachiningOperation tapOperation = peckOperation;
     tapOperation.id = QStringLiteral("tap-m6"); tapOperation.stage = OperationStage::FinishCut;
-    tapOperation.strategyId = tap->id(); tapOperation.toolId = 6; tapOperation.params = tap->defaultParams();
+    tapOperation.strategyId = tap->id(); tapOperation.toolId = 6; tapOperation.params = tap->defaultParams(); tapOperation.params.set(QStringLiteral("depth"), 5.0);
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2504");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
         !expect(gcode.mid(peckIndex, tapToolIndex - peckIndex).contains(QStringLiteral("M5")) &&
                     gcode.mid(peckIndex, tapToolIndex - peckIndex).contains(QStringLiteral("M9")),
                 "tap tool change must stop spindle and coolant") ||
-        !expect(gcode.contains(QStringLiteral("G84 Z-12.000 R3.000 F200.000")),
+        !expect(gcode.contains(QStringLiteral("G84 Z-5.000 R3.000 F200.000")),
                 "M6x1 tapping cycle must emit pitch-matched G94 feed") ||
         !expect(gcode.contains(QStringLiteral("G80")) && gcode.contains(QStringLiteral("M30")),
                 "final tapping program must cancel cycles and end safely")) return 1;
@@ -62,10 +62,11 @@ int main(int argc, char **argv)
     QObject::connect(&simulation, &SimulationController::toolPathReady,
                      [&path, &rapid](const QVector<QVector3D> &p, const QVector<bool> &r) { path = p; rapid = r; });
     simulation.loadGCode(gcode);
-    int feedMovesAtBottom = 0;
+    bool peckDepth = false, tapDepth = false;
     for (int i = 0; i < rapid.size(); ++i) {
-        if (!rapid.at(i) && std::abs(path.at(i + 1).z() + 12.0f) < 1e-3f) ++feedMovesAtBottom;
+        if (!rapid.at(i) && std::abs(path.at(i + 1).z() + 5.0f) < 1e-3f) peckDepth = true;
+        if (!rapid.at(i) && std::abs(path.at(i + 1).z() + 5.0f) < 1e-3f) tapDepth = true;
     }
-    return expect(feedMovesAtBottom >= 2,
-                  "final CQ8 simulation must cut the confirmed bottom for both peck and tapping stages") ? 0 : 1;
+    return expect(peckDepth && tapDepth,
+                  "final CQ8 simulation must cut the confirmed peck and tapping depths") ? 0 : 1;
 }

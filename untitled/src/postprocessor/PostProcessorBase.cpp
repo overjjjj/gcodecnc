@@ -1,5 +1,6 @@
 #include "PostProcessorBase.h"
 
+// 函数说明：resolvedSafeStartBlocks负责当前模块的核心处理。
 QStringList resolvedSafeStartBlocks(const PostProcessorOptions &opts)
 {
     QStringList blocks = opts.safeStartBlocks;

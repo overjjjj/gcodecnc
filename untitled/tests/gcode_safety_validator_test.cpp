@@ -1,4 +1,4 @@
-#include "../src/gcode/GCodeSafetyValidator.h"
+#include "../src/workspaces/program_verification/safety/GCodeSafetyValidator.h"
 
 #include <QCoreApplication>
 #include <QString>
@@ -100,10 +100,30 @@ int main(int argc, char **argv)
                               QStringLiteral("G1 Z-1.000 F100\nG0 X10.000 Y0.000 Z50.000\nM5"));
     const GCodeSafetyReport combinedSafeReport =
         GCodeSafetyValidator::validate(combinedSafeRapid);
-    if (expect(combinedSafeReport.ok,
-               "combined rapid XY move to a safe destination Z should pass")) {
+    if (expect(!combinedSafeReport.ok,
+               "rapid XY must not start at cutting Z even when its destination is safe")) {
         return 1;
     }
+
+    for (const QString &prefix : {QStringLiteral("G0 Z0.000\n"),
+                                  QStringLiteral("G0 Z-1.000\n")}) {
+        QString modalRapid = validProgram;
+        modalRapid.replace(QStringLiteral("G0 Z50.000\nM5"),
+                           prefix + QStringLiteral("X10.000 Y0.000 Z50.000\nM5"));
+        if (expect(!GCodeSafetyValidator::validate(modalRapid).ok,
+                   "modal rapid XY must reject zero or negative starting Z")) return 1;
+    }
+    QString unknownStart = validProgram;
+    unknownStart.replace(QStringLiteral("G0 Z50.000\nG0 X0.000 Y0.000"),
+                         QStringLiteral("G0 X0.000 Y0.000 Z50.000"));
+    if (expect(!GCodeSafetyValidator::validate(unknownStart).ok,
+               "combined rapid XY must reject unknown starting Z")) return 1;
+
+    QString raisedFirst = validProgram;
+    raisedFirst.replace(QStringLiteral("G0 Z50.000\nM5"),
+                        QStringLiteral("G0 Z50.000\nG0 X10.000 Y0.000 Z60.000\nM5"));
+    if (expect(GCodeSafetyValidator::validate(raisedFirst).ok,
+               "rapid XY between known safe heights should pass after separate retract")) return 1;
 
     QString combinedUnsafeRapid = validProgram;
     combinedUnsafeRapid.replace(QStringLiteral("G0 X0.000 Y0.000\n"),
@@ -392,6 +412,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString bareRetractAfterG80 = cancelledFixedCycleProgram;
+    bareRetractAfterG80.replace(QStringLiteral("G80\nG0 Z50.000"),
+                                QStringLiteral("G80\nZ50.000"));
+    const GCodeSafetyReport bareRetractAfterG80Report =
+        GCodeSafetyValidator::validate(bareRetractAfterG80);
+    if (expect(!bareRetractAfterG80Report.ok,
+               "a coordinate-only retract after G80 must fail") ||
+        expect(bareRetractAfterG80Report.messages.join('\n').contains(
+                   QStringLiteral("explicit G0")),
+               "the G80 bare-retract error must require an explicit G0")) {
+        return 1;
+    }
+
     QString fixedCycleRapidProgram = validProgram;
     fixedCycleRapidProgram.replace(
         QStringLiteral("G1 Z-1.000 F100\nG0 Z50.000\n"),
@@ -420,6 +453,23 @@ int main(int argc, char **argv)
         GCodeSafetyValidator::validate(repeatedFixedCycleProgram);
     if (expect(repeatedFixedCycleReport.ok,
                "modal X/Y calls in an active fixed cycle should not be treated as G0 moves")) {
+        return 1;
+    }
+
+    QString validG73Program = repeatedFixedCycleProgram;
+    validG73Program.replace(QStringLiteral("G83 X0.000"), QStringLiteral("G73 X0.000"));
+    if (expect(GCodeSafetyValidator::validate(validG73Program).ok,
+               "G73 with positive Q, valid R/Z and G80 should pass")) {
+        return 1;
+    }
+
+    QString zeroG73PeckProgram = validG73Program;
+    zeroG73PeckProgram.replace(QStringLiteral("Q1.000"), QStringLiteral("Q0.000"));
+    const GCodeSafetyReport zeroG73PeckReport =
+        GCodeSafetyValidator::validate(zeroG73PeckProgram);
+    if (expect(!zeroG73PeckReport.ok &&
+                   zeroG73PeckReport.messages.join('\n').contains(QStringLiteral("G73")),
+               "G73 with zero Q should fail and identify G73")) {
         return 1;
     }
 
@@ -460,17 +510,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    QString unsupportedFixedCycleProgram = cancelledFixedCycleProgram;
-    unsupportedFixedCycleProgram.replace(QStringLiteral("G81 X0.000"),
-                                         QStringLiteral("G86 X0.000"));
-    const GCodeSafetyReport unsupportedFixedCycleReport =
-        GCodeSafetyValidator::validate(unsupportedFixedCycleProgram);
-    if (expect(!unsupportedFixedCycleReport.ok,
-               "unsupported fixed cycle should fail in the first phase")) {
+    QString validG86Program = cancelledFixedCycleProgram;
+    validG86Program.replace(QStringLiteral("G81 X0.000"),
+                            QStringLiteral("G86 X0.000"));
+    const GCodeSafetyReport validG86Report = GCodeSafetyValidator::validate(validG86Program);
+    if (expect(validG86Report.ok,
+               "G86 with a valid return plane and cancellation should pass")) {
         return 1;
     }
-    if (expect(unsupportedFixedCycleReport.messages.join('\n').contains(QStringLiteral("G86")),
-               "unsupported fixed-cycle report should name the rejected code")) {
+
+    QString invalidG76Program = cancelledFixedCycleProgram;
+    invalidG76Program.replace(QStringLiteral("G81 X0.000"),
+                              QStringLiteral("G76 X0.000 Q0.000"));
+    const GCodeSafetyReport invalidG76Report = GCodeSafetyValidator::validate(invalidG76Program);
+    if (expect(!invalidG76Report.ok &&
+                   invalidG76Report.messages.join('\n').contains(QStringLiteral("G76")) &&
+                   invalidG76Report.messages.join('\n').contains(QStringLiteral("Q")),
+               "G76 with non-positive lateral offset Q should fail and name the field")) {
         return 1;
     }
 

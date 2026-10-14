@@ -5,6 +5,19 @@
 #include "../../tool/ToolEntry.h"
 
 #include <QString>
+#include <cmath>
+#include <limits>
+
+inline bool slotAxisSupportsZMachining(const QVector3D &axis)
+{
+    const double x = axis.x(), y = axis.y(), z = axis.z();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) || z == 0.0)
+        return false;
+    // QVector3D stores floats. Allow only float transform roundoff, not a machining tilt.
+    // The normal sign does not change the contour plane; Setup/access checks own the machining side.
+    const double roundoff = 8.0 * std::numeric_limits<float>::epsilon();
+    return std::hypot(x, y) <= std::abs(z) * roundoff;
+}
 
 struct SlotMachiningGeometry {
     bool valid = false;

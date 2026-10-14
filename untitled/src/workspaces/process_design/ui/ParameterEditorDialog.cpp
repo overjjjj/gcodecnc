@@ -1,0 +1,331 @@
+#include "../../shared/ui/OperationMessageBox.h"
+#include "ParameterEditorDialog.h"
+
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QHeaderView>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QTableWidget>
+#include <QTableWidgetItem>
+#include <QVBoxLayout>
+
+namespace {
+
+// 函数说明：preferredParamOrder负责当前模块的核心处理。
+static QStringList preferredParamOrder()
+{
+    return {
+        QStringLiteral("workOffset"),
+        QStringLiteral("coolantMode"),
+        QStringLiteral("depthMode"),
+        QStringLiteral("safeHeight"),
+        QStringLiteral("feedHeight"),
+        QStringLiteral("depth"),
+        QStringLiteral("stepDown"),
+        QStringLiteral("stepover"),
+        QStringLiteral("spindleSpeed"),
+        QStringLiteral("feedRate"),
+        QStringLiteral("plungeRate"),
+        QStringLiteral("sideStockToLeave"),
+        QStringLiteral("floorStockToLeave"),
+        QStringLiteral("stockToLeave"),
+        QStringLiteral("slotLength"),
+        QStringLiteral("slotWidth"),
+        QStringLiteral("angle"),
+        QStringLiteral("pitch"),
+        QStringLiteral("threadHandedness"),
+        QStringLiteral("tapRetract"),
+        QStringLiteral("chipBreakRetract"),
+        QStringLiteral("chamferWidth"),
+        QStringLiteral("chamferAngle"),
+        QStringLiteral("toolTipRadius"),
+        QStringLiteral("leadLength"),
+        QStringLiteral("compensation"),
+        QStringLiteral("helixRadius"),
+        QStringLiteral("helixPitch"),
+        QStringLiteral("finishStock"),
+        QStringLiteral("slopeDirection"),
+        QStringLiteral("cutDirection"),
+        QStringLiteral("linkMode"),
+        QStringLiteral("boundingRectangle"),
+        QStringLiteral("pathPattern"),
+        QStringLiteral("keepIslands"),
+        QStringLiteral("overcut"),
+        QStringLiteral("startAtMidpoint")
+    };
+}
+
+} // namespace
+
+// 函数说明：ParameterEditorDialog负责当前模块的核心处理。
+ParameterEditorDialog::ParameterEditorDialog(QWidget *parent)
+    // 函数说明：QDialog负责当前模块的核心处理。
+    : QDialog(parent)
+    // 函数说明：m_hintLabel负责当前模块的核心处理。
+    , m_hintLabel(new QLabel(this))
+    // 函数说明：m_showAdvancedCheck负责当前模块的核心处理。
+    , m_showAdvancedCheck(new QCheckBox(this))
+    // 函数说明：m_table负责当前模块的核心处理。
+    , m_table(new QTableWidget(this))
+    // 函数说明：m_restoreDefaultsButton负责当前模块的核心处理。
+    , m_restoreDefaultsButton(new QPushButton(this))
+{
+    setModal(true);
+    resize(500, 560);
+
+    m_hintLabel->setWordWrap(true);
+
+    m_table->setColumnCount(2);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->verticalHeader()->setVisible(false);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->addWidget(m_hintLabel);
+    layout->addWidget(m_showAdvancedCheck);
+    layout->addWidget(m_table, 1);
+
+    auto *footerLayout = new QHBoxLayout;
+    footerLayout->addWidget(m_restoreDefaultsButton);
+    footerLayout->addStretch(1);
+    footerLayout->addWidget(buttons);
+    layout->addLayout(footerLayout);
+
+    connect(m_showAdvancedCheck, &QCheckBox::toggled,
+            this, &ParameterEditorDialog::onShowAdvancedToggled);
+    connect(m_restoreDefaultsButton, &QPushButton::clicked,
+            this, &ParameterEditorDialog::onRestoreDefaults);
+    connect(buttons, &QDialogButtonBox::accepted,
+            this, &ParameterEditorDialog::onAccept);
+    connect(buttons, &QDialogButtonBox::rejected,
+            this, &QDialog::reject);
+
+    setChineseUi(false);
+}
+
+// 函数说明：setChineseUi负责当前模块的核心处理。
+void ParameterEditorDialog::setChineseUi(bool enabled)
+{
+    m_chineseUi = enabled;
+    m_hintLabel->setText(
+        m_chineseUi
+            ? QStringLiteral("前几项为常用参数；勾选后可查看高级参数。")
+            : QStringLiteral("Common parameters are shown first. Enable advanced parameters when needed."));
+    m_showAdvancedCheck->setText(
+        m_chineseUi ? QStringLiteral("显示高级参数") : QStringLiteral("Show advanced parameters"));
+    m_restoreDefaultsButton->setText(
+        m_chineseUi ? QStringLiteral("恢复默认值") : QStringLiteral("Restore defaults"));
+    m_table->setHorizontalHeaderLabels({
+        m_chineseUi ? QStringLiteral("参数") : QStringLiteral("Parameter"),
+        m_chineseUi ? QStringLiteral("数值") : QStringLiteral("Value")
+    });
+}
+
+// 函数说明：setLabelMap负责当前模块的核心处理。
+void ParameterEditorDialog::setLabelMap(const QMap<QString, QString> &labels)
+{
+    m_labels = labels;
+}
+
+// 函数说明：setBasicKeys负责当前模块的核心处理。
+void ParameterEditorDialog::setBasicKeys(const QSet<QString> &keys)
+{
+    m_basicKeys = keys;
+    syncRowVisibility();
+}
+
+// 函数说明：setNonNegativeKeys负责当前模块的核心处理。
+void ParameterEditorDialog::setNonNegativeKeys(const QSet<QString> &keys)
+{
+    m_nonNegativeKeys = keys;
+}
+
+// 函数说明：setAllowAnyValueKeys负责当前模块的核心处理。
+void ParameterEditorDialog::setAllowAnyValueKeys(const QSet<QString> &keys)
+{
+    m_allowAnyValueKeys = keys;
+}
+
+// 函数说明：setDefaultParams负责当前模块的核心处理。
+void ParameterEditorDialog::setDefaultParams(const StrategyParams &params)
+{
+    m_defaultParams = params;
+}
+
+// 函数说明：setParams负责当前模块的核心处理。
+void ParameterEditorDialog::setParams(const StrategyParams &params)
+{
+    m_params = params;
+    rebuildTable(params);
+}
+
+// 函数说明：params负责当前模块的核心处理。
+StrategyParams ParameterEditorDialog::params() const
+{
+    return m_params;
+}
+
+// 中文说明：收集编辑器中的参数并执行统一范围校验；失败时保持对话框打开，
+// 避免非法参数进入工序或后处理层。
+void ParameterEditorDialog::onAccept()
+{
+    const QString error = validationError();
+    if (!error.isEmpty()) {
+        OperationMessageBox::warning(this,
+                             m_chineseUi ? QStringLiteral("参数无效") : QStringLiteral("Invalid Parameters"),
+                             error);
+        return;
+    }
+
+    StrategyParams updated;
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QTableWidgetItem *nameItem = m_table->item(row, 0);
+        const QTableWidgetItem *valueItem = m_table->item(row, 1);
+        if (!nameItem || !valueItem) {
+            continue;
+        }
+        updated.set(nameItem->data(Qt::UserRole).toString(), valueItem->text().toDouble());
+    }
+    m_params = updated;
+    accept();
+}
+
+// 函数说明：onRestoreDefaults负责当前模块的核心处理。
+void ParameterEditorDialog::onRestoreDefaults()
+{
+    rebuildTable(m_defaultParams.values.isEmpty() ? m_params : m_defaultParams);
+}
+
+// 函数说明：onShowAdvancedToggled负责当前模块的核心处理。
+void ParameterEditorDialog::onShowAdvancedToggled(bool)
+{
+    syncRowVisibility();
+}
+
+// 函数说明：rebuildTable负责当前模块的核心处理。
+void ParameterEditorDialog::rebuildTable(const StrategyParams &params)
+{
+    m_table->setRowCount(0);
+
+    const QStringList keys = orderedKeys(params);
+    int row = 0;
+    for (const QString &key : keys) {
+        m_table->insertRow(row);
+        auto *nameItem = new QTableWidgetItem(labelForKey(key));
+        nameItem->setData(Qt::UserRole, key);
+        nameItem->setFlags(Qt::ItemIsEnabled);
+        m_table->setItem(row, 0, nameItem);
+        m_table->setItem(row, 1, new QTableWidgetItem(params.values.value(key).toString()));
+        ++row;
+    }
+
+    const bool hasAdvanced = !m_basicKeys.isEmpty() && m_table->rowCount() > m_basicKeys.size();
+    m_showAdvancedCheck->setVisible(hasAdvanced);
+    if (!hasAdvanced) {
+        m_showAdvancedCheck->setChecked(false);
+    }
+    syncRowVisibility();
+}
+
+// 函数说明：syncRowVisibility负责当前模块的核心处理。
+void ParameterEditorDialog::syncRowVisibility()
+{
+    const bool showAdvanced = m_showAdvancedCheck->isChecked();
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QTableWidgetItem *nameItem = m_table->item(row, 0);
+        const QString key = nameItem ? nameItem->data(Qt::UserRole).toString() : QString();
+        const bool isAdvanced = !m_basicKeys.isEmpty() && !m_basicKeys.contains(key);
+        m_table->setRowHidden(row, isAdvanced && !showAdvanced);
+    }
+}
+
+// 函数说明：labelForKey负责当前模块的核心处理。
+QString ParameterEditorDialog::labelForKey(const QString &key) const
+{
+    return m_labels.value(key, key);
+}
+
+// 中文说明：把 UI 字段校验集中在一个只读函数中，供确认动作和测试复用。
+QString ParameterEditorDialog::validationError() const
+{
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        const QTableWidgetItem *nameItem = m_table->item(row, 0);
+        const QTableWidgetItem *valueItem = m_table->item(row, 1);
+        if (!nameItem || !valueItem) {
+            continue;
+        }
+
+        bool ok = false;
+        const double value = valueItem->text().toDouble(&ok);
+        const QString key = nameItem->data(Qt::UserRole).toString();
+        const QString label = nameItem->text();
+        if (!ok) {
+            return m_chineseUi
+                ? QStringLiteral("%1 必须是数字。").arg(label)
+                : QStringLiteral("%1 must be numeric.").arg(label);
+        }
+
+        if (key == QStringLiteral("workOffset") &&
+            (value < 54.0 || value > 59.0 || value != static_cast<int>(value))) {
+            return m_chineseUi
+                ? QStringLiteral("%1 必须是 G54-G59 的整数。").arg(label)
+                : QStringLiteral("%1 must be an integer from G54-G59.").arg(label);
+        }
+        if (key == QStringLiteral("depthMode") && value != 0.0) {
+            return m_chineseUi
+                ? QStringLiteral("当前仅支持绝对深度模式（0）。").arg(label)
+                : QStringLiteral("Only absolute depth mode (0) is currently supported.").arg(label);
+        }
+        if (key == QStringLiteral("chamferMode") && value != 0.0 && value != 1.0) {
+            return m_chineseUi
+                ? QStringLiteral("倒角方式只能选择 0（圆周 G1/G2）或 1（轴向 G81）。")
+                : QStringLiteral("Chamfer mode must be 0 (circumferential G1/G2) or 1 (axial G81).");
+        }
+
+        if (m_allowAnyValueKeys.contains(key)) {
+            continue;
+        }
+        if (m_nonNegativeKeys.contains(key)) {
+            if (value < 0.0) {
+                return m_chineseUi
+                    ? QStringLiteral("%1 不能小于 0。").arg(label)
+                    : QStringLiteral("%1 cannot be less than 0.").arg(label);
+            }
+            continue;
+        }
+        if (value <= 0.0) {
+            return m_chineseUi
+                ? QStringLiteral("%1 必须大于 0。").arg(label)
+                : QStringLiteral("%1 must be greater than 0.").arg(label);
+        }
+    }
+    return QString();
+}
+
+// 函数说明：orderedKeys负责当前模块的核心处理。
+QStringList ParameterEditorDialog::orderedKeys(const StrategyParams &params) const
+{
+    QStringList ordered;
+    QSet<QString> seen;
+
+    const QStringList preferred = preferredParamOrder();
+    for (const QString &key : preferred) {
+        if (params.values.contains(key)) {
+            ordered.append(key);
+            seen.insert(key);
+        }
+    }
+
+    const QStringList keys = params.values.keys();
+    for (const QString &key : keys) {
+        if (!seen.contains(key)) {
+            ordered.append(key);
+        }
+    }
+
+    return ordered;
+}

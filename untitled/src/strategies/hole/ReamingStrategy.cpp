@@ -1,7 +1,9 @@
 #include "ReamingStrategy.h"
 #include "HoleStrategyUtils.h"
+#include "../../core/GCodeCoordinate.h"
 #include <QObject>
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams ReamingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -10,9 +12,11 @@ StrategyParams ReamingStrategy::defaultParams() const
     p.set("spindleSpeed", 300.0);
     p.set("feedRate",      30.0);
     p.set("dwellTime",      0.0);
+    p.set("coolantMode",     1.0);
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ReamingStrategy::generate(const HoleFeature &feature,
                                           const ToolEntry   &tool,
                                           const StrategyParams &params) const
@@ -20,6 +24,7 @@ ToolpathResult ReamingStrategy::generate(const HoleFeature &feature,
     return generate(QVector<HoleFeature>{feature}, tool, params);
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ReamingStrategy::generate(const QVector<HoleFeature> &features,
                                           const ToolEntry            &tool,
                                           const StrategyParams       &params) const
@@ -35,7 +40,12 @@ ToolpathResult ReamingStrategy::generate(const QVector<HoleFeature> &features,
     const double S     = params.get("spindleSpeed", 300.0);
     const double F     = params.get("feedRate",      30.0);
     const double dwell = params.get("dwellTime",      0.0);
-    if (F <= 0.0) {
+    const double coolantValue = params.get("coolantMode", 1.0);
+    res.errorMsg = holeSpindleOutputError(id(), params);
+    if (!res.errorMsg.isEmpty()) return res;
+    res.errorMsg = holeAxisOutputError(features, id(), params);
+    if (!res.errorMsg.isEmpty()) return res;
+    if (!std::isfinite(coolantValue) || coolantValue < 0.0 || coolantValue > 2.0 || F <= 0.0) {
         res.errorMsg = QObject::tr("铰孔进给速度必须大于零。");
         return res;
     }
@@ -52,24 +62,28 @@ ToolpathResult ReamingStrategy::generate(const QVector<HoleFeature> &features,
     QString gc;
     gc += QString("T%1 M6\n").arg(tool.id);
     gc += QString("S%1 M3\n").arg((int)S);
-    gc += QString("G0 Z%1\n").arg(safe, 0, 'f', 3);
+    gc += QString("G0 Z%1\n").arg(formatGCodeCoordinate(safe));
+    const int coolantMode = int(std::round(coolantValue));
+    if (coolantMode > 0) gc += coolantMode == 2 ? QStringLiteral("M7\n") : QStringLiteral("M8\n");
 
     double estimatedDepth = 0.0;
     for (const HoleFeature &feature : orderedFeatures) {
-        const double depth = feature.depth > 0 ? feature.depth : 20.0;
+        const double depth = params.values.contains(QStringLiteral("depth"))
+            ? params.get("depth", 20.0)
+            : (feature.depth > 0 ? feature.depth : 20.0);
         const HoleZRange zRange = holeZRange(feature, depth, feed);
         estimatedDepth += depth;
         gc += QString(";CNEXT_HOLE_CYCLE code=G85 rtp=%1 rfp=%2 sdis=%3 x=%4 y=%5 z=%6 q=0 p=%7 f=%8 vari=0\n")
-                  .arg(safe, 0, 'f', 3)
-                  .arg(zRange.entryZ, 0, 'f', 3)
-                  .arg(feed, 0, 'f', 3)
-                  .arg(feature.center.x(), 0, 'f', 3)
-                  .arg(feature.center.y(), 0, 'f', 3)
-                  .arg(zRange.bottomZ, 0, 'f', 3)
+                  .arg(safe, 0, 'g', 17)
+                  .arg(zRange.entryZ, 0, 'g', 17)
+                  .arg(feed, 0, 'g', 17)
+                  .arg(feature.center.x(), 0, 'g', 17)
+                  .arg(feature.center.y(), 0, 'g', 17)
+                  .arg(zRange.bottomZ, 0, 'g', 17)
                   .arg(dwell, 0, 'f', 3)
                   .arg(F, 0, 'f', 3);
     }
-    gc += QString("G0 Z%1\n").arg(safe, 0, 'f', 3);
+    gc += QString("G0 Z%1\n").arg(formatGCodeCoordinate(safe));
 
     res.gcode = gc;
     res.ok    = true;

@@ -4,49 +4,87 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
+#include <QSet>
 #include <algorithm>
 #include <cmath>
+#include <climits>
 
+static QString toolError(const ToolEntry &tool)
+{
+    if (tool.id <= 0) return QStringLiteral("Tool number must be a positive integer.");
+    for (double value : {tool.diameter, tool.fluteLen, tool.totalLen, tool.shankDia,
+                         tool.pointAngle, tool.pitch})
+        if (!std::isfinite(value) || value < 0)
+            return QStringLiteral("Tool dimensions must be finite and nonnegative.");
+    if (tool.flutes < 0) return QStringLiteral("Flute count must be nonnegative.");
+    return {};
+}
+
+// 创建刀具库并追加内置默认刀具。
 ToolLibrary::ToolLibrary(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {
     loadDefaults();
 }
 
+// 返回进程内共享的刀具库，首次访问时构造并加载默认刀具。
 ToolLibrary &ToolLibrary::instance()
 {
     static ToolLibrary s;
     return s;
 }
 
-void ToolLibrary::addTool(const ToolEntry &t)
+// 新增唯一刀号；零表示自动分配，失败不改变刀库。
+bool ToolLibrary::addTool(const ToolEntry &t)
 {
     ToolEntry e = t;
+    QSet<int> ids;
+    for (const auto &tool : m_tools) ids.insert(tool.id);
     if (e.id == 0) {
-        e.id = m_nextId++;
+        int candidate = m_nextId;
+        while (ids.contains(candidate)) candidate = candidate == INT_MAX ? 1 : candidate + 1;
+        e.id = candidate;
     }
+    m_lastError = toolError(e);
+    if (!m_lastError.isEmpty()) return false;
+    if (ids.contains(e.id)) {
+        m_lastError = tr("Tool number %1 already exists.").arg(e.id);
+        return false;
+    }
+    if (e.id >= m_nextId) m_nextId = e.id == INT_MAX ? 1 : e.id + 1;
     m_tools.append(e);
     emit toolLibraryChanged();
+    return true;
 }
 
-void ToolLibrary::updateTool(const ToolEntry &t)
+// 按刀号替换首个匹配项并通知界面；未找到时不修改刀具库。
+bool ToolLibrary::updateTool(const ToolEntry &t)
 {
+    m_lastError = toolError(t);
+    if (!m_lastError.isEmpty()) return false;
     for (ToolEntry &e : m_tools) {
         if (e.id == t.id) {
             e = t;
             emit toolLibraryChanged();
-            return;
+            return true;
         }
     }
+    m_lastError = tr("Tool number %1 does not exist.").arg(t.id);
+    return false;
 }
 
+// 移除所有匹配刀号的条目，并发出刀具库变更信号。
 void ToolLibrary::removeTool(int id)
 {
+    // 函数说明：erase负责当前模块的核心处理。
     m_tools.erase(std::remove_if(m_tools.begin(), m_tools.end(),
         [id](const ToolEntry &e) { return e.id == id; }), m_tools.end());
     emit toolLibraryChanged();
 }
 
+// 按刀号返回首个匹配刀具的副本；未找到时返回默认构造的刀具。
 ToolEntry ToolLibrary::tool(int id) const
 {
     for (const auto &t : m_tools) {
@@ -57,6 +95,7 @@ ToolEntry ToolLibrary::tool(int id) const
     return {};
 }
 
+// 按类型标识精确筛选刀具，保持原有顺序返回副本列表。
 QVector<ToolEntry> ToolLibrary::toolsByType(const QString &type) const
 {
     QVector<ToolEntry> res;
@@ -68,6 +107,7 @@ QVector<ToolEntry> ToolLibrary::toolsByType(const QString &type) const
     return res;
 }
 
+// 完整保存刀具证据，原子替换文件；任何写入或提交失败均保留原文件。
 bool ToolLibrary::saveToFile(const QString &path)
 {
     QJsonArray arr;
@@ -79,36 +119,76 @@ bool ToolLibrary::saveToFile(const QString &path)
         o["diameter"] = t.diameter;
         o["fluteLen"] = t.fluteLen;
         o["totalLen"] = t.totalLen;
+        o["shankDia"] = t.shankDia;
         o["flutes"] = t.flutes;
         o["pointAngle"] = t.pointAngle;
         o["pitch"] = t.pitch;
         o["material"] = t.material;
+        o["coating"] = t.coating;
         o["modelPath"] = t.modelPath;
+        o["extra"] = QJsonObject::fromVariantMap(t.extra);
         arr.append(o);
     }
     QJsonObject root;
     root["tools"] = arr;
-    QFile file(path);
+    m_lastError.clear();
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
+        m_lastError = file.errorString();
         return false;
     }
-    file.write(QJsonDocument(root).toJson());
+    const QByteArray bytes = QJsonDocument(root).toJson();
+    if (file.write(bytes) != bytes.size()) {
+        m_lastError = file.errorString();
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        m_lastError = file.errorString();
+        return false;
+    }
     return true;
 }
 
+// 从 JSON 重建刀具列表、推进可分配编号并通知界面；打开或解析失败时保留原列表。
 bool ToolLibrary::loadFromFile(const QString &path)
 {
+    m_lastError.clear();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
+        m_lastError = file.errorString();
         return false;
     }
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    if (doc.isNull()) {
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (!doc.isObject() || !doc.object()["tools"].isArray()) {
+        m_lastError = parseError.error != QJsonParseError::NoError ? parseError.errorString()
+            : tr("Expected a JSON object containing a tools array.");
         return false;
     }
-    m_tools.clear();
+    QVector<ToolEntry> loaded;
+    QSet<int> ids;
+    int maximumId = 0;
     for (const auto &v : doc.object()["tools"].toArray()) {
-        QJsonObject o = v.toObject();
+        const QJsonObject o = v.toObject();
+        const auto invalid = [this]() {
+            m_lastError = tr("Invalid tool entry or duplicate tool number; the current library was kept.");
+            return false;
+        };
+        if (!v.isObject() || !o["id"].isDouble() || o["id"].toDouble() <= 0 ||
+            o["id"].toDouble() > INT_MAX || std::floor(o["id"].toDouble()) != o["id"].toDouble())
+            return invalid();
+        for (const char *field : {"diameter", "fluteLen", "totalLen", "shankDia", "pointAngle", "pitch", "flutes"}) {
+            if (!o.contains(field)) continue;
+            const auto value = o[field];
+            if (!value.isDouble() || !std::isfinite(value.toDouble()) || value.toDouble() < 0)
+                return invalid();
+        }
+        if (o.contains("flutes") && (o["flutes"].toDouble() > INT_MAX ||
+            std::floor(o["flutes"].toDouble()) != o["flutes"].toDouble())) return invalid();
+        for (const char *field : {"name", "type", "material", "coating", "modelPath"})
+            if (o.contains(field) && !o[field].isString()) return invalid();
+        if (o.contains("extra") && !o["extra"].isObject()) return invalid();
         ToolEntry t;
         t.id = o["id"].toInt();
         t.name = o["name"].toString();
@@ -116,20 +196,26 @@ bool ToolLibrary::loadFromFile(const QString &path)
         t.diameter = o["diameter"].toDouble();
         t.fluteLen = o["fluteLen"].toDouble();
         t.totalLen = o["totalLen"].toDouble();
+        t.shankDia = o["shankDia"].toDouble();
         t.flutes = o["flutes"].toInt();
         t.pointAngle = o["pointAngle"].toDouble();
         t.pitch = o["pitch"].toDouble();
         t.material = o["material"].toString();
+        t.coating = o["coating"].toString();
         t.modelPath = o["modelPath"].toString();
-        if (t.id >= m_nextId) {
-            m_nextId = t.id + 1;
-        }
-        m_tools.append(t);
+        t.extra = o["extra"].toObject().toVariantMap();
+        if (ids.contains(t.id)) return invalid();
+        ids.insert(t.id);
+        maximumId = std::max(maximumId, t.id);
+        loaded.append(t);
     }
-    emit toolLibraryChanged();
+    m_tools = loaded;
+    m_nextId = maximumId == INT_MAX ? 1 : maximumId + 1;
+    emit toolLibraryChanged(false);
     return true;
 }
 
+// 追加内置钻头、丝锥、铰刀和铣刀，给匹配规格绑定默认模型路径。
 void ToolLibrary::loadDefaults()
 {
     auto modelPath = [](const QString &file) {
@@ -260,6 +346,7 @@ void ToolLibrary::loadDefaults()
         t.fluteLen = d.dia * 2.0;
         t.totalLen = d.dia * 7.0;
         t.flutes = 2;
+        t.pointAngle = d.angle;
         t.material = QStringLiteral("硬质合金");
         t.extra.insert(QStringLiteral("angle"), d.angle);
         assignDefaultToolModel(t);

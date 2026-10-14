@@ -1,0 +1,377 @@
+#include "../../shared/ui/OperationMessageBox.h"
+#include "ToolLibraryPanel.h"
+
+#include "../../../core/Settings.h"
+#include "../../../tool/ChamferToolGeometry.h"
+
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QFileDialog>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QSpinBox>
+#include <QVBoxLayout>
+
+namespace {
+
+// 函数说明：isChineseUi负责当前模块的核心处理。
+static bool isChineseUi()
+{
+    return Settings::instance().language() == QStringLiteral("zh_CN");
+}
+
+// 函数说明：toolTypeLabel负责当前模块的核心处理。
+static QString toolTypeLabel(const QString &type)
+{
+    const bool zh = isChineseUi();
+    if (type == QStringLiteral("drill"))        return zh ? QStringLiteral("钻头")   : QStringLiteral("Drill");
+    if (type == QStringLiteral("tap"))          return zh ? QStringLiteral("丝锥")   : QStringLiteral("Tap");
+    if (type == QStringLiteral("reamer"))       return zh ? QStringLiteral("铰刀")   : QStringLiteral("Reamer");
+    if (type == QStringLiteral("spot_drill"))   return zh ? QStringLiteral("中心钻") : QStringLiteral("Spot Drill");
+    if (type == QStringLiteral("end_mill"))     return zh ? QStringLiteral("立铣刀") : QStringLiteral("End Mill");
+    if (type == QStringLiteral("chamfer_mill")) return zh ? QStringLiteral("倒角刀") : QStringLiteral("Chamfer Mill");
+    if (type == QStringLiteral("boring_bar"))   return zh ? QStringLiteral("镗刀杆") : QStringLiteral("Boring Bar");
+    return type;
+}
+
+// All known tool type keys in order
+static const char * const kTypeKeys[] = {
+    "drill", "tap", "reamer", "spot_drill", "end_mill", "chamfer_mill", "boring_bar"
+};
+static const int kTypeCount = 7;
+
+// Show a dialog to create or edit a ToolEntry.
+// Pass a default-constructed entry for "add", or an existing entry for "edit".
+// Returns false if the user cancelled.
+static bool showToolDialog(QWidget *parent, ToolEntry &entry, bool isEdit)
+{
+    const bool zh = isChineseUi();
+
+    QDialog dlg(parent);
+    dlg.setWindowTitle(isEdit
+        ? (zh ? QStringLiteral("编辑刀具") : QStringLiteral("Edit Tool"))
+        : (zh ? QStringLiteral("新增刀具") : QStringLiteral("Add Tool")));
+    dlg.setMinimumWidth(340);
+
+    auto *form = new QFormLayout;
+
+    // Name
+    auto *edName = new QLineEdit(entry.name);
+    form->addRow(zh ? QStringLiteral("刀具名称") : QStringLiteral("Name"), edName);
+
+    // Type combo
+    auto *cbType = new QComboBox;
+    int selectedType = 0;
+    for (int i = 0; i < kTypeCount; ++i) {
+        cbType->addItem(toolTypeLabel(QLatin1String(kTypeKeys[i])), QLatin1String(kTypeKeys[i]));
+        if (entry.type == QLatin1String(kTypeKeys[i]))
+            selectedType = i;
+    }
+    cbType->setCurrentIndex(selectedType);
+    form->addRow(zh ? QStringLiteral("刀具类型") : QStringLiteral("Type"), cbType);
+
+    // Diameter
+    auto *spDia = new QDoubleSpinBox;
+    spDia->setRange(0.1, 300.0);
+    spDia->setDecimals(3);
+    spDia->setSuffix(QStringLiteral(" mm"));
+    spDia->setValue(entry.diameter > 0.0 ? entry.diameter : 6.0);
+    form->addRow(zh ? QStringLiteral("直径") : QStringLiteral("Diameter"), spDia);
+
+    // Flute length
+    auto *spFlute = new QDoubleSpinBox;
+    spFlute->setRange(0.0, 500.0);
+    spFlute->setDecimals(1);
+    spFlute->setSuffix(QStringLiteral(" mm"));
+    spFlute->setValue(entry.fluteLen);
+    form->addRow(zh ? QStringLiteral("刃长") : QStringLiteral("Flute Len"), spFlute);
+
+    // Total length
+    auto *spTotal = new QDoubleSpinBox;
+    spTotal->setRange(0.0, 500.0);
+    spTotal->setDecimals(1);
+    spTotal->setSuffix(QStringLiteral(" mm"));
+    spTotal->setValue(entry.totalLen);
+    form->addRow(zh ? QStringLiteral("全长") : QStringLiteral("Total Len"), spTotal);
+
+    auto *spAngle = new QDoubleSpinBox;
+    spAngle->setObjectName("toolChamferAngle");
+    spAngle->setRange(0.0, 179.999);
+    spAngle->setDecimals(3);
+    spAngle->setSpecialValueText(zh ? QStringLiteral("未确认") : QStringLiteral("Unconfirmed"));
+    bool angleKnown = false;
+    const double savedAngle = entry.extra.value("angle").toDouble(&angleKnown);
+    spAngle->setValue(angleKnown && std::isfinite(savedAngle) && savedAngle > 0 && savedAngle < 180
+        ? savedAngle : 0);
+    form->addRow(zh ? QStringLiteral("倒角刀夹角 (°)") : QStringLiteral("Cone included angle (°)"), spAngle);
+    auto *spTip = new QDoubleSpinBox;
+    spTip->setObjectName("toolChamferTipDiameter");
+    spTip->setRange(-1.0, 300.0);
+    spTip->setDecimals(3);
+    spTip->setSpecialValueText(zh ? QStringLiteral("未确认") : QStringLiteral("Unconfirmed"));
+    bool tipKnown = false;
+    const double savedTip = entry.extra.value("tipDiameter").toDouble(&tipKnown);
+    spTip->setValue(tipKnown && std::isfinite(savedTip) && savedTip >= 0 ? savedTip : -1);
+    form->addRow(zh ? QStringLiteral("刀尖平端直径 (mm)") : QStringLiteral("Flat tip diameter (mm)"), spTip);
+    auto *coneHint = new QLabel(zh
+        ? QStringLiteral("仅支持直锥／平头锥台；以刀尖平端为长度基准。尖头请明确输入 0。")
+        : QStringLiteral("Straight cone/frustum only; length is measured from the flat tip. Enter 0 explicitly for a sharp tip."));
+    coneHint->setWordWrap(true);
+    form->addRow(coneHint);
+
+    // Flutes
+    auto *spFlutes = new QSpinBox;
+    spFlutes->setRange(1, 12);
+    spFlutes->setValue(entry.flutes > 0 ? entry.flutes : 2);
+    form->addRow(zh ? QStringLiteral("刃数") : QStringLiteral("Flutes"), spFlutes);
+
+    // Pitch (only meaningful for taps)
+    auto *spPitch = new QDoubleSpinBox;
+    spPitch->setRange(0.0, 10.0);
+    spPitch->setDecimals(3);
+    spPitch->setSuffix(QStringLiteral(" mm"));
+    spPitch->setValue(entry.pitch);
+    form->addRow(zh ? QStringLiteral("螺距(攻丝)") : QStringLiteral("Pitch (tap)"), spPitch);
+
+    // Material
+    auto *edMat = new QLineEdit(entry.material.isEmpty() ? QStringLiteral("HSS") : entry.material);
+    form->addRow(zh ? QStringLiteral("材质") : QStringLiteral("Material"), edMat);
+
+    auto *edModel = new QLineEdit(entry.modelPath);
+    auto *btnBrowseModel = new QPushButton(zh ? QStringLiteral("浏览") : QStringLiteral("Browse"));
+    auto *btnClearModel = new QPushButton(zh ? QStringLiteral("清除") : QStringLiteral("Clear"));
+    auto *modelRow = new QHBoxLayout;
+    modelRow->addWidget(edModel, 1);
+    modelRow->addWidget(btnBrowseModel);
+    modelRow->addWidget(btnClearModel);
+    form->addRow(zh ? QStringLiteral("刀具模型") : QStringLiteral("Tool Model"), modelRow);
+    QObject::connect(btnBrowseModel, &QPushButton::clicked, &dlg, [&]() {
+        const QString path = QFileDialog::getOpenFileName(
+            &dlg,
+            zh ? QStringLiteral("选择刀具模型") : QStringLiteral("Select Tool Model"),
+            edModel->text(),
+            QStringLiteral("Tool Model (*.obj *.stl);;OBJ (*.obj);;STL (*.stl);;All Files (*.*)"));
+        if (!path.isEmpty()) {
+            edModel->setText(path);
+        }
+    });
+    QObject::connect(btnClearModel, &QPushButton::clicked, edModel, &QLineEdit::clear);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    auto *coneError = new QLabel;
+    coneError->setWordWrap(true);
+    form->addRow(coneError);
+    auto validateCone = [&]() {
+        const bool chamfer = cbType->currentData().toString() == "chamfer_mill";
+        spAngle->setEnabled(chamfer);
+        spTip->setEnabled(chamfer);
+        coneHint->setVisible(chamfer);
+        ToolEntry candidate = entry;
+        candidate.type = cbType->currentData().toString();
+        candidate.diameter = spDia->value();
+        candidate.fluteLen = spFlute->value();
+        candidate.totalLen = spTotal->value();
+        candidate.modelPath = edModel->text().trimmed();
+        candidate.extra["angle"] = spAngle->value();
+        candidate.extra["tipDiameter"] = spTip->value();
+        const bool valid = !chamfer || std::isfinite(chamferConeHeight(candidate));
+        buttons->button(QDialogButtonBox::Ok)->setEnabled(valid);
+        coneError->setVisible(!valid);
+        coneError->setText(valid ? QString() : (zh
+            ? QStringLiteral("请确认夹角和刀尖直径（小于刀径），刃长须覆盖锥段、全长须大于锥高；自定义模型暂不支持。")
+            : QStringLiteral("Confirm angle and tip diameter below cutter diameter. Flute length must cover the cone, and total length must exceed its height. Custom models are unsupported.")));
+    };
+    for (auto *spin : {spAngle, spTip, spDia, spFlute, spTotal})
+        QObject::connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), &dlg, validateCone);
+    QObject::connect(cbType, QOverload<int>::of(&QComboBox::currentIndexChanged), &dlg, validateCone);
+    QObject::connect(edModel, &QLineEdit::textChanged, &dlg, validateCone);
+    validateCone();
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    auto *vl = new QVBoxLayout(&dlg);
+    vl->addLayout(form);
+    vl->addWidget(buttons);
+
+    if (dlg.exec() != QDialog::Accepted)
+        return false;
+
+    const QString nameStr = edName->text().trimmed();
+    if (nameStr.isEmpty()) {
+        OperationMessageBox::warning(parent,
+            zh ? QStringLiteral("提示") : QStringLiteral("Warning"),
+            zh ? QStringLiteral("刀具名称不能为空") : QStringLiteral("Tool name cannot be empty."));
+        return false;
+    }
+
+    entry.name     = nameStr;
+    entry.type     = cbType->currentData().toString();
+    entry.diameter = spDia->value();
+    entry.fluteLen = spFlute->value();
+    entry.totalLen = spTotal->value();
+    entry.flutes   = spFlutes->value();
+    entry.pitch    = spPitch->value();
+    entry.material = edMat->text().trimmed();
+    entry.modelPath = edModel->text().trimmed();
+    if (entry.type == "chamfer_mill") {
+        entry.extra["angle"] = spAngle->value();
+        entry.extra["tipDiameter"] = spTip->value();
+        entry.pointAngle = spAngle->value();
+    }
+    return true;
+}
+
+} // namespace
+
+// 函数说明：ToolLibraryPanel负责当前模块的核心处理。
+ToolLibraryPanel::ToolLibraryPanel(QWidget *parent)
+    // 函数说明：QWidget负责当前模块的核心处理。
+    : QWidget(parent)
+    // 函数说明：m_titleLabel负责当前模块的核心处理。
+    , m_titleLabel(new QLabel(this))
+    // 函数说明：m_list负责当前模块的核心处理。
+    , m_list(new QListWidget(this))
+    // 函数说明：m_btnAdd负责当前模块的核心处理。
+    , m_btnAdd(new QPushButton(this))
+    // 函数说明：m_btnEdit负责当前模块的核心处理。
+    , m_btnEdit(new QPushButton(this))
+    // 函数说明：m_btnRemove负责当前模块的核心处理。
+    , m_btnRemove(new QPushButton(this))
+{
+    auto *btnRow = new QHBoxLayout;
+    btnRow->addWidget(m_btnAdd);
+    btnRow->addWidget(m_btnEdit);
+    btnRow->addWidget(m_btnRemove);
+    btnRow->addStretch();
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(4, 4, 4, 4);
+    layout->addWidget(m_titleLabel);
+    layout->addWidget(m_list);
+    layout->addLayout(btnRow);
+
+    connect(m_list, &QListWidget::currentRowChanged,
+            this, &ToolLibraryPanel::onSelectionChanged);
+    connect(m_btnAdd,    &QPushButton::clicked, this, &ToolLibraryPanel::onAdd);
+    connect(m_btnEdit,   &QPushButton::clicked, this, &ToolLibraryPanel::onEdit);
+    connect(m_btnRemove, &QPushButton::clicked, this, &ToolLibraryPanel::onRemove);
+
+    retranslateUi();
+    refresh();
+}
+
+// 函数说明：refresh负责当前模块的核心处理。
+void ToolLibraryPanel::refresh()
+{
+    const int savedRow = m_list->currentRow();
+    m_list->clear();
+    for (const ToolEntry &t : ToolLibrary::instance().allTools()) {
+        m_list->addItem(QStringLiteral("T%1  %2  %3  %4%5mm")
+                            .arg(t.id)
+                            .arg(t.name)
+                            .arg(toolTypeLabel(t.type))
+                            .arg(isChineseUi() ? QStringLiteral("直径") : QStringLiteral("D"))
+                            .arg(t.diameter, 0, 'f', 1));
+    }
+    if (savedRow >= 0 && savedRow < m_list->count())
+        m_list->setCurrentRow(savedRow);
+}
+
+// 函数说明：retranslateUi负责当前模块的核心处理。
+void ToolLibraryPanel::retranslateUi()
+{
+    const bool zh = isChineseUi();
+    m_titleLabel->setText(zh ? QStringLiteral("刀具库") : QStringLiteral("Tool Library"));
+    m_btnAdd->setText(zh    ? QStringLiteral("新增") : QStringLiteral("Add"));
+    m_btnEdit->setText(zh   ? QStringLiteral("编辑") : QStringLiteral("Edit"));
+    m_btnRemove->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
+    refresh();
+}
+
+// 函数说明：onSelectionChanged负责当前模块的核心处理。
+void ToolLibraryPanel::onSelectionChanged()
+{
+    int row = m_list->currentRow();
+    const QVector<ToolEntry> &tools = ToolLibrary::instance().allTools();
+    if (row >= 0 && row < tools.size()) {
+        emit toolSelected(tools[row]);
+    }
+}
+
+// 函数说明：onAdd负责当前模块的核心处理。
+void ToolLibraryPanel::onAdd()
+{
+    ToolEntry entry;
+    entry.type     = QStringLiteral("drill");
+    entry.diameter = 6.0;
+    entry.flutes   = 2;
+    entry.material = QStringLiteral("HSS");
+
+    if (!showToolDialog(this, entry, false))
+        return;
+
+    if (!ToolLibrary::instance().addTool(entry)) {
+        OperationMessageBox::warning(this, tr("Tool was not added"), ToolLibrary::instance().lastError());
+        return;
+    }
+    refresh();
+    // Select the newly added tool (last row)
+    m_list->setCurrentRow(m_list->count() - 1);
+}
+
+// 函数说明：onEdit负责当前模块的核心处理。
+void ToolLibraryPanel::onEdit()
+{
+    int row = m_list->currentRow();
+    const QVector<ToolEntry> &tools = ToolLibrary::instance().allTools();
+    if (row < 0 || row >= tools.size()) {
+        const bool zh = isChineseUi();
+        QMessageBox::information(this,
+            zh ? QStringLiteral("提示") : QStringLiteral("Info"),
+            zh ? QStringLiteral("请先选择要编辑的刀具") : QStringLiteral("Please select a tool to edit."));
+        return;
+    }
+
+    ToolEntry entry = tools[row];
+    if (!showToolDialog(this, entry, true))
+        return;
+
+    if (!ToolLibrary::instance().updateTool(entry)) {
+        OperationMessageBox::warning(this, tr("Tool was not updated"), ToolLibrary::instance().lastError());
+        return;
+    }
+    refresh();
+    m_list->setCurrentRow(row);
+}
+
+// 函数说明：onRemove负责当前模块的核心处理。
+void ToolLibraryPanel::onRemove()
+{
+    int row = m_list->currentRow();
+    const QVector<ToolEntry> &tools = ToolLibrary::instance().allTools();
+    if (row < 0 || row >= tools.size())
+        return;
+
+    const bool zh = isChineseUi();
+    const QString &toolName = tools[row].name;
+    const int toolId = tools[row].id;
+
+    QMessageBox::StandardButton btn = QMessageBox::question(this,
+        zh ? QStringLiteral("确认删除") : QStringLiteral("Confirm Delete"),
+        zh ? QStringLiteral("确定删除刀具 \"%1\"？").arg(toolName)
+           : QStringLiteral("Delete tool \"%1\"?").arg(toolName),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (btn != QMessageBox::Yes)
+        return;
+
+    ToolLibrary::instance().removeTool(toolId);
+    refresh();
+    if (row > 0)
+        m_list->setCurrentRow(row - 1);
+}

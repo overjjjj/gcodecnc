@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+// 将六个方向的毛坯余量下限限制为零，直接更新当前定义。
+// 将各方向毛坯余量归一化为非负值。
 void StockDefinition::normalize()
 {
     minusX = std::max(0.0, minusX);
@@ -14,21 +16,25 @@ void StockDefinition::normalize()
     plusZ = std::max(0.0, plusZ);
 }
 
-StockBounds StockDefinition::resolvedBounds(const QVector3D &partMin,
-                                             const QVector3D &partMax) const
+// 用非负余量向外扩展零件包围盒，返回毛坯边界而不修改当前定义。
+// 按毛坯余量扩展零件包围盒并返回结果。
+StockBounds StockDefinition::resolvedBounds(const Coordinate3D &partMin,
+                                             const Coordinate3D &partMax) const
 {
     StockDefinition value = *this;
     value.normalize();
     StockBounds bounds;
-    bounds.minimum = partMin - QVector3D(float(value.minusX),
-                                         float(value.minusY),
-                                         float(value.minusZ));
-    bounds.maximum = partMax + QVector3D(float(value.plusX),
-                                         float(value.plusY),
-                                         float(value.plusZ));
+    bounds.minimum = Coordinate3D(partMin) - Coordinate3D(value.minusX,
+                                         value.minusY,
+                                         value.minusZ);
+    bounds.maximum = Coordinate3D(partMax) + Coordinate3D(value.plusX,
+                                         value.plusY,
+                                         value.plusZ);
     return bounds;
 }
 
+// 按规范化余量生成已确认毛坯的 SHA-256 指纹；未确认时返回空串。
+// 计算已确认毛坯定义的稳定指纹。
 QString StockDefinition::fingerprint() const
 {
     if (!confirmed) {
@@ -36,13 +42,13 @@ QString StockDefinition::fingerprint() const
     }
     StockDefinition value = *this;
     value.normalize();
-    const QString payload = QStringLiteral("rect-v1|%1|%2|%3|%4|%5|%6")
-        .arg(value.minusX, 0, 'f', 6)
-        .arg(value.plusX, 0, 'f', 6)
-        .arg(value.minusY, 0, 'f', 6)
-        .arg(value.plusY, 0, 'f', 6)
-        .arg(value.minusZ, 0, 'f', 6)
-        .arg(value.plusZ, 0, 'f', 6);
+    const QString payload = QStringLiteral("rect-v2|%1|%2|%3|%4|%5|%6")
+        .arg(value.minusX, 0, 'g', 17)
+        .arg(value.plusX, 0, 'g', 17)
+        .arg(value.minusY, 0, 'g', 17)
+        .arg(value.plusY, 0, 'g', 17)
+        .arg(value.minusZ, 0, 'g', 17)
+        .arg(value.plusZ, 0, 'g', 17);
     return QString::fromLatin1(QCryptographicHash::hash(payload.toUtf8(),
                                                         QCryptographicHash::Sha256).toHex());
 }

@@ -14,5 +14,6 @@ public:
     static ProgramPackageExportReport exportFiles(
         const QString &targetDirectory,
         const QString &mainProgramFileName,
-        const QList<ProgramFileEntry> &files);
+        const QList<ProgramFileEntry> &files,
+        bool cq8Package = false);
 };

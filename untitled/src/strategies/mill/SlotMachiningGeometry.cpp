@@ -8,18 +8,21 @@
 
 namespace {
 
+// 函数说明：slotLength负责当前模块的核心处理。
 static double slotLength(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotLength"),
                       feature.length > 0.0 ? feature.length : feature.radius * 2.0);
 }
 
+// 函数说明：slotWidth负责当前模块的核心处理。
 static double slotWidth(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("slotWidth"),
                       feature.width > 0.0 ? feature.width : feature.radius);
 }
 
+// 函数说明：slotAngleDeg负责当前模块的核心处理。
 static double slotAngleDeg(const ContourFeature &feature, const StrategyParams &params)
 {
     return params.get(QStringLiteral("angle"), feature.angle);
@@ -27,6 +30,7 @@ static double slotAngleDeg(const ContourFeature &feature, const StrategyParams &
 
 } // namespace
 
+// 函数说明：refineSlotContourFromMeshData负责当前模块的核心处理。
 bool refineSlotContourFromMeshData(const MachiningFeature &source,
                                    const MeshData &mesh,
                                    ContourFeature &contour)
@@ -113,9 +117,9 @@ bool refineSlotContourFromMeshData(const MachiningFeature &source,
     }
 
     for (const QVector3D &point : rawPoints) {
-        const QVector3D rel = point - source.center;
-        const double u = QVector3D::dotProduct(rel, lengthDir);
-        const double v = QVector3D::dotProduct(rel, widthDir);
+        const Coordinate3D rel = Coordinate3D(point) - source.center;
+        const double u = Coordinate3D::dotProduct(rel, lengthDir);
+        const double v = Coordinate3D::dotProduct(rel, widthDir);
         minU = std::min(minU, u);
         maxU = std::max(maxU, u);
         minV = std::min(minV, v);
@@ -185,8 +189,8 @@ bool refineSlotContourFromMeshData(const MachiningFeature &source,
 
     const double midU = (minU + maxU) * 0.5;
     const double midV = (minV + maxV) * 0.5;
-    QVector3D center = source.center + lengthDir * float(midU) + widthDir * float(midV);
-    center.setZ(float(maxZ));
+    Coordinate3D center = source.center + Coordinate3D(lengthDir) * midU + Coordinate3D(widthDir) * midV;
+    center.setZ(maxZ);
     contour.center = center;
 
     if (source.depth > 0.0) {
@@ -215,6 +219,7 @@ bool refineSlotContourFromMeshData(const MachiningFeature &source,
     return true;
 }
 
+// 函数说明：buildSlotMachiningGeometry负责当前模块的核心处理。
 SlotMachiningGeometry buildSlotMachiningGeometry(const ContourFeature &feature,
                                                  const ToolEntry &tool,
                                                  const StrategyParams &params)
@@ -295,6 +300,7 @@ SlotMachiningGeometry buildSlotMachiningGeometry(const ContourFeature &feature,
     return geometry;
 }
 
+// 函数说明：slotLocalToWorld负责当前模块的核心处理。
 void slotLocalToWorld(const SlotMachiningGeometry &geometry,
                       double u,
                       double v,
@@ -305,6 +311,7 @@ void slotLocalToWorld(const SlotMachiningGeometry &geometry,
     y = geometry.cy + u * geometry.sinA + v * geometry.cosA;
 }
 
+// 函数说明：validateSlotMachiningGeometry负责当前模块的核心处理。
 QString validateSlotMachiningGeometry(const SlotMachiningGeometry &geometry,
                                       const ToolEntry &tool,
                                       const StrategyParams &params)

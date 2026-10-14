@@ -8,9 +8,12 @@
 #include <QRegularExpression>
 
 #include <cmath>
+#include <memory>
+#include <vector>
 
 namespace {
 
+// 函数说明：sha256负责当前模块的核心处理。
 static QString sha256(const QString &content)
 {
     return QString::fromLatin1(
@@ -19,6 +22,7 @@ static QString sha256(const QString &content)
             .toUpper());
 }
 
+// 函数说明：isSafeFileName负责当前模块的核心处理。
 static bool isSafeFileName(const QString &fileName)
 {
     return !fileName.trimmed().isEmpty() &&
@@ -29,15 +33,20 @@ static bool isSafeFileName(const QString &fileName)
            fileName != QStringLiteral("..");
 }
 
-static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
+// 函数说明：cq8MacroReferenceError负责当前模块的核心处理。
+static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files, bool cq8)
 {
     const ProgramFileEntry *mainFile = nullptr;
     const ProgramFileEntry *macroFile = nullptr;
+    for (const auto &file : files)
+        cq8 |= file.fileName == QStringLiteral("CQ8_MAIN.NC") || file.fileName == QStringLiteral("CQ8_MACROS.NC");
+    if (!cq8) return QString();
     for (const ProgramFileEntry &file : files) {
-        if (file.kind == QStringLiteral("main") && file.fileName == QStringLiteral("CQ8_MAIN.NC")) {
+        if (file.kind == QStringLiteral("main")) {
+            if (mainFile) return QStringLiteral("CQ8 package contains more than one main program.");
             mainFile = &file;
-        } else if (file.kind == QStringLiteral("macro") &&
-                   file.fileName == QStringLiteral("CQ8_MACROS.NC")) {
+        } else if (file.kind == QStringLiteral("macro")) {
+            if (macroFile) return QStringLiteral("CQ8 package contains more than one macro library.");
             macroFile = &file;
         }
     }
@@ -45,7 +54,7 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
         return QString();
     }
     if (!mainFile || !macroFile) {
-        return QStringLiteral("CQ8 package must contain both CQ8_MAIN.NC and CQ8_MACROS.NC.");
+        return QStringLiteral("CQ8 package must contain both a main program and its macro library.");
     }
 
     const QRegularExpression variablePattern(QStringLiteral("#(\\d+)\\b"));
@@ -169,10 +178,12 @@ static QString cq8MacroReferenceError(const QList<ProgramFileEntry> &files)
 
 } // namespace
 
+// 函数说明：exportFiles负责当前模块的核心处理。
 ProgramPackageExportReport ProgramPackageExporter::exportFiles(
     const QString &targetDirectory,
     const QString &mainProgramFileName,
-    const QList<ProgramFileEntry> &files)
+    const QList<ProgramFileEntry> &files,
+    bool cq8Package)
 {
     ProgramPackageExportReport report;
     const QDir targetDir(targetDirectory);
@@ -184,7 +195,7 @@ ProgramPackageExportReport ProgramPackageExporter::exportFiles(
         report.error = QStringLiteral("Program Package contains no files.");
         return report;
     }
-    const QString macroReferenceError = cq8MacroReferenceError(files);
+    const QString macroReferenceError = cq8MacroReferenceError(files, cq8Package);
     if (!macroReferenceError.isEmpty()) {
         report.error = macroReferenceError;
         return report;
@@ -221,21 +232,31 @@ ProgramPackageExportReport ProgramPackageExporter::exportFiles(
         return report;
     }
 
+    std::vector<std::unique_ptr<QSaveFile>> staged;
     for (const ProgramFileEntry &file : files) {
         const QString path = targetDir.filePath(file.fileName);
-        QSaveFile output(path);
-        if (!output.open(QIODevice::WriteOnly)) {
+        auto output = std::make_unique<QSaveFile>(path);
+        if (QFileInfo(path).isDir() || !output->open(QIODevice::WriteOnly)) {
             report.error = QStringLiteral("Cannot write Program Package file: %1")
                                .arg(path);
             return report;
         }
         const QByteArray bytes = file.content.toUtf8();
-        if (output.write(bytes) != bytes.size() || !output.commit()) {
-            report.error = QStringLiteral("Cannot commit Program Package file: %1")
+        if (output->write(bytes) != bytes.size()) {
+            report.error = QStringLiteral("Cannot write Program Package file: %1")
                                .arg(path);
             return report;
         }
-        report.writtenFiles.append(path);
+        staged.push_back(std::move(output));
+    }
+    // Prepare every file before replacing any destination. Commits remain per-file.
+    for (auto &output : staged) {
+        if (!output->commit()) {
+            report.error = QStringLiteral("Cannot commit Program Package file: %1\nFiles already committed:\n%2")
+                .arg(output->fileName(), report.writtenFiles.join('\n'));
+            return report;
+        }
+        report.writtenFiles.append(output->fileName());
     }
 
     report.ok = true;

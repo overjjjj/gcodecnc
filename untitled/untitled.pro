@@ -19,37 +19,48 @@ TRANSLATIONS += \
     translations/en_US.ts
 
 SOURCES += \
+    src/workspaces/process_design/selection/PocketOpening.cpp \
     main.cpp \
-    src/core/AppController.cpp \
+    src/app/AppController.cpp \
     src/core/ProjectManager.cpp \
     src/core/SourceFileFingerprint.cpp \
+    src/workspaces/process_design/selection/FeatureIdentity.cpp \
+    src/workspaces/process_design/selection/HoleSelectionSession.cpp \
+    src/workspaces/process_design/selection/SelectionChainController.cpp \
+    src/workspaces/process_design/ui/SelectionChainDialog.cpp \
     src/core/SetupOrientation.cpp \
     src/core/SetupOrigin.cpp \
     src/core/StockDefinition.cpp \
-    src/core/MachineProfileValidator.cpp \
+    src/workspaces/machine_operation/model/MachineProfileValidator.cpp \
     src/core/Settings.cpp \
-    src/ui/MainWindow.cpp \
-    src/ui/ViewportWidget.cpp \
-    src/ui/StrategyPanel.cpp \
-    src/ui/ParameterEditorDialog.cpp \
-    src/ui/MachineProfileDialog.cpp \
-    src/ui/CircleMillDialog.cpp \
-    src/ui/MillingOperationDialog.cpp \
-    src/ui/ToolLibraryPanel.cpp \
-    src/ui/FeatureDisplayFilter.cpp \
-    src/ui/ContourMachiningChoice.cpp \
-    src/ui/ContourMachiningChoiceDialog.cpp \
-    src/ui/ToolOperationCompatibility.cpp \
-    src/ui/ContourFeatureGrouping.cpp \
-    src/ui/HoleFeatureGrouping.cpp \
-    src/ui/SetupOriginDialog.cpp \
-    src/ui/StockDefinitionDialog.cpp \
-    src/ui/FeatureListPanel.cpp \
-    src/ui/BottomBar.cpp \
-    src/ui/GCodeEditor.cpp \
-    src/ui/GCodeHighlighter.cpp \
-    src/ui/CncSendDialog.cpp \
-    src/ui/OperationListPanel.cpp \
+    src/app/MainWindow.cpp \
+    src/app/MillingBatchCommit.cpp \
+    src/app/controllers/AppWorkspaceRouter.cpp \
+    src/app/controllers/ProjectCommandController.cpp \
+    src/workspaces/shared/ui/ViewportWidget.cpp \
+    src/workspaces/process_design/ui/StrategyPanel.cpp \
+    src/workspaces/process_design/ui/ParameterEditorDialog.cpp \
+    src/workspaces/process_design/ui/OperationEditDialog.cpp \
+    src/workspaces/process_design/ui/OperationBatchEditDialog.cpp \
+    src/workspaces/machine_operation/ui/MachineProfileDialog.cpp \
+    src/workspaces/process_design/ui/CircleMillDialog.cpp \
+    src/workspaces/process_design/ui/MillingOperationDialog.cpp \
+    src/workspaces/process_design/ui/ToolLibraryPanel.cpp \
+    src/workspaces/process_design/ui/FeatureDisplayFilter.cpp \
+    src/workspaces/process_design/ui/ContourMachiningChoice.cpp \
+    src/workspaces/process_design/ui/ContourMachiningChoiceDialog.cpp \
+    src/workspaces/process_design/ui/ToolOperationCompatibility.cpp \
+    src/workspaces/process_design/ui/ContourFeatureGrouping.cpp \
+    src/workspaces/process_design/ui/HoleFeatureGrouping.cpp \
+    src/workspaces/process_design/ui/HoleSelectionDialog.cpp \
+    src/workspaces/process_design/ui/SetupOriginDialog.cpp \
+    src/workspaces/process_design/ui/StockDefinitionDialog.cpp \
+    src/workspaces/process_design/ui/FeatureListPanel.cpp \
+    src/workspaces/shared/ui/BottomBar.cpp \
+    src/workspaces/program_verification/ui/GCodeEditor.cpp \
+    src/workspaces/program_verification/ui/GCodeHighlighter.cpp \
+    src/workspaces/machine_operation/ui/CncSendDialog.cpp \
+    src/workspaces/process_design/ui/OperationListPanel.cpp \
     src/import/StepImporter.cpp \
     src/import/TopoAnalyzer.cpp \
     src/import/FeatureRecognizer.cpp \
@@ -57,6 +68,9 @@ SOURCES += \
     src/strategies/hole/SpotDrillingStrategy.cpp \
     src/strategies/hole/PeckDrillingStrategy.cpp \
     src/strategies/hole/DeepHoleDrillingStrategy.cpp \
+    src/strategies/hole/G73DrillingStrategy.cpp \
+    src/strategies/hole/G81DrillingStrategy.cpp \
+    src/strategies/hole/BoringCycleStrategy.cpp \
     src/strategies/hole/TappingStrategy.cpp \
     src/strategies/hole/ReamingStrategy.cpp \
     src/strategies/hole/ChamferStrategy.cpp \
@@ -76,57 +90,82 @@ SOURCES += \
     src/strategies/mill/TaperedSlotMillingStrategy.cpp \
     src/strategies/StrategyBase.cpp \
     src/strategies/StrategyFactory.cpp \
-    src/strategies/OperationProposal.cpp \
+    src/workspaces/process_design/operations/OperationProposal.cpp \
     src/postprocessor/PostProcessorBase.cpp \
     src/postprocessor/SiemensPostProcessor.cpp \
     src/postprocessor/FanucPostProcessor.cpp \
     src/postprocessor/Cq8PostProcessor.cpp \
     src/postprocessor/PostProcessorRegistry.cpp \
-    src/gcode/GCodeSafetyValidator.cpp \
+    src/workspaces/program_verification/safety/GCodeSafetyValidator.cpp \
     src/gcode/GCodeModalOptimizer.cpp \
     src/gcode/Cq8MacroProgramBuilder.cpp \
     src/gcode/ProgramPackageExporter.cpp \
     src/gcode/SiemensProgramPackage.cpp \
-    src/gcode/ProgramSnapshotFingerprint.cpp \
+    src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.cpp \
     src/gcode/ProgramSnapshotStatus.cpp \
-    src/services/ProgramGenerationService.cpp \
-    src/simulation/SimulationController.cpp \
-    src/communication/CncCommInterface.cpp \
+    src/workspaces/program_verification/generation/ProgramGenerationService.cpp \
+    src/workspaces/program_verification/simulation/SimulationController.cpp \
+    src/workspaces/program_verification/simulation/ExactRetractionCheck.cpp \
+    src/workspaces/machine_operation/communication/CncCommInterface.cpp \
     src/tool/ToolLibrary.cpp \
     src/tool/ToolEntry.cpp
 
 HEADERS += \
-    src/core/AppController.h \
-    src/core/MachineProfile.h \
-    src/core/MachineProfileValidator.h \
+    src/workspaces/program_verification/generation/RegionToolpathValidation.h \
+    src/workspaces/process_design/operations/MachiningInput.h \
+    src/workspaces/process_design/operations/DesignFeatureCatalog.h \
+    src/app/AppController.h \
+    src/workspaces/machine_operation/model/MachineProfile.h \
+    src/workspaces/machine_operation/model/MachineProfileValidator.h \
     src/core/ProjectManager.h \
     src/core/SourceFileFingerprint.h \
+    src/workspaces/process_design/selection/FeatureIdentity.h \
+    src/workspaces/process_design/selection/HoleSelectionSession.h \
+    src/workspaces/process_design/operations/OperationWorkflow.h \
+    src/workspaces/process_design/selection/SelectionChainController.h \
+    src/workspaces/process_design/selection/SelectionCandidate.h \
+    src/workspaces/process_design/selection/PocketOpening.h \
+    src/workspaces/process_design/selection/BoundedCurveDiscretization.h \
+    src/workspaces/process_design/selection/PocketVolumeProof.h \
+    src/workspaces/process_design/ui/SelectionChainDialog.h \
+    src/workspaces/shared/WorkspaceModule.h \
+    src/workspaces/shared/WorkspaceContracts.h \
+    src/workspaces/process_design/ProcessDesignWorkspaceFacade.h \
+    src/workspaces/program_verification/ProgramVerificationWorkspaceFacade.h \
+    src/workspaces/machine_operation/MachineOperationWorkspaceFacade.h \
+    src/core/StrategyParams.h \
     src/core/SetupOrientation.h \
     src/core/SetupOrigin.h \
     src/core/StockDefinition.h \
     src/core/Settings.h \
-    src/ui/MainWindow.h \
-    src/ui/ViewportWidget.h \
-    src/ui/StrategyPanel.h \
-    src/ui/ParameterEditorDialog.h \
-    src/ui/MachineProfileDialog.h \
-    src/ui/CircleMillDialog.h \
-    src/ui/MillingOperationDialog.h \
-    src/ui/ToolLibraryPanel.h \
-    src/ui/FeatureDisplayFilter.h \
-    src/ui/ContourMachiningChoice.h \
-    src/ui/ContourMachiningChoiceDialog.h \
-    src/ui/ToolOperationCompatibility.h \
-    src/ui/ContourFeatureGrouping.h \
-    src/ui/HoleFeatureGrouping.h \
-    src/ui/SetupOriginDialog.h \
-    src/ui/StockDefinitionDialog.h \
-    src/ui/FeatureListPanel.h \
-    src/ui/BottomBar.h \
-    src/ui/GCodeEditor.h \
-    src/ui/GCodeHighlighter.h \
-    src/ui/CncSendDialog.h \
-    src/ui/OperationListPanel.h \
+    src/app/MainWindow.h \
+    src/app/MillingBatchCommit.h \
+    src/app/controllers/AppWorkspaceRouter.h \
+    src/app/controllers/ProjectCommandController.h \
+    src/workspaces/shared/ui/ViewportWidget.h \
+    src/workspaces/process_design/ui/StrategyPanel.h \
+    src/workspaces/process_design/ui/ParameterEditorDialog.h \
+    src/workspaces/process_design/ui/OperationEditDialog.h \
+    src/workspaces/process_design/ui/OperationBatchEditDialog.h \
+    src/workspaces/machine_operation/ui/MachineProfileDialog.h \
+    src/workspaces/process_design/ui/CircleMillDialog.h \
+    src/workspaces/process_design/ui/MillingOperationDialog.h \
+    src/workspaces/process_design/ui/ToolLibraryPanel.h \
+    src/workspaces/process_design/ui/FeatureDisplayFilter.h \
+    src/workspaces/process_design/ui/ContourMachiningChoice.h \
+    src/workspaces/process_design/ui/ContourMachiningChoiceDialog.h \
+    src/workspaces/process_design/ui/ToolOperationCompatibility.h \
+    src/workspaces/process_design/ui/ContourFeatureGrouping.h \
+    src/workspaces/process_design/ui/HoleFeatureGrouping.h \
+    src/workspaces/process_design/ui/HoleSelectionDialog.h \
+    src/workspaces/process_design/ui/SetupOriginDialog.h \
+    src/workspaces/process_design/ui/StockDefinitionDialog.h \
+    src/workspaces/process_design/ui/FeatureListPanel.h \
+    src/workspaces/shared/ui/BottomBar.h \
+    src/workspaces/program_verification/ui/GCodeEditor.h \
+    src/workspaces/program_verification/ui/GCodeHighlighter.h \
+    src/workspaces/machine_operation/ui/CncSendDialog.h \
+    src/workspaces/process_design/ui/OperationListPanel.h \
     src/import/StepImporter.h \
     src/import/TopoAnalyzer.h \
     src/import/FeatureRecognizer.h \
@@ -134,12 +173,17 @@ HEADERS += \
     src/strategies/hole/SpotDrillingStrategy.h \
     src/strategies/hole/PeckDrillingStrategy.h \
     src/strategies/hole/DeepHoleDrillingStrategy.h \
+    src/strategies/hole/G73DrillingStrategy.h \
+    src/strategies/hole/G81DrillingStrategy.h \
+    src/strategies/hole/BoringCycleStrategy.h \
     src/strategies/hole/TappingStrategy.h \
     src/strategies/hole/ReamingStrategy.h \
     src/strategies/hole/ChamferStrategy.h \
     src/strategies/hole/HoleCircularMillingStrategy.h \
     src/strategies/mill/CircleMillingStrategy.h \
     src/strategies/mill/FaceMillingStrategy.h \
+    src/strategies/mill/PlanarMachiningValidation.h \
+    src/strategies/mill/PocketAllowances.h \
     src/strategies/mill/PocketRoughingStrategy.h \
     src/strategies/mill/PocketFinishStrategy.h \
     src/strategies/mill/PocketFloorFinishStrategy.h \
@@ -153,25 +197,31 @@ HEADERS += \
     src/strategies/mill/TaperedSlotMillingStrategy.h \
     src/strategies/StrategyBase.h \
     src/strategies/StrategyFactory.h \
-    src/strategies/MachiningOperation.h \
-    src/strategies/OperationProposal.h \
+    src/workspaces/process_design/operations/MachiningOperation.h \
+    src/workspaces/process_design/operations/OperationProposal.h \
     src/postprocessor/PostProcessorBase.h \
     src/postprocessor/SiemensPostProcessor.h \
     src/postprocessor/FanucPostProcessor.h \
     src/postprocessor/Cq8PostProcessor.h \
     src/postprocessor/PostProcessorRegistry.h \
-    src/gcode/GCodeSafetyValidator.h \
+    src/workspaces/program_verification/safety/GCodeSafetyValidator.h \
     src/gcode/GCodeModalOptimizer.h \
     src/gcode/Cq8MacroProgramBuilder.h \
     src/gcode/ParametricToolpathProgram.h \
     src/gcode/ProgramPackageExporter.h \
     src/gcode/SiemensProgramPackage.h \
-    src/gcode/ProgramSnapshotFingerprint.h \
+    src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h \
     src/gcode/ProgramSnapshotStatus.h \
-    src/services/ProgramGenerationService.h \
-    src/simulation/SimulationController.h \
-    src/communication/CncCommInterface.h \
+    src/workspaces/program_verification/generation/ProgramGenerationService.h \
+    src/workspaces/program_verification/simulation/SimulationController.h \
+    src/workspaces/program_verification/simulation/SketchVerificationContext.h \
+    src/workspaces/program_verification/simulation/SketchClearance.h \
+    src/workspaces/program_verification/simulation/SketchMotionCheck.h \
+    src/workspaces/program_verification/simulation/ExactRetractionCheck.h \
+    src/workspaces/machine_operation/communication/CncCommInterface.h \
     src/tool/ToolLibrary.h \
+    src/tool/ChamferToolGeometry.h \
+    src/workspaces/program_verification/generation/ChamferMotionValidation.h \
     src/tool/ToolEntry.h
 
 # ------------------------------------------------------------------
@@ -247,7 +297,7 @@ contains(QT_ARCH, i386) {
         INCLUDEPATH += $$CNEXT_OCC_PREFIX/include/opencascade
         QMAKE_LIBDIR += $$CNEXT_OCC_PREFIX/lib
 
-        OCC_TK_LIBS = TKDESTEP TKDE TKXSBase TKXml TKXmlL TKCDF TKMesh TKTopAlgo TKGeomAlgo TKShHealing TKBool TKPrim TKBO TKBRep TKGeomBase TKG3d TKG2d TKMath TKernel
+        OCC_TK_LIBS = TKDESTEP TKDE TKXSBase TKXml TKXmlL TKCDF TKMesh TKTopAlgo TKGeomAlgo TKShHealing TKBool TKPrim TKOffset TKBO TKBRep TKGeomBase TKG3d TKG2d TKMath TKernel
         for (tk, OCC_TK_LIBS) {
             LIBS += $$shell_path($$CNEXT_OCC_PREFIX/lib/lib$${tk}.dll.a)
         }
@@ -275,7 +325,7 @@ contains(QT_ARCH, i386) {
                 libTKLCAF.dll libTKXCAF.dll libTKCAF.dll \
                 libTKXml.dll libTKXmlL.dll libTKCDF.dll \
                 libTKMesh.dll libTKTopAlgo.dll libTKGeomAlgo.dll \
-                libTKShHealing.dll libTKBool.dll libTKPrim.dll \
+                libTKShHealing.dll libTKBool.dll libTKPrim.dll libTKOffset.dll libTKFillet.dll \
                 libTKBO.dll libTKBRep.dll libTKGeomBase.dll \
                 libTKG3d.dll libTKG2d.dll libTKMath.dll libTKernel.dll \
                 libTKService.dll libTKV3d.dll libTKVCAF.dll \
@@ -300,13 +350,15 @@ contains(QT_ARCH, i386) {
                 libwebp-7.dll libwebpmux-3.dll libx264-165.dll libx265-215.dll \
                 libxml2-16.dll libzvbi-0.dll xvidcore.dll
 
+            OCC_RUNTIME_DLLS += libIlmThread-3_4.dll libLerc.dll libOpenEXRCore-3_4.dll libSvtAv1Enc-4.dll libTKHLR.dll libbluray-3.dll libcairo-2.dll libcairo-gobject-2.dll libcrypto-3-x64.dll libdatrie-1.dll libdeflate.dll libffi-8.dll libfontconfig-1.dll libfribidi-0.dll libgdk_pixbuf-2.0-0.dll libgio-2.0-0.dll libgme.dll libgmodule-2.0-0.dll libgnutls-30.dll libgobject-2.0-0.dll libgomp-1.dll libhwy.dll libjbig-0.dll libjpegxr.dll libjxl_cms.dll libjxrglue.dll liblc3-1.dll liblcms2-2.dll libmodplug-1.dll libogg-0.dll libopencore-amrnb-0.dll libopencore-amrwb-0.dll libopenjph-0.26.dll libopenvr_api.dll libp11-kit-0.dll libpango-1.0-0.dll libpangocairo-1.0-0.dll libpangoft2-1.0-0.dll libpangowin32-1.0-0.dll libpixman-1-0.dll librav1e.dll librsvg-2-2.dll librtmp-1.dll libshaderc_shared.dll libsharpyuv-0.dll libsoxr.dll libsrt.dll libssh.dll libtasn1-6.dll libthai-0.dll libtheoradec-2.dll libtheoraenc-2.dll libunistring-5.dll libva.dll libva_win32.dll libvpl-2.dll
+
             for (dll, OCC_RUNTIME_DLLS) {
                 exists($$OCC_RUNTIME_DIR/$${dll}) {
                     CNEXT_DEPLOY_COMMANDS += $$copyFileCmd($$shell_path($$OCC_RUNTIME_DIR/$${dll}), $$shell_path($$CNEXT_OUT/$${dll})) $$escape_expand(\n\t)
                 }
             }
 
-            QT_RUNTIME_DLLS = Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Concurrent.dll Qt5OpenGL.dll
+            QT_RUNTIME_DLLS = Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Concurrent.dll Qt5OpenGL.dll opengl32sw.dll
             qtHaveModule(serialport): QT_RUNTIME_DLLS += Qt5SerialPort.dll
             for (dll, QT_RUNTIME_DLLS) {
                 exists($$QT_RUNTIME_DIR/$${dll}) {
@@ -348,3 +400,18 @@ contains(QT_ARCH, i386) {
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+HEADERS += src/core/SketchDocument.h
+HEADERS += src/core/SketchAnnotation.h src/core/SketchMeasurement.h src/workspaces/process_design/ui/SketchMeasurementDialog.h
+HEADERS += src/core/SketchTrim.h src/workspaces/process_design/ui/SketchTrimDialog.h
+HEADERS += src/core/SketchOffset.h src/workspaces/process_design/ui/SketchOffsetDialog.h
+HEADERS += src/core/SketchFillet.h src/workspaces/process_design/ui/SketchFilletDialog.h
+SOURCES += src/core/SketchOffset.cpp
+HEADERS += src/core/SketchSelectionBinding.h src/core/SketchContextFactory.h
+
+SOURCES += src/workspaces/process_design/ui/SketchEditorDialog.cpp
+HEADERS += src/workspaces/process_design/ui/SketchEditorDialog.h
+SOURCES += src/workspaces/process_design/ui/MaterialLibraryDialog.cpp
+HEADERS += src/workspaces/process_design/ui/MaterialLibraryDialog.h src/workspaces/process_design/ui/MaterialRecommendationStore.h
+
+HEADERS += src/workspaces/process_design/ui/AutoHoleDialog.h

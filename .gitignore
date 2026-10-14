@@ -40,3 +40,6 @@ tmp/
 *.a
 *.lib
 *.pdb
+
+# Local Archify installation (kept on D:; generated diagrams under docs/archify are review artifacts)
+tools/archify/

@@ -9,8 +9,8 @@ class ToolLibrary : public QObject
 public:
     static ToolLibrary &instance();
 
-    void            addTool(const ToolEntry &t);
-    void            updateTool(const ToolEntry &t);
+    bool            addTool(const ToolEntry &t);
+    bool            updateTool(const ToolEntry &t);
     void            removeTool(int id);
     ToolEntry       tool(int id) const;
     QVector<ToolEntry> allTools() const { return m_tools; }
@@ -18,14 +18,17 @@ public:
 
     bool saveToFile(const QString &path);
     bool loadFromFile(const QString &path);
+    QString lastError() const { return m_lastError; }
 
     void loadDefaults();
 
 signals:
-    void toolLibraryChanged();
+    // Loading refreshes dependents without writing the file back.
+    void toolLibraryChanged(bool persist = true);
 
 private:
     explicit ToolLibrary(QObject *parent = nullptr);
     QVector<ToolEntry> m_tools;
     int m_nextId = 1;
+    QString m_lastError;
 };

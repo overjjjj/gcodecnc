@@ -1,6 +1,6 @@
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/mill/BlindSlotMillingStrategy.h"
 
 #include <QCoreApplication>
@@ -54,6 +54,9 @@ int main(int argc, char **argv)
     operation.contourFeature.depth = 4.0;
     operation.contourFeature.axis = QVector3D(0.0f, 0.0f, 1.0f);
     operation.contourFeature.region = FaceRegion::Front;
+    operation.params.set(QStringLiteral("slotLength"), operation.contourFeature.length);
+    operation.params.set(QStringLiteral("slotWidth"), operation.contourFeature.width);
+    operation.params.set(QStringLiteral("depth"), operation.contourFeature.depth);
 
     PostProcessorOptions options;
     options.programNumber = QStringLiteral("O2401");

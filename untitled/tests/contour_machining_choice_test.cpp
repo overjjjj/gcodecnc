@@ -1,4 +1,4 @@
-#include "src/ui/ContourMachiningChoice.h"
+#include "src/workspaces/process_design/ui/ContourMachiningChoice.h"
 
 #include <QCoreApplication>
 #include <QTextStream>

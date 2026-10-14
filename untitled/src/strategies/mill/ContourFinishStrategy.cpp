@@ -6,6 +6,7 @@
 
 namespace {
 
+// 函数说明：distance2D负责当前模块的核心处理。
 static double distance2D(double x0, double y0, double x1, double y1)
 {
     const double dx = x1 - x0;
@@ -13,6 +14,7 @@ static double distance2D(double x0, double y0, double x1, double y1)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+// 函数说明：normalized2D负责当前模块的核心处理。
 static QVector3D normalized2D(const QVector3D &v, const QVector3D &fallback)
 {
     const double len = std::sqrt(double(v.x()) * v.x() + double(v.y()) * v.y());
@@ -22,11 +24,13 @@ static QVector3D normalized2D(const QVector3D &v, const QVector3D &fallback)
     return QVector3D(float(v.x() / len), float(v.y() / len), 0.0f);
 }
 
+// 函数说明：rapidXY负责当前模块的核心处理。
 static QString rapidXY(double x, double y)
 {
     return QStringLiteral("G0 X%1 Y%2\n").arg(x, 0, 'f', 3).arg(y, 0, 'f', 3);
 }
 
+// 函数说明：feedXY负责当前模块的核心处理。
 static QString feedXY(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -37,6 +41,7 @@ static QString feedXY(double x, double y, double feed)
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams ContourFinishStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -52,6 +57,7 @@ StrategyParams ContourFinishStrategy::defaultParams() const
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ContourFinishStrategy::generate(const HoleFeature &,
                                                 const ToolEntry &,
                                                 const StrategyParams &) const
@@ -59,6 +65,7 @@ ToolpathResult ContourFinishStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("轮廓精加工策略需要轮廓特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult ContourFinishStrategy::generate(const ContourFeature &feature,
                                                 const ToolEntry      &tool,
                                                 const StrategyParams &params) const

@@ -1,6 +1,7 @@
 #include "SiemensPostProcessor.h"
 #include <QDateTime>
 #include <QMap>
+#include "../core/GCodeCoordinate.h"
 
 namespace {
 
@@ -21,11 +22,13 @@ struct HoleCycleCall {
     bool valid = false;
 };
 
+// 函数说明：formatDouble负责当前模块的核心处理。
 static QString formatDouble(double value)
 {
     return QString::number(value, 'f', 3);
 }
 
+// 函数说明：parseHoleCycle负责当前模块的核心处理。
 static HoleCycleCall parseHoleCycle(const QString &line)
 {
     HoleCycleCall call;
@@ -62,46 +65,63 @@ static HoleCycleCall parseHoleCycle(const QString &line)
     return call;
 }
 
+// 函数说明：siemensCycleCommand负责当前模块的核心处理。
 static QString siemensCycleCommand(const HoleCycleCall &call)
 {
     if (call.code == QStringLiteral("G81")) {
         return QStringLiteral("MCALL CYCLE81(%1,%2,%3,%4,)")
-            .arg(formatDouble(call.rtp),
-                 formatDouble(call.rfp),
-                 formatDouble(call.sdis),
-                 formatDouble(call.z));
+            .arg(formatGCodeCoordinate(call.rtp),
+                 formatGCodeCoordinate(call.rfp),
+                 formatGCodeCoordinate(call.sdis),
+                 formatGCodeCoordinate(call.z));
     }
 
     if (call.code == QStringLiteral("G82")) {
         const double dwellSeconds = call.p > 0.0 ? call.p / 1000.0 : 0.0;
         return QStringLiteral("MCALL CYCLE82(%1,%2,%3,%4,,%5)")
-            .arg(formatDouble(call.rtp),
-                 formatDouble(call.rfp),
-                 formatDouble(call.sdis),
-                 formatDouble(call.z),
+            .arg(formatGCodeCoordinate(call.rtp),
+                 formatGCodeCoordinate(call.rfp),
+                 formatGCodeCoordinate(call.sdis),
+                 formatGCodeCoordinate(call.z),
                  formatDouble(dwellSeconds));
     }
 
+    if (call.code == QStringLiteral("G73")) {
+        // SINUMERIK CYCLE83 (PGZ 11/2002, 2-69):
+        // RTP,RFP,SDIS,DP,DPR,FDEP,FDPR,DAM,DTB,DTS,FRF,VARI,_AXN,_MDEP,_VRT,_DTD,_DIS1.
+        // G73 uses a fixed positive first depth (FDPR), chip breaking (VARI=0),
+        // and the documented default short retract (_VRT=0 => 1 mm).
+        if (call.q <= 0.0) return QString();
+        const QStringList args = {
+            formatGCodeCoordinate(call.rtp), formatGCodeCoordinate(call.rfp), formatGCodeCoordinate(call.sdis),
+            formatGCodeCoordinate(call.z), QString(), QString(), formatGCodeCoordinate(call.q),
+            formatDouble(0.0), formatDouble(call.p), QString(), formatDouble(1.0),
+            QStringLiteral("0"), QString(), QString(), formatDouble(0.0),
+            QString(), QString()
+        };
+        return QStringLiteral("MCALL CYCLE83(%1)").arg(args.join(QLatin1Char(',')));
+    }
+
     if (call.code == QStringLiteral("G83")) {
-        // CYCLE83(RTP, RFP, SDIS, DP, DPR, DTB, DTS, FRF, VARI, _AXPOS, MDEP, VRT)
-        // p = dwell in seconds (DTB, pos 6), vari = chip-break mode (VARI, pos 9), q = peck depth (MDEP, pos 11)
-        return QStringLiteral("MCALL CYCLE83(%1,%2,%3,%4,,%5,,1,%6,,%7,)")
-            .arg(formatDouble(call.rtp),
-                 formatDouble(call.rfp),
-                 formatDouble(call.sdis),
-                 formatDouble(call.z),
-                 formatDouble(call.p),
-                 QString::number(call.vari),
-                 formatDouble(call.q));
+        // Use the same documented argument positions for conventional peck
+        // drilling, but select chip evacuation (VARI=1) explicitly.
+        if (call.q <= 0.0) return QString();
+        const QStringList args = {
+            formatGCodeCoordinate(call.rtp), formatGCodeCoordinate(call.rfp), formatGCodeCoordinate(call.sdis),
+            formatGCodeCoordinate(call.z), QString(), QString(), formatGCodeCoordinate(call.q),
+            formatDouble(0.0), formatDouble(call.p), QString(), formatDouble(1.0),
+            QStringLiteral("1"), QString(), QString(), QString(), QString(), QString()
+        };
+        return QStringLiteral("MCALL CYCLE83(%1)").arg(args.join(QLatin1Char(',')));
     }
 
     if (call.code == QStringLiteral("G84")) {
         const double dwellSeconds = call.p > 0.0 ? call.p / 1000.0 : 0.0;
         return QStringLiteral("MCALL CYCLE84(%1,%2,%3,%4,,%5,3,,%6,0,%7,%7)")
-            .arg(formatDouble(call.rtp),
-                 formatDouble(call.rfp),
-                 formatDouble(call.sdis),
-                 formatDouble(call.z),
+            .arg(formatGCodeCoordinate(call.rtp),
+                 formatGCodeCoordinate(call.rfp),
+                 formatGCodeCoordinate(call.sdis),
+                 formatGCodeCoordinate(call.z),
                  formatDouble(dwellSeconds),
                  formatDouble(call.pitch),
                  formatDouble(call.rpm));
@@ -110,26 +130,33 @@ static QString siemensCycleCommand(const HoleCycleCall &call)
     if (call.code == QStringLiteral("G85")) {
         const double dwellSeconds = call.p > 0.0 ? call.p / 1000.0 : 0.0;
         return QStringLiteral("MCALL CYCLE85(%1,%2,%3,%4,,%5,%6,%6)")
-            .arg(formatDouble(call.rtp),
-                 formatDouble(call.rfp),
-                 formatDouble(call.sdis),
-                 formatDouble(call.z),
+            .arg(formatGCodeCoordinate(call.rtp),
+                 formatGCodeCoordinate(call.rfp),
+                 formatGCodeCoordinate(call.sdis),
+                 formatGCodeCoordinate(call.z),
                  formatDouble(dwellSeconds),
                  formatDouble(call.f));
+    }
+
+    // Siemens G76/G86 boring cycles are machine-builder specific. Do not
+    // silently substitute Fanuc syntax or rename G85.
+    if (call.code == QStringLiteral("G76") || call.code == QStringLiteral("G86")) {
+        return QString();
     }
 
     return QString();
 }
 
+// 函数说明：cycleSignature负责当前模块的核心处理。
 static QString cycleSignature(const HoleCycleCall &call)
 {
     return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11")
         .arg(call.code,
-             formatDouble(call.rtp),
-             formatDouble(call.rfp),
-             formatDouble(call.sdis),
-             formatDouble(call.z),
-             formatDouble(call.q),
+             formatGCodeCoordinate(call.rtp),
+             formatGCodeCoordinate(call.rfp),
+             formatGCodeCoordinate(call.sdis),
+             formatGCodeCoordinate(call.z),
+             formatGCodeCoordinate(call.q),
              formatDouble(call.p),
              formatDouble(call.f),
              QString::number(call.vari),
@@ -139,6 +166,7 @@ static QString cycleSignature(const HoleCycleCall &call)
 
 } // namespace
 
+// 函数说明：wrapGCode负责当前模块的核心处理。
 QString SiemensPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                                          const PostProcessorOptions &opts) const
 {
@@ -195,7 +223,7 @@ QString SiemensPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                 activeSignature = signature;
             }
             out += QStringLiteral("X%1 Y%2\n")
-                .arg(formatDouble(cycle.x), formatDouble(cycle.y));
+                .arg(formatGCodeCoordinate(cycle.x), formatGCodeCoordinate(cycle.y));
             continue;
         }
 

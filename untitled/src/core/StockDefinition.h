@@ -1,14 +1,14 @@
 #pragma once
 
 #include <QString>
-#include <QVector3D>
+#include "Coordinate3D.h"
 
 struct StockBounds
 {
-    QVector3D minimum;
-    QVector3D maximum;
+    Coordinate3D minimum;
+    Coordinate3D maximum;
 
-    QVector3D size() const { return maximum - minimum; }
+    Coordinate3D size() const { return maximum - minimum; }
 };
 
 struct StockDefinition
@@ -22,6 +22,6 @@ struct StockDefinition
     bool confirmed = false;
 
     void normalize();
-    StockBounds resolvedBounds(const QVector3D &partMin, const QVector3D &partMax) const;
+    StockBounds resolvedBounds(const Coordinate3D &partMin, const Coordinate3D &partMax) const;
     QString fingerprint() const;
 };

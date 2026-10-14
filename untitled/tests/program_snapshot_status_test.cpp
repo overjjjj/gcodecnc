@@ -44,7 +44,7 @@ int main(int argc, char **argv)
         ProgramSnapshotFingerprint::calculate(operations, sourceIds);
 
     const ProgramSnapshotStatus fresh =
-        ProgramSnapshotStatus::evaluate(operations, sourceIds, fingerprint);
+        ProgramSnapshotStatus::evaluate(operations, sourceIds, fingerprint, {}, {}, "tool-a", "tool-a");
     if (expect(fresh.state == ProgramSnapshotState::Fresh, "matching fingerprint should be fresh")) {
         return 1;
     }
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     }
 
     const ProgramSnapshotStatus setupFresh = ProgramSnapshotStatus::evaluate(
-        operations, sourceIds, fingerprint, QStringLiteral("setup-a"), QStringLiteral("setup-a"));
+        operations, sourceIds, fingerprint, QStringLiteral("setup-a"), QStringLiteral("setup-a"), "tool-a", "tool-a");
     if (expect(setupFresh.state == ProgramSnapshotState::Fresh,
                "matching Setup fingerprint should remain fresh")) {
         return 1;
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
     const ProgramSnapshotStatus expandedFresh =
         ProgramSnapshotStatus::evaluate(expandedOperations,
                                         expandedSourceIds,
-                                        expandedFingerprint);
+                                        expandedFingerprint, {}, {}, "tool-a", "tool-a");
     if (expect(expandedFresh.state == ProgramSnapshotState::Fresh,
                "a snapshot covering every confirmed operation should be fresh")) {
         return 1;
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     QList<MachiningOperation> changedOperations{sampleOperation()};
     changedOperations[0].params.set(QStringLiteral("feedRate"), 240.0);
     const ProgramSnapshotStatus stale =
-        ProgramSnapshotStatus::evaluate(changedOperations, sourceIds, fingerprint);
+        ProgramSnapshotStatus::evaluate(changedOperations, sourceIds, fingerprint, {}, {}, "tool-a", "tool-a");
     if (expect(stale.state == ProgramSnapshotState::Changed, "changed operation should be reported")) {
         return 1;
     }
@@ -145,10 +145,10 @@ int main(int argc, char **argv)
 
     const ProgramSnapshotStatus unchecked =
         ProgramSnapshotStatus::evaluate(operations, sourceIds, QString());
-    if (expect(unchecked.state == ProgramSnapshotState::Unchecked, "missing stored fingerprint should be unchecked")) {
+    if (expect(!unchecked.okForOutput(), "legacy snapshot without tool evidence must require regeneration")) {
         return 1;
     }
-    if (expect(unchecked.listSuffix().isEmpty(), "unchecked snapshot should not add a list suffix")) {
+    if (expect(unchecked.listSuffix() == QStringLiteral(" [stale]"), "legacy snapshot must show a stale suffix")) {
         return 1;
     }
 

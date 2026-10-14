@@ -34,16 +34,19 @@
 
 namespace {
 
+// 函数说明：dotDir负责当前模块的核心处理。
 static double dotDir(const gp_Dir &a, const gp_Dir &b)
 {
     return a.X() * b.X() + a.Y() * b.Y() + a.Z() * b.Z();
 }
 
+// 函数说明：toVector3D负责当前模块的核心处理。
 static QVector3D toVector3D(const gp_Dir &dir)
 {
     return QVector3D(float(dir.X()), float(dir.Y()), float(dir.Z()));
 }
 
+// 函数说明：pointOnAxisAtProjection负责当前模块的核心处理。
 static gp_Pnt pointOnAxisAtProjection(const gp_Ax1 &axis, double targetProj)
 {
     const gp_Pnt origin = axis.Location();
@@ -61,6 +64,7 @@ struct FaceProjection {
     double avgProj = 0.0;
 };
 
+// 函数说明：estimateFaceProjection负责当前模块的核心处理。
 static FaceProjection estimateFaceProjection(const TopoDS_Face &face, const gp_Dir &axis)
 {
     FaceProjection projection;
@@ -105,6 +109,7 @@ static FaceProjection estimateFaceProjection(const TopoDS_Face &face, const gp_D
     return projection;
 }
 
+// 函数说明：cylinderRadialNormalAlignment负责当前模块的核心处理。
 static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax1 &axis)
 {
     TopLoc_Location loc;
@@ -156,6 +161,7 @@ static double cylinderRadialNormalAlignment(const TopoDS_Face &face, const gp_Ax
     return dotCount > 0 ? dotAcc / double(dotCount) : 0.0;
 }
 
+// 函数说明：coincidentCylinderFaces负责当前模块的核心处理。
 static QVector<int> coincidentCylinderFaces(const TopoGraph &graph,
                                             int seedFaceIndex,
                                             const gp_Cylinder &seedCylinder)
@@ -214,6 +220,7 @@ struct FaceBox2D {
     double angle = 0.0;  // orientation of the long axis in XY plane (degrees, 0=X axis)
 };
 
+// 函数说明：buildPlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D buildPlanarFaceBox(const QVector<QVector3D> &points, const QVector3D &normalHint)
 {
     FaceBox2D box;
@@ -299,6 +306,7 @@ static FaceBox2D buildPlanarFaceBox(const QVector<QVector3D> &points, const QVec
     return box;
 }
 
+// 函数说明：estimatePlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D estimatePlanarFaceBox(const TopoDS_Face &face, const QVector3D &normalHint)
 {
     QVector<QVector3D> points;
@@ -317,6 +325,7 @@ static FaceBox2D estimatePlanarFaceBox(const TopoDS_Face &face, const QVector3D 
     return buildPlanarFaceBox(points, normalHint);
 }
 
+// 函数说明：radialDistanceToAxis负责当前模块的核心处理。
 static double radialDistanceToAxis(const QVector3D &point, const gp_Ax1 &axis)
 {
     const gp_Pnt origin = axis.Location();
@@ -328,6 +337,7 @@ static double radialDistanceToAxis(const QVector3D &point, const gp_Ax1 &axis)
     return radial.length();
 }
 
+// 函数说明：isCompactPlanarCap负责当前模块的核心处理。
 static bool isCompactPlanarCap(const TopoGraph &graph,
                                int faceIndex,
                                const gp_Ax1 &axis,
@@ -373,6 +383,7 @@ static bool isCompactPlanarCap(const TopoGraph &graph,
     return radialDistanceToAxis(box.center, axis) <= std::max(radius * 0.35, 0.25);
 }
 
+// 函数说明：faceHasInnerWires负责当前模块的核心处理。
 static bool faceHasInnerWires(const TopoDS_Face &face)
 {
     // Inner wires (holes) have REVERSED orientation relative to the face.
@@ -388,6 +399,7 @@ static bool faceHasInnerWires(const TopoDS_Face &face)
     return false;
 }
 
+// 函数说明：appendDistinctPoint负责当前模块的核心处理。
 static void appendDistinctPoint(QVector<QVector3D> &points, const gp_Pnt &point)
 {
     const QVector3D value(float(point.X()), float(point.Y()), float(point.Z()));
@@ -396,6 +408,7 @@ static void appendDistinctPoint(QVector<QVector3D> &points, const gp_Pnt &point)
     }
 }
 
+// 函数说明：sampleBoundaryWire负责当前模块的核心处理。
 static QVector<QVector3D> sampleBoundaryWire(const TopoDS_Wire &wire)
 {
     QVector<QVector3D> points;
@@ -428,6 +441,7 @@ static QVector<QVector3D> sampleBoundaryWire(const TopoDS_Wire &wire)
     return points;
 }
 
+// 函数说明：extractPocketLoops负责当前模块的核心处理。
 static void extractPocketLoops(const TopoDS_Face &face,
                                QVector<QVector3D> &outerBoundary,
                                QVector<QVector<QVector3D>> &islandBoundaries)
@@ -453,6 +467,59 @@ static void extractPocketLoops(const TopoDS_Face &face,
 
 static QVector3D estimateFaceCentroid(const TopoDS_Face &face);
 
+// Only a complete original straight wire can establish planar boundary evidence.
+static bool extractPlanarStraightWire(const TopoDS_Face &face, QVector<QVector3D> &points)
+{
+    const auto outer=BRepTools::OuterWire(face);
+    if (outer.IsNull()) return false;
+    int wires=0,edges=0;
+    for (TopExp_Explorer e(face,TopAbs_WIRE);e.More();e.Next()) {
+        if (!e.Current().IsSame(outer)) return false;
+        ++wires;
+    }
+    if (wires!=1) return false;
+    double tol=BRep_Tool::Tolerance(face);
+    for (TopExp_Explorer e(outer,TopAbs_EDGE);e.More();e.Next()) {
+        ++edges;tol=std::max(tol,BRep_Tool::Tolerance(TopoDS::Edge(e.Current())));
+    }
+    if (!std::isfinite(tol) || tol>0.0001) return false;
+    QVector<gp_Pnt> vertices;gp_Pnt previous;
+    int visited=0;
+    for (BRepTools_WireExplorer e(outer,face);e.More();e.Next()) {
+        const auto edge=e.Current();BRepAdaptor_Curve curve(edge);
+        if (curve.GetType()!=GeomAbs_Line || BRep_Tool::Degenerated(edge)) return false;
+        double first=curve.FirstParameter(),last=curve.LastParameter();
+        if (!std::isfinite(first) || !std::isfinite(last)) return false;
+        if (edge.Orientation()==TopAbs_REVERSED) std::swap(first,last);
+        const gp_Pnt a=curve.Value(first),b=curve.Value(last);
+        if (a.Distance(b)<=tol || (visited && previous.Distance(a)>tol)) return false;
+        // Do not let float conversion turn a real tilted edge into an axis-aligned one.
+        const gp_Vec direction(a,b);
+        const double dx=std::abs(direction.X()),dy=std::abs(direction.Y()),dz=std::abs(direction.Z());
+        const double angular=1e-12*direction.Magnitude();
+        if (dz>angular || !((dx<=angular && dy>angular)||(dy<=angular && dx>angular))) return false;
+        vertices.append(a);previous=b;++visited;
+    }
+    if (visited!=edges || visited<4 || previous.Distance(vertices.first())>tol) return false;
+    // Merge exactly collinear consecutive edges only; retain actual corners.
+    bool merged=true;
+    while(merged && vertices.size()>4) {
+        merged=false;
+        for(int i=0;i<vertices.size();++i) {
+            const gp_Vec a(vertices[(i+vertices.size()-1)%vertices.size()],vertices[i]);
+            const gp_Vec b(vertices[i],vertices[(i+1)%vertices.size()]);
+            if(a.Dot(b)>0 && a.Crossed(b).Magnitude()<=1e-12*a.Magnitude()*b.Magnitude()) {
+                vertices.removeAt(i);merged=true;break;
+            }
+        }
+    }
+    if(vertices.size()!=4) return false;
+    QVector<QVector3D> result;
+    for(const auto &v:vertices) result.append(QVector3D(float(v.X()),float(v.Y()),float(v.Z())));
+    points=result;return true;
+}
+
+// 函数说明：estimateSideFeatureSpan负责当前模块的核心处理。
 static double estimateSideFeatureSpan(const TopoGraph &graph, const QVector<int> &sideFaces)
 {
     double span = 0.0;
@@ -476,6 +543,7 @@ static double estimateSideFeatureSpan(const TopoGraph &graph, const QVector<int>
     return span;
 }
 
+// 函数说明：isSlotSideLayoutConsistent负责当前模块的核心处理。
 static bool isSlotSideLayoutConsistent(const TopoGraph &graph,
                                        const QVector<int> &sideFaces,
                                        const FaceBox2D &bottomBox)
@@ -512,6 +580,7 @@ static bool isSlotSideLayoutConsistent(const TopoGraph &graph,
     return hasPositiveMinorWall && hasNegativeMinorWall && nearMinorEdgeCount >= 2;
 }
 
+// 函数说明：collectBoundaryWallFaces负责当前模块的核心处理。
 static QVector<int> collectBoundaryWallFaces(const TopoGraph &graph,
                                              const QVector<int> &bottomFaces,
                                              const QSet<int> &candidateSideFaces)
@@ -578,6 +647,7 @@ static QVector<int> collectBoundaryWallFaces(const TopoGraph &graph,
     return wallFaces;
 }
 
+// 函数说明：selectSlotWallFaces负责当前模块的核心处理。
 static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
                                         const QVector<int> &bottomFaces,
                                         const QVector<int> &sideFaces,
@@ -622,6 +692,7 @@ static QVector<int> selectSlotWallFaces(const TopoGraph &graph,
     return uniqueWalls;
 }
 
+// 函数说明：estimateFacesSpanAlongDirection负责当前模块的核心处理。
 static double estimateFacesSpanAlongDirection(const TopoGraph &graph,
                                               const QVector<int> &faceIndices,
                                               const QVector3D &direction)
@@ -663,6 +734,7 @@ struct ProjectionRange {
     double maxProj = 0.0;
 };
 
+// 函数说明：estimateModelProjectionRange负责当前模块的核心处理。
 static ProjectionRange estimateModelProjectionRange(const TopoGraph &graph, const QVector3D &direction)
 {
     ProjectionRange range;
@@ -699,6 +771,7 @@ static ProjectionRange estimateModelProjectionRange(const TopoGraph &graph, cons
     return range;
 }
 
+// 函数说明：estimateFacesProjectionRange负责当前模块的核心处理。
 static ProjectionRange estimateFacesProjectionRange(const TopoGraph &graph,
                                                     const QVector<int> &faceIndices,
                                                     const QVector3D &direction)
@@ -740,6 +813,7 @@ static ProjectionRange estimateFacesProjectionRange(const TopoGraph &graph,
     return range;
 }
 
+// 函数说明：slotOpeningRegionFromFaceRange负责当前模块的核心处理。
 static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
                                                  const MachiningFeature &feature,
                                                  const QVector3D &frontNormal)
@@ -773,6 +847,7 @@ static FaceRegion slotOpeningRegionFromFaceRange(const TopoGraph &graph,
     return FaceRegion::Unknown;
 }
 
+// 函数说明：isNearModelBoundary负责当前模块的核心处理。
 static bool isNearModelBoundary(const TopoGraph &graph, const QVector3D &point, const QVector3D &axis)
 {
     const ProjectionRange range = estimateModelProjectionRange(graph, axis);
@@ -787,6 +862,7 @@ static bool isNearModelBoundary(const TopoGraph &graph, const QVector3D &point, 
     return (proj - range.minProj) <= tol || (range.maxProj - proj) <= tol;
 }
 
+// 函数说明：collectConcaveConnectedPlanarFaces负责当前模块的核心处理。
 static QVector<int> collectConcaveConnectedPlanarFaces(const TopoGraph &graph, int seedFaceIndex)
 {
     QVector<int> group;
@@ -833,6 +909,7 @@ static QVector<int> collectConcaveConnectedPlanarFaces(const TopoGraph &graph, i
     return uniqueGroup;
 }
 
+// 函数说明：hasPlanarBottomNeighborForWallGroup负责当前模块的核心处理。
 static bool hasPlanarBottomNeighborForWallGroup(const TopoGraph &graph,
                                                 const QVector<int> &wallFaces,
                                                 const QVector3D &openingAxis)
@@ -879,6 +956,7 @@ static bool hasPlanarBottomNeighborForWallGroup(const TopoGraph &graph,
     return false;
 }
 
+// 函数说明：isReasonableRecessBottom负责当前模块的核心处理。
 static bool isReasonableRecessBottom(const TopoGraph &graph,
                                      int bottomFace,
                                      const QVector<int> &sideFaces,
@@ -903,6 +981,7 @@ static bool isReasonableRecessBottom(const TopoGraph &graph,
     return bottomBox.length <= allowedSpan;
 }
 
+// 函数说明：uniqueIndices负责当前模块的核心处理。
 static QVector<int> uniqueIndices(const QVector<int> &indices)
 {
     QSet<int> seen;
@@ -917,6 +996,7 @@ static QVector<int> uniqueIndices(const QVector<int> &indices)
     return result;
 }
 
+// 函数说明：estimateFaceCentroid负责当前模块的核心处理。
 static QVector3D estimateFaceCentroid(const TopoDS_Face &face)
 {
     TopLoc_Location loc;
@@ -936,6 +1016,7 @@ static QVector3D estimateFaceCentroid(const TopoDS_Face &face)
     return pointCount > 0 ? centerAccum / float(pointCount) : QVector3D();
 }
 
+// 函数说明：planarSurfaceSubtype负责当前模块的核心处理。
 static QString planarSurfaceSubtype(FaceRegion region, double z, double minZ, double maxZ)
 {
     constexpr double zTol = 1.0e-3;
@@ -951,6 +1032,7 @@ static QString planarSurfaceSubtype(FaceRegion region, double z, double minZ, do
     return QStringLiteral("step_surface");
 }
 
+// 函数说明：regionPriority负责当前模块的核心处理。
 static int regionPriority(FaceRegion region)
 {
     switch (region) {
@@ -963,6 +1045,7 @@ static int regionPriority(FaceRegion region)
     }
 }
 
+// 函数说明：regionFromAxis负责当前模块的核心处理。
 static FaceRegion regionFromAxis(const QVector3D &axis, const QVector3D &frontNormal)
 {
     const QVector3D n = axis.normalized();
@@ -986,6 +1069,7 @@ static QString sideDirectionSubtype(const QVector3D &axis)
                : QStringLiteral("side_y");
 }
 
+// 函数说明：dominantFaceRegion负责当前模块的核心处理。
 static FaceRegion dominantFaceRegion(const TopoGraph &graph, const QVector<int> &faceIndices)
 {
     int front = 0;
@@ -1017,6 +1101,7 @@ static FaceRegion dominantFaceRegion(const TopoGraph &graph, const QVector<int> 
     return FaceRegion::Side;
 }
 
+// 函数说明：graphProjectionRange负责当前模块的核心处理。
 static bool graphProjectionRange(const TopoGraph &graph,
                                  const QVector3D &direction,
                                  double &minProj,
@@ -1038,6 +1123,7 @@ static bool graphProjectionRange(const TopoGraph &graph,
     return minProj <= maxProj;
 }
 
+// 函数说明：machiningRegionForFeature负责当前模块的核心处理。
 static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
                                             const MachiningFeature &feature,
                                             const QVector3D &frontNormal)
@@ -1052,6 +1138,9 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
     if (feature.kind == FeatureKind::Hole ||
         feature.kind == FeatureKind::Thread ||
         feature.kind == FeatureKind::Boss) {
+        if (feature.subType == QStringLiteral("enclosed_hole")) {
+            return FaceRegion::Unknown;
+        }
         if (feature.subType.contains(QStringLiteral("through_hole"))) {
             if (axisRegion == FaceRegion::Side) {
                 return FaceRegion::Side;
@@ -1066,7 +1155,7 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
                                      minProjection,
                                      maxProjection)) {
                 const double centerProjection =
-                    QVector3D::dotProduct(feature.center, setupNormal);
+                    Coordinate3D::dotProduct(feature.center, setupNormal);
                 const double distanceToFront =
                     std::abs(maxProjection - centerProjection);
                 const double distanceToBack =
@@ -1077,7 +1166,19 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
             }
         }
 
-        // Hole-like features are machined from the opening side opposite to the feature axis.
+        if (feature.kind == FeatureKind::Hole && feature.subType.contains(QStringLiteral("blind_hole"))) {
+            for (int faceIndex : feature.faceIndices) {
+                if (faceIndex <= 0 || faceIndex > graph.nodes.size()) continue;
+                const FaceNode &node = graph.nodes[faceIndex - 1];
+                if (node.surfType != GeomAbs_Plane ||
+                    std::abs(QVector3D::dotProduct(node.normal.normalized(), feature.axis.normalized())) < 0.90) continue;
+                // Stored compact end-cap normals point into the cavity, toward its opening.
+                const FaceRegion capRegion = regionFromAxis(node.normal, frontNormal);
+                if (capRegion != FaceRegion::Unknown) return capRegion;
+            }
+        }
+
+        // Other hole-like features retain the existing axis-based fallback.
         const FaceRegion openingRegion = regionFromAxis(-feature.axis, frontNormal);
         if (openingRegion != FaceRegion::Unknown) {
             return openingRegion;
@@ -1108,7 +1209,7 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
                 double minProj = 0.0;
                 double maxProj = 0.0;
                 if (graphProjectionRange(graph, fn, minProj, maxProj)) {
-                    const double bottomProj = QVector3D::dotProduct(feature.center, fn);
+                    const double bottomProj = Coordinate3D::dotProduct(feature.center, fn);
                     const double frontOpeningProj = bottomProj + feature.depth * axisAlignment;
                     const double backOpeningProj = bottomProj - feature.depth * axisAlignment;
                     const double tolerance = std::max(0.35, feature.depth * 0.15);
@@ -1143,6 +1244,7 @@ static FaceRegion machiningRegionForFeature(const TopoGraph &graph,
     return axisRegion;
 }
 
+// 函数说明：estimatePlanarDepthFromSides负责当前模块的核心处理。
 static double estimatePlanarDepthFromSides(const TopoGraph &graph,
                                            int bottomFace,
                                            const QVector<int> &sideFaces)
@@ -1180,6 +1282,7 @@ static double estimatePlanarDepthFromSides(const TopoGraph &graph,
     return maxDelta;
 }
 
+// 函数说明：areCoplanarFaces负责当前模块的核心处理。
 static bool areCoplanarFaces(const TopoGraph &graph, int a, int b)
 {
     if (a <= 0 || b <= 0 || a > graph.nodes.size() || b > graph.nodes.size()) {
@@ -1209,6 +1312,7 @@ static bool areCoplanarFaces(const TopoGraph &graph, int a, int b)
     return std::abs(da - db) <= 0.25;
 }
 
+// 函数说明：collectCoplanarFaces负责当前模块的核心处理。
 static QVector<int> collectCoplanarFaces(const TopoGraph &graph, int seedFaceIndex)
 {
     QVector<int> group;
@@ -1244,6 +1348,7 @@ static QVector<int> collectCoplanarFaces(const TopoGraph &graph, int seedFaceInd
     return uniqueIndices(group);
 }
 
+// 函数说明：estimatePlanarFaceBox负责当前模块的核心处理。
 static FaceBox2D estimatePlanarFaceBox(const TopoGraph &graph,
                                        const QVector<int> &faceIndices,
                                        const QVector3D &normalHint)
@@ -1288,6 +1393,7 @@ static FaceBox2D estimatePlanarFaceBox(const TopoGraph &graph,
 
 } // namespace
 
+// 函数说明：mergeCounterbores负责当前模块的核心处理。
 static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> holes)
 {
     const int n = holes.size();
@@ -1297,7 +1403,8 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
     for (int i = 0; i < n; ++i) {
         if (merged[i]) continue;
         const MachiningFeature &a = holes[i];
-        if (a.kind != FeatureKind::Hole && a.kind != FeatureKind::Thread) {
+        if ((a.kind != FeatureKind::Hole && a.kind != FeatureKind::Thread) ||
+            a.subType == QStringLiteral("enclosed_hole")) {
             result.append(a);
             continue;
         }
@@ -1307,22 +1414,25 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
             if (merged[j]) continue;
             const MachiningFeature &b = holes[j];
             if (b.kind != FeatureKind::Hole && b.kind != FeatureKind::Thread) continue;
+            if (b.subType == QStringLiteral("enclosed_hole")) continue;
             if (std::abs(a.radius - b.radius) < 0.05) continue;
 
             const float axisDot = std::abs(QVector3D::dotProduct(a.axis.normalized(), b.axis.normalized()));
             if (axisDot < 0.98f) continue;
 
-            const QVector3D diff = b.center - a.center;
-            const QVector3D axN = a.axis.normalized();
-            const float axialDist = QVector3D::dotProduct(diff, axN);
-            const QVector3D lateral = diff - axN * axialDist;
+            const Coordinate3D diff = b.center - a.center;
+            const Coordinate3D axN = a.axis.normalized();
+            const double axialDist = Coordinate3D::dotProduct(diff, axN);
+            const Coordinate3D lateral = diff - axN * axialDist;
             if (lateral.length() > 0.5f) continue;
 
-            const float aMin = QVector3D::dotProduct(a.center, axN);
-            const float aMax = aMin + float(a.depth);
-            const float bMin = QVector3D::dotProduct(b.center, axN);
-            const float bMax = bMin + float(b.depth);
-            const float gap = std::max(aMin, bMin) - std::min(aMax, bMax);
+            const double aProjection = Coordinate3D::dotProduct(a.center, axN);
+            const double aMin = aProjection - double(a.depth) * 0.5;
+            const double aMax = aProjection + double(a.depth) * 0.5;
+            const double bProjection = Coordinate3D::dotProduct(b.center, axN);
+            const double bMin = bProjection - double(b.depth) * 0.5;
+            const double bMax = bProjection + double(b.depth) * 0.5;
+            const double gap = std::max(aMin, bMin) - std::min(aMax, bMax);
             if (gap > 1.0f) continue;
 
             pairedWith = j;
@@ -1343,28 +1453,26 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
         // Determine through/blind from the inner (narrower) hole
         const bool innerIsThrough = inner.subType.contains(QStringLiteral("through_hole"));
 
-        // Compute opening-face position: the axial end of the combined bore
-        // that is farthest from the cylinder midpoints (i.e. the entry side).
-        // Cylinders store their center at the geometric midpoint, so the two
-        // axial ends of each cylinder are center +/- depth/2 along the axis.
-        const QVector3D axN = outer.axis.normalized();
-        const float outerProj  = QVector3D::dotProduct(outer.center, axN);
-        const float outerEnd1  = outerProj - float(outer.depth) * 0.5f;
-        const float outerEnd2  = outerProj + float(outer.depth) * 0.5f;
-        const float innerProj  = QVector3D::dotProduct(inner.center, axN);
-        const float innerEnd1  = innerProj - float(inner.depth) * 0.5f;
-        const float innerEnd2  = innerProj + float(inner.depth) * 0.5f;
+        // Preserve the midpoint/depth convention used by every hole strategy.
+        // The combined interval contains both cylinder intervals.
+        const Coordinate3D axN = outer.axis.normalized();
+        const double outerProj  = Coordinate3D::dotProduct(outer.center, axN);
+        const double outerEnd1  = outerProj - double(outer.depth) * 0.5f;
+        const double outerEnd2  = outerProj + double(outer.depth) * 0.5f;
+        const double innerProj  = Coordinate3D::dotProduct(inner.center, axN);
+        const double innerEnd1  = innerProj - double(inner.depth) * 0.5f;
+        const double innerEnd2  = innerProj + double(inner.depth) * 0.5f;
 
         // Entry is the outermost projection end (max of all four endpoints)
-        const float entryProj = std::max({outerEnd1, outerEnd2, innerEnd1, innerEnd2});
+        const double entryProj = std::max({outerEnd1, outerEnd2, innerEnd1, innerEnd2});
         // Deepest end is the minimum projection
-        const float deepProj  = std::min({outerEnd1, outerEnd2, innerEnd1, innerEnd2});
+        const double deepProj  = std::min({outerEnd1, outerEnd2, innerEnd1, innerEnd2});
 
         const gp_Ax1 outerAxis(gp_Pnt(double(outer.center.x()),
                                        double(outer.center.y()),
                                        double(outer.center.z())),
                                 gp_Dir(double(axN.x()), double(axN.y()), double(axN.z())));
-        const gp_Pnt entryPnt = pointOnAxisAtProjection(outerAxis, double(entryProj));
+        const gp_Pnt centerPnt = pointOnAxisAtProjection(outerAxis, (entryProj + deepProj) * 0.5);
 
         MachiningFeature cb;
         cb.kind = FeatureKind::Hole;
@@ -1373,7 +1481,7 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
         cb.radius = inner.radius;
         cb.secondaryRadius = outer.radius;
         cb.depth = double(entryProj - deepProj);
-        cb.center = QVector3D(float(entryPnt.X()), float(entryPnt.Y()), float(entryPnt.Z()));
+        cb.center = Coordinate3D(centerPnt.X(), centerPnt.Y(), centerPnt.Z());
         cb.axis = outer.axis;
         cb.region = outer.region;
         cb.faceIndices = outer.faceIndices;
@@ -1386,6 +1494,7 @@ static QVector<MachiningFeature> mergeCounterbores(QVector<MachiningFeature> hol
     return result;
 }
 
+// 函数说明：recognize负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::recognize(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features = mergeCounterbores(findHoles(graph));
@@ -1446,6 +1555,7 @@ QVector<MachiningFeature> FeatureRecognizer::recognize(const TopoGraph &graph) c
     return features;
 }
 
+// 函数说明：reclassifyRegions负责当前模块的核心处理。
 void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
                                           QVector<MachiningFeature> &features) const
 {
@@ -1473,7 +1583,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
         if (feature.kind != FeatureKind::FlatSurface) {
             continue;
         }
-        const double proj = double(QVector3D::dotProduct(feature.center, fn));
+        const double proj = double(Coordinate3D::dotProduct(feature.center, fn));
         minProj = std::min(minProj, proj);
         maxProj = std::max(maxProj, proj);
     }
@@ -1488,7 +1598,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
                 }
             }
             // Use the configured front-normal projection to classify top, bottom, and step surfaces.
-            const double proj = double(QVector3D::dotProduct(feature.center, fn));
+            const double proj = double(Coordinate3D::dotProduct(feature.center, fn));
             feature.subType = planarSurfaceSubtype(feature.region, proj, minProj, maxProj);
         } else {
             feature.region = machiningRegionForFeature(graph, feature, m_frontNormal);
@@ -1496,6 +1606,7 @@ void FeatureRecognizer::reclassifyRegions(TopoGraph &graph,
     }
 }
 
+// 函数说明：findHoles负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -1668,16 +1779,14 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
 
         if (cylinderProjection.valid) {
             const gp_Pnt center = pointOnAxisAtProjection(axis, cylinderProjection.avgProj);
-            feature.center = QVector3D(float(center.X()), float(center.Y()), float(center.Z()));
+            feature.center = Coordinate3D(center.X(), center.Y(), center.Z());
             feature.depth = std::abs(cylinderProjection.maxProj - cylinderProjection.minProj);
             if (hasCapProjection) {
                 feature.depth = std::max(std::abs(capProjection - cylinderProjection.minProj),
                                          std::abs(capProjection - cylinderProjection.maxProj));
             }
         } else {
-            feature.center = QVector3D(float(axis.Location().X()),
-                                       float(axis.Location().Y()),
-                                       float(axis.Location().Z()));
+            feature.center = Coordinate3D(axis.Location().X(), axis.Location().Y(), axis.Location().Z());
         }
 
         Q_UNUSED(planarCaps)
@@ -1697,6 +1806,7 @@ QVector<MachiningFeature> FeatureRecognizer::findHoles(const TopoGraph &graph) c
     return features;
 }
 
+// 函数说明：findFlatSurfaces负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findFlatSurfaces(const TopoGraph &graph,
                                                               const QSet<int> &consumedFaces) const
 {
@@ -1740,12 +1850,23 @@ QVector<MachiningFeature> FeatureRecognizer::findFlatSurfaces(const TopoGraph &g
         }
         feature.region = node.region;
         feature.faceIndices = {faceIndex};
+        if (extractPlanarStraightWire(TopoDS::Face(graph.faceMap(faceIndex)),feature.boundaryPoints)) {
+            feature.planarBoundaryVerified=true;
+            float minX=feature.boundaryPoints[0].x(),maxX=minX,minY=feature.boundaryPoints[0].y(),maxY=minY;
+            for(const auto &p:feature.boundaryPoints) {
+                minX=std::min(minX,p.x());maxX=std::max(maxX,p.x());
+                minY=std::min(minY,p.y());maxY=std::max(maxY,p.y());
+            }
+            feature.center=QVector3D((minX+maxX)*0.5f,(minY+maxY)*0.5f,feature.boundaryPoints[0].z());
+            feature.length=double(maxX)-minX;feature.width=double(maxY)-minY;feature.angle=0;
+        }
         features.append(feature);
     }
 
     return features;
 }
 
+// 函数说明：findBosses负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findBosses(const TopoGraph &graph,
                                                         const QSet<int> &consumedFaces) const
 {
@@ -1811,6 +1932,7 @@ QVector<MachiningFeature> FeatureRecognizer::findBosses(const TopoGraph &graph,
     return features;
 }
 
+// 函数说明：findSlots负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -2150,6 +2272,7 @@ QVector<MachiningFeature> FeatureRecognizer::findSlots(const TopoGraph &graph) c
 
     return features;
 }
+// 函数说明：findPockets负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findPockets(const TopoGraph &graph,
                                                          const QSet<int> &consumedBottomFaces) const
 {
@@ -2267,6 +2390,7 @@ QVector<MachiningFeature> FeatureRecognizer::findPockets(const TopoGraph &graph,
     return features;
 }
 
+// 函数说明：findChamfers负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findChamfers(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;
@@ -2321,6 +2445,7 @@ QVector<MachiningFeature> FeatureRecognizer::findChamfers(const TopoGraph &graph
     return features;
 }
 
+// 函数说明：findFillets负责当前模块的核心处理。
 QVector<MachiningFeature> FeatureRecognizer::findFillets(const TopoGraph &graph) const
 {
     QVector<MachiningFeature> features;

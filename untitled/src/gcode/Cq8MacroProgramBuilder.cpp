@@ -6,11 +6,13 @@
 
 namespace {
 
+// 函数说明：variableForIndex负责当前模块的核心处理。
 QString variableForIndex(int index)
 {
     return QStringLiteral("#%1").arg(100 + index);
 }
 
+// 函数说明：isFiniteNumericLiteral负责当前模块的核心处理。
 bool isFiniteNumericLiteral(const QString &text)
 {
     static const QRegularExpression expression(
@@ -25,6 +27,7 @@ bool isFiniteNumericLiteral(const QString &text)
 
 } // namespace
 
+// 函数说明：build负责当前模块的核心处理。
 Cq8MacroProgram Cq8MacroProgramBuilder::build(
     const QList<ParametricToolpathProgram> &programs)
 {

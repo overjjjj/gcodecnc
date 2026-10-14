@@ -11,4 +11,7 @@ public:
     ToolpathResult generate(const HoleFeature &feature,
                             const ToolEntry   &tool,
                             const StrategyParams &params) const override;
+    ToolpathResult generate(const QVector<HoleFeature> &features,
+                            const ToolEntry &tool,
+                            const StrategyParams &params) const override;
 };

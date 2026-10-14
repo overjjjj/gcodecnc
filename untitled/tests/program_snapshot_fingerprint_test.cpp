@@ -1,4 +1,4 @@
-#include "../src/gcode/ProgramSnapshotFingerprint.h"
+#include "../src/workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h"
 
 #include <QCoreApplication>
 #include <QList>

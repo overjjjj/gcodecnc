@@ -1,0 +1,4 @@
+#include <QCoreApplication>
+#include <iostream>
+#include "../src/workspaces/process_design/selection/PocketOpening.h"
+int main(int argc,char **argv){QCoreApplication app(argc,argv);if(argc!=2)return 1;StepImporter importer;if(!importer.load(QString::fromLocal8Bit(argv[1])))return 2;int islands=0;for(const auto &loop:importer.mesh().boundaryLoops){SelectionBoundaryLoop proof;MachiningFeature feature;QString error;const bool accepted=verifyPocketOpening(importer.mesh(),loop,&proof,&feature,&error);if(proof.machiningRole==MachiningBoundaryRole::Island){if(accepted||error!="REGION_ISLAND_REQUIRES_SURROUNDING_OUTER")return 3;++islands;}}if(!islands){std::cerr<<"FAIL actual raised source ring not classified as island"<<std::endl;return 4;}std::cout<<"PASS actual OCC raised island classified; unsupported standalone island refused, count="<<islands<<std::endl;}

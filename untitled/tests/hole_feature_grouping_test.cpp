@@ -1,4 +1,4 @@
-#include "src/ui/HoleFeatureGrouping.h"
+#include "src/workspaces/process_design/ui/HoleFeatureGrouping.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -62,6 +62,20 @@ int main(int argc, char **argv)
             "non-hole features must not receive a hole group id");
     require(!holeFeaturesShareGroup({throughA, slot}),
             "a non-hole feature should invalidate a hole batch");
+
+    MachiningFeature mixedA = throughA;
+    MachiningFeature mixedB = throughB;
+    mixedA.center.setX(1.0f);
+    mixedB.center.setX(2.0f);
+    QVector<MachiningFeature> mixedFeatures{mixedA, slot, mixedB};
+    const CheckedHoleCollection collected = collectCheckedHoles({2, 1, 0}, mixedFeatures);
+    require(collected.holes.size() == 2,
+            "checked-hole collection must retain only the checked holes");
+    require(collected.ignoredCount == 1,
+            "checked-hole collection must report ignored non-hole items");
+    require(collected.holes.at(0).center == mixedB.center &&
+            collected.holes.at(1).center == mixedA.center,
+            "checked-hole collection must preserve the supplied panel order");
 
     QTextStream(stdout) << "PASS hole_feature_grouping_test" << Qt::endl;
     return 0;

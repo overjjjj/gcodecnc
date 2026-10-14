@@ -1,4 +1,4 @@
-#include "../src/core/MachineProfileValidator.h"
+#include "../src/workspaces/machine_operation/model/MachineProfileValidator.h"
 
 #include <QCoreApplication>
 #include <QString>

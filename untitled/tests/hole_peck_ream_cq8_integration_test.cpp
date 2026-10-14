@@ -1,8 +1,11 @@
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 #include "../src/strategies/hole/ReamingStrategy.h"
+#include "../src/workspaces/process_design/operations/OperationProposal.h"
+#include "../src/workspaces/process_design/ui/OperationEditDialog.h"
+#include "../src/tool/ToolLibrary.h"
 
 #include <QCoreApplication>
 #include <cmath>
@@ -27,7 +30,7 @@ int main(int argc, char **argv)
             if (id == ream->id()) return std::static_pointer_cast<StrategyBase>(ream);
             return std::shared_ptr<StrategyBase>();
         },
-        [](int id) { ToolEntry tool; tool.id = id; tool.fluteLen = 30.0; tool.totalLen = 70.0;
+        [](int id) { ToolEntry tool; tool.id = id; tool.fluteLen = 80.0; tool.totalLen = 120.0;
                       if (id == 9) { tool.type = QStringLiteral("drill"); tool.diameter = 9.5; }
                       if (id == 10) { tool.type = QStringLiteral("reamer"); tool.diameter = 10.0; }
                       return tool; });
@@ -44,6 +47,29 @@ int main(int argc, char **argv)
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2502");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;
+    for (const auto &operation : {peckOperation, reamOperation}) {
+        const auto strategy=operation.strategyId==peck->id()?std::static_pointer_cast<StrategyBase>(peck):std::static_pointer_cast<StrategyBase>(ream);
+        ToolEntry tool;tool.id=operation.toolId;tool.type=operation.strategyId==peck->id()?"drill":"reamer";tool.diameter=10;tool.fluteLen=80;tool.totalLen=120;ToolLibrary::instance().addTool(tool);
+        auto invalid=operation;invalid.params.set("spindleSpeed",.5);
+        if(!expect(!strategy->generate(hole,tool,invalid.params).ok,"S0.5 cannot become S0 in strategy output"))return 1;
+        OperationProposal proposal;proposal.kind=OperationProposalKind::Hole;proposal.strategyId=operation.strategyId;proposal.toolId=tool.id;proposal.holeFeature=hole;proposal.params=invalid.params;
+        if(!expect(!OperationFactory::confirm(proposal,OperationConfirmationIntent::ExplicitUser,{}).ok,"creation rejects S0.5") ||
+           !expect(!operationEditError(operation,invalid.params,tool.id).isEmpty(),"edit rejects S0.5") ||
+           !expect(!generator.generate({invalid},post,options,snapshot).ok,"direct service rejects S0.5"))return 1;
+        invalid.params.set("spindleSpeed",1);
+        if(!expect(strategy->generate(hole,tool,invalid.params).gcode.contains("S1 M3"),"smallest representable positive S succeeds"))return 1;
+    }
+    for(double requestedQ:{3.,8.}) {
+        auto deep=peckOperation;deep.holeFeature.depth=60;deep.holeFeature.center.setZ(-30);deep.params.set("peckDepth",requestedQ);
+        auto result=generator.generate({deep},post,options,snapshot);
+        if(!expect(result.ok&&result.snapshot.gcodeText.contains("Q2.500"),"D10 actual depth60 retains protected effective Q2.5"))return 1;
+        deep.params.set("depth",20);deep.params.set("peckDepth",8);
+        result=generator.generate({deep},post,options,snapshot);
+        if(!expect(result.ok&&result.snapshot.gcodeText.contains("Q8.000"),"explicit shallow depth determines Q limit"))return 1;
+        deep.holeFeature.depth=20;deep.params.set("depth",60);
+        result=generator.generate({deep},post,options,snapshot);
+        if(!expect(result.ok&&result.snapshot.gcodeText.contains("Q2.500"),"explicit deep depth determines Q limit"))return 1;
+    }
     const ProgramGenerationResult generated = generator.generate({peckOperation, reamOperation}, post, options, snapshot);
     if (!expect(generated.ok, "explicit peck then ream operations must generate final CQ8 code")) return 1;
     const QString &gcode = generated.snapshot.gcodeText;

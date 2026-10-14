@@ -4,9 +4,12 @@
 #include "TopoAnalyzer.h"
 
 #ifdef CNEXT_ENABLE_OCC
+#include <BRepAdaptor_Curve.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRep_Tool.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <Poly_Triangulation.hxx>
 #include <STEPControl_Reader.hxx>
@@ -18,6 +21,11 @@
 #include <TopoDS.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+#include <TopTools_ListIteratorOfListOfShape.hxx>
 #include <gp_Trsf.hxx>
 #endif
 
@@ -27,8 +35,10 @@
 #include <QFileInfo>
 #include <QTemporaryDir>
 
+#include <algorithm>
 #include <cmath>
 
+// 函数说明：featureKindName负责当前模块的核心处理。
 QString featureKindName(FeatureKind kind)
 {
     switch (kind) {
@@ -44,6 +54,7 @@ QString featureKindName(FeatureKind kind)
     return QStringLiteral("Unknown");
 }
 
+// 函数说明：faceRegionName负责当前模块的核心处理。
 QString faceRegionName(FaceRegion region)
 {
     switch (region) {
@@ -57,18 +68,21 @@ QString faceRegionName(FaceRegion region)
 }
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：occFailureText负责当前模块的核心处理。
 static QString occFailureText(const Standard_Failure &failure, const QString &fallback)
 {
     const char *msg = failure.GetMessageString();
     return (msg && *msg) ? QString::fromLocal8Bit(msg) : fallback;
 }
 
+// 函数说明：readStepWithEncodedPath负责当前模块的核心处理。
 static IFSelect_ReturnStatus readStepWithEncodedPath(STEPControl_Reader &reader, const QString &path)
 {
     const QByteArray encoded = QFile::encodeName(QDir::toNativeSeparators(path));
     return reader.ReadFile(encoded.constData());
 }
 
+// 函数说明：loadStepShape负责当前模块的核心处理。
 static bool loadStepShape(const QString &filePath, TopoDS_Shape &outShape, QString &outError)
 {
     outShape.Nullify();
@@ -114,6 +128,7 @@ static bool loadStepShape(const QString &filePath, TopoDS_Shape &outShape, QStri
     return true;
 }
 
+// 函数说明：rotatedShape负责当前模块的核心处理。
 static TopoDS_Shape rotatedShape(const TopoDS_Shape &shape, const QQuaternion &rotation)
 {
     if (rotation.isIdentity()) {
@@ -129,11 +144,13 @@ static TopoDS_Shape rotatedShape(const TopoDS_Shape &shape, const QQuaternion &r
 }
 #endif
 
+// 函数说明：load负责当前模块的核心处理。
 bool StepImporter::load(const QString &filePath)
 {
     return loadWithRotation(filePath, QQuaternion());
 }
 
+// 函数说明：loadWithRotation负责当前模块的核心处理。
 bool StepImporter::loadWithRotation(const QString &filePath, const QQuaternion &rotation)
 {
     m_mesh = MeshData{};
@@ -176,6 +193,7 @@ bool StepImporter::loadWithRotation(const QString &filePath, const QQuaternion &
 }
 
 #ifdef CNEXT_ENABLE_OCC
+// 函数说明：buildMesh负责当前模块的核心处理。
 void StepImporter::buildMesh(const TopoDS_Shape &shape)
 {
     BRepMesh_IncrementalMesh mesher(shape, 0.5, false, 0.5, true);
@@ -227,6 +245,120 @@ void StepImporter::buildMesh(const TopoDS_Shape &shape)
         }
     }
 
+    TopTools_IndexedMapOfShape edgeMap;
+    TopTools_IndexedMapOfShape vertexMap;
+    TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+    TopExp::MapShapes(shape, TopAbs_VERTEX, vertexMap);
+    TopTools_IndexedDataMapOfShapeListOfShape edgeFaceMap;
+    TopExp::MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edgeFaceMap);
+
+    m_mesh.pickVertices.reserve(vertexMap.Extent());
+    for (int vertexIndex = 1; vertexIndex <= vertexMap.Extent(); ++vertexIndex) {
+        const TopoDS_Vertex vertex = TopoDS::Vertex(vertexMap(vertexIndex));
+        gp_Pnt point = BRep_Tool::Pnt(vertex);
+        point.Transform(vertex.Location().Transformation());
+        MeshPickVertex pickVertex;
+        pickVertex.id = QStringLiteral("vertex:%1").arg(vertexIndex);
+        pickVertex.point = QVector3D(float(point.X()), float(point.Y()), float(point.Z()));
+        m_mesh.pickVertices.append(pickVertex);
+    }
+
+    m_mesh.pickEdges.reserve(edgeMap.Extent());
+    for (int edgeIndex = 1; edgeIndex <= edgeMap.Extent(); ++edgeIndex) {
+        const TopoDS_Edge edge = TopoDS::Edge(edgeMap(edgeIndex));
+        MeshPickEdge pickEdge;
+        pickEdge.id = QStringLiteral("edge:%1").arg(edgeIndex);
+        pickEdge.degenerated = BRep_Tool::Degenerated(edge);
+
+        TopoDS_Vertex firstVertex;
+        TopoDS_Vertex lastVertex;
+        TopExp::Vertices(edge, firstVertex, lastVertex, true);
+        const int firstVertexIndex = vertexMap.FindIndex(firstVertex);
+        const int lastVertexIndex = vertexMap.FindIndex(lastVertex);
+        if (firstVertexIndex > 0) {
+            pickEdge.firstVertexId = QStringLiteral("vertex:%1").arg(firstVertexIndex);
+            m_mesh.pickVertices[firstVertexIndex - 1].incidentEdgeIds.append(pickEdge.id);
+        }
+        if (lastVertexIndex > 0) {
+            pickEdge.lastVertexId = QStringLiteral("vertex:%1").arg(lastVertexIndex);
+            if (lastVertexIndex != firstVertexIndex) {
+                m_mesh.pickVertices[lastVertexIndex - 1].incidentEdgeIds.append(pickEdge.id);
+            }
+        }
+        pickEdge.closed = firstVertexIndex > 0 && firstVertexIndex == lastVertexIndex;
+
+        if (edgeFaceMap.Contains(edge)) {
+            const TopTools_ListOfShape &faces = edgeFaceMap.FindFromKey(edge);
+            for (TopTools_ListIteratorOfListOfShape it(faces); it.More(); it.Next()) {
+                const int adjacentFace = faceMap.FindIndex(it.Value());
+                if (adjacentFace > 0 && !pickEdge.adjacentFaceIndices.contains(adjacentFace)) {
+                    pickEdge.adjacentFaceIndices.append(adjacentFace);
+                }
+            }
+        }
+
+        if (!pickEdge.degenerated) {
+            BRepAdaptor_Curve curve(edge);
+            const double firstParameter = curve.FirstParameter();
+            const double lastParameter = curve.LastParameter();
+            int sampleCount = 25;
+            if (curve.GetType() == GeomAbs_Line) {
+                sampleCount = 2;
+            } else if (curve.GetType() == GeomAbs_Circle ||
+                       curve.GetType() == GeomAbs_Ellipse) {
+                sampleCount = 33;
+            }
+            if (std::isfinite(firstParameter) && std::isfinite(lastParameter)) {
+                pickEdge.points.reserve(sampleCount);
+                pickEdge.parameters.reserve(sampleCount);
+                for (int sample = 0; sample < sampleCount; ++sample) {
+                    const double ratio = sampleCount == 1 ? 0.0
+                        : double(sample) / double(sampleCount - 1);
+                    const double parameter = firstParameter
+                        + (lastParameter - firstParameter) * ratio;
+                    const gp_Pnt point = curve.Value(parameter);
+                    pickEdge.points.append(QVector3D(float(point.X()), float(point.Y()), float(point.Z())));
+                    pickEdge.parameters.append(parameter);
+                }
+                // Match the oriented vertex IDs returned by TopExp::Vertices above.
+                if (edge.Orientation() == TopAbs_REVERSED) {
+                    std::reverse(pickEdge.points.begin(), pickEdge.points.end());
+                    std::reverse(pickEdge.parameters.begin(), pickEdge.parameters.end());
+                }
+            }
+        }
+        m_mesh.pickEdges.append(pickEdge);
+    }
+
+    for (int faceIndex = 1; faceIndex <= faceMap.Extent(); ++faceIndex) {
+        const TopoDS_Face face = TopoDS::Face(faceMap(faceIndex));
+        const TopoDS_Wire outerWire = BRepTools::OuterWire(face);
+        for (TopExp_Explorer wireExplorer(face, TopAbs_WIRE);
+             wireExplorer.More(); wireExplorer.Next()) {
+            const TopoDS_Wire wire = TopoDS::Wire(wireExplorer.Current());
+            MeshBoundaryLoop loop;
+            loop.faceId = QStringLiteral("face:%1").arg(faceIndex);
+            loop.faceIndex = faceIndex;
+            loop.outer = !outerWire.IsNull() && wire.IsSame(outerWire);
+            for (BRepTools_WireExplorer edgeExplorer(wire, face);
+                 edgeExplorer.More(); edgeExplorer.Next()) {
+                const TopoDS_Edge orientedEdge = edgeExplorer.Current();
+                const int edgeIndex = edgeMap.FindIndex(orientedEdge);
+                if (edgeIndex <= 0) {
+                    continue;
+                }
+                loop.orderedEdgeIds.append(QStringLiteral("edge:%1").arg(edgeIndex));
+                const TopoDS_Vertex orientedFirst = TopExp::FirstVertex(orientedEdge, true);
+                loop.orderedForward.append(vertexMap.FindIndex(orientedFirst) ==
+                                           vertexMap.FindIndex(TopoDS::Vertex(
+                                               TopExp::FirstVertex(TopoDS::Edge(edgeMap(edgeIndex)), true))));
+            }
+            if (!loop.orderedEdgeIds.isEmpty()) {
+                m_mesh.boundaryLoops.append(loop);
+            }
+        }
+    }
+
     if (m_mesh.triangles.isEmpty()) {
         m_mesh.bbMin = {};
         m_mesh.bbMax = {};
@@ -236,23 +368,37 @@ void StepImporter::buildMesh(const TopoDS_Shape &shape)
 
     const float zShift = -bbMax.z();
     m_meshZShift = zShift;
+    gp_Trsf normalized;
+    normalized.SetTranslation(gp_Vec(0,0,zShift));
+    m_mesh.sourceShape = shape.Moved(TopLoc_Location(normalized));
     for (Triangle &t : m_mesh.triangles) {
         t.v0.setZ(t.v0.z() + zShift);
         t.v1.setZ(t.v1.z() + zShift);
         t.v2.setZ(t.v2.z() + zShift);
+    }
+    for (MeshPickVertex &vertex : m_mesh.pickVertices) {
+        vertex.point.setZ(vertex.point.z() + zShift);
+    }
+    for (MeshPickEdge &edge : m_mesh.pickEdges) {
+        for (QVector3D &point : edge.points) {
+            point.setZ(point.z() + zShift);
+        }
     }
 
     m_mesh.bbMin = QVector3D(bbMin.x(), bbMin.y(), bbMin.z() + zShift);
     m_mesh.bbMax = QVector3D(bbMax.x(), bbMax.y(), 0.0f);
 }
 
+// 函数说明：recognizeFeatures负责当前模块的核心处理。
 void StepImporter::recognizeFeatures(const TopoDS_Shape &shape)
 {
     m_topoGraph = TopoAnalyzer().analyze(shape);
     m_features = FeatureRecognizer().recognize(m_topoGraph);
     if (std::abs(m_meshZShift) > 1.0e-9) {
         for (MachiningFeature &feature : m_features) {
-            feature.center.setZ(feature.center.z() + float(m_meshZShift));
+            feature.center.setZ(feature.center.z() + m_meshZShift);
+            if (feature.kind==FeatureKind::FlatSurface && feature.planarBoundaryVerified)
+                for(auto &point:feature.boundaryPoints) point.setZ(point.z()+float(m_meshZShift));
         }
     }
 }

@@ -4,16 +4,18 @@
 
 namespace {
 
-float axisValue(float minimum, float maximum, int position)
+// 按位置选择包围盒轴向最小值、最大值或中点。
+double axisValue(double minimum, double maximum, int position)
 {
     if (position < 0) return minimum;
     if (position > 0) return maximum;
-    return (minimum + maximum) * 0.5f;
+    return (minimum + maximum) * 0.5;
 }
 
 } // namespace
 
-QVector3D SetupOrigin::resolvedPoint(const QVector3D &bbMin, const QVector3D &bbMax) const
+// 根据锚点和偏移量解析 Setup 原点坐标。
+Coordinate3D SetupOrigin::resolvedPoint(const Coordinate3D &bbMin, const Coordinate3D &bbMax) const
 {
     if (anchor == SetupOriginAnchor::CustomPoint) {
         return customPoint + offset;
@@ -33,28 +35,30 @@ QVector3D SetupOrigin::resolvedPoint(const QVector3D &bbMin, const QVector3D &bb
     case SetupOriginAnchor::TopMaxXMaxY:      xPosition =  1; yPosition =  1; break;
     case SetupOriginAnchor::CustomPoint:      break;
     }
-    return QVector3D(axisValue(bbMin.x(), bbMax.x(), xPosition),
+    return Coordinate3D(axisValue(bbMin.x(), bbMax.x(), xPosition),
                      axisValue(bbMin.y(), bbMax.y(), yPosition),
                      bbMax.z()) + offset;
 }
 
+// 计算已确认 Setup 原点及工件坐标系的稳定指纹。
 QString SetupOrigin::fingerprint(const QString &workOffset) const
 {
     if (!confirmed) {
         return QString();
     }
-    const QString payload = QStringLiteral("v1|%1|%2|%3|%4|%5|%6|%7|%8")
+    const QString payload = QStringLiteral("v2|%1|%2|%3|%4|%5|%6|%7|%8")
         .arg(setupOriginAnchorId(anchor), workOffset.trimmed().toUpper())
-        .arg(double(customPoint.x()), 0, 'f', 6)
-        .arg(double(customPoint.y()), 0, 'f', 6)
-        .arg(double(customPoint.z()), 0, 'f', 6)
-        .arg(double(offset.x()), 0, 'f', 6)
-        .arg(double(offset.y()), 0, 'f', 6)
-        .arg(double(offset.z()), 0, 'f', 6);
+        .arg(double(customPoint.x()), 0, 'g', 17)
+        .arg(double(customPoint.y()), 0, 'g', 17)
+        .arg(double(customPoint.z()), 0, 'g', 17)
+        .arg(double(offset.x()), 0, 'g', 17)
+        .arg(double(offset.y()), 0, 'g', 17)
+        .arg(double(offset.z()), 0, 'g', 17);
     return QString::fromLatin1(QCryptographicHash::hash(payload.toUtf8(),
                                                         QCryptographicHash::Sha256).toHex());
 }
 
+// 将原点锚点枚举转换为持久化标识。
 QString setupOriginAnchorId(SetupOriginAnchor anchor)
 {
     switch (anchor) {
@@ -72,6 +76,7 @@ QString setupOriginAnchorId(SetupOriginAnchor anchor)
     return QStringLiteral("top_center");
 }
 
+// 从持久化标识恢复原点锚点枚举。
 SetupOriginAnchor setupOriginAnchorFromId(const QString &id)
 {
     if (id == QStringLiteral("top_min_x_min_y")) return SetupOriginAnchor::TopMinXMinY;

@@ -1,9 +1,11 @@
 #include "ProgramSnapshotStatus.h"
+#include "../workspaces/process_design/operations/OperationWorkflow.h"
 
 #include <QSet>
 
 namespace {
 
+// 函数说明：hasAllSourceOperations负责当前模块的核心处理。
 static bool hasAllSourceOperations(const QList<MachiningOperation> &operations,
                                    const QStringList &sourceOperationIds)
 {
@@ -22,6 +24,7 @@ static bool hasAllSourceOperations(const QList<MachiningOperation> &operations,
     return true;
 }
 
+// 函数说明：coversAllConfirmedOperations负责当前模块的核心处理。
 static bool coversAllConfirmedOperations(const QList<MachiningOperation> &operations,
                                          const QStringList &sourceOperationIds)
 {
@@ -37,6 +40,7 @@ static bool coversAllConfirmedOperations(const QList<MachiningOperation> &operat
            QSet<QString>(sourceOperationIds.cbegin(), sourceOperationIds.cend()) == operationIds;
 }
 
+// 函数说明：preservesConfirmedOperationOrder负责当前模块的核心处理。
 static bool preservesConfirmedOperationOrder(const QList<MachiningOperation> &operations,
                                              const QStringList &sourceOperationIds)
 {
@@ -53,6 +57,7 @@ static bool preservesConfirmedOperationOrder(const QList<MachiningOperation> &op
 
 } // namespace
 
+// 函数说明：listSuffix负责当前模块的核心处理。
 QString ProgramSnapshotStatus::listSuffix() const
 {
     switch (state) {
@@ -69,13 +74,22 @@ QString ProgramSnapshotStatus::listSuffix() const
     return QString();
 }
 
+// 函数说明：evaluate负责当前模块的核心处理。
 ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOperation> &operations,
                                                        const QStringList &sourceOperationIds,
                                                        const QString &storedFingerprint,
                                                        const QString &currentSetupFingerprint,
-                                                       const QString &storedSetupFingerprint)
+                                                       const QString &storedSetupFingerprint,
+                                                       const QString &currentToolFingerprint,
+                                                       const QString &storedToolFingerprint,
+                                                       bool coordinatesVerified)
 {
     ProgramSnapshotStatus status;
+    if (!coordinatesVerified) {
+        status.state = ProgramSnapshotState::Changed;
+        status.message = QStringLiteral("Work-coordinate evidence is missing or unsupported; regenerate the program.");
+        return status;
+    }
     if (sourceOperationIds.isEmpty()) {
         if (!operations.isEmpty()) {
             status.state = ProgramSnapshotState::Incomplete;
@@ -92,13 +106,21 @@ ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOpera
         return status;
     }
 
-    if (!coversAllConfirmedOperations(operations, sourceOperationIds)) {
+    const auto activeOperations = enabledOperations(operations);
+    for(const auto &operation:activeOperations)for(const auto &loop:operation.selectionEvidence.boundaryLoops) {
+        if(loop.machiningRole==MachiningBoundaryRole::Outer && !openingEvidenceSupported(loop)) {
+            status.state=ProgramSnapshotState::Changed;
+            status.message=QStringLiteral("Opening geometry evidence is missing or unsupported; select the source boundary again.");
+            return status;
+        }
+    }
+    if (!coversAllConfirmedOperations(activeOperations, sourceOperationIds)) {
         status.state = ProgramSnapshotState::Incomplete;
-        status.message = QStringLiteral("The program does not include every confirmed operation.");
+        status.message = QStringLiteral("The program does not match the currently enabled operations.");
         return status;
     }
 
-    if (!preservesConfirmedOperationOrder(operations, sourceOperationIds)) {
+    if (!preservesConfirmedOperationOrder(activeOperations, sourceOperationIds)) {
         status.state = ProgramSnapshotState::Changed;
         status.message = QStringLiteral(
             "Confirmed operation order has changed since this program was generated.");
@@ -112,8 +134,16 @@ ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOpera
         return status;
     }
 
+    if (storedToolFingerprint.trimmed().isEmpty() || currentToolFingerprint.trimmed().isEmpty() ||
+        storedToolFingerprint != currentToolFingerprint) {
+        status.state = ProgramSnapshotState::Changed;
+        status.message = QStringLiteral("Tool definitions changed or tool evidence is missing; regenerate the program.");
+        return status;
+    }
+
     if (storedFingerprint.trimmed().isEmpty()) {
-        status.state = ProgramSnapshotState::Unchecked;
+        status.state = ProgramSnapshotState::Changed;
+        status.message = QStringLiteral("Source operation evidence is missing; regenerate the program.");
         return status;
     }
 

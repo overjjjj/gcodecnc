@@ -72,4 +72,29 @@
     <name>SiemensPostProcessor</name>
     <message><source>西门子 840D</source><translation>西门子 840D</translation></message>
 </context>
+<context>
+    <name>QObject</name>
+    <message><source>No model is available for geometric checks; trajectory playback only.</source><translation>没有可用于几何检查的模型；仅能播放轨迹。</translation></message>
+    <message><source>The model has no usable XY surface coverage for rapid-motion checks.</source><translation>模型缺少可用的 XY 表面，快速移动检查未完成。</translation></message>
+    <message><source>Non-finite motion coordinate near G-code line %1.</source><translation>NC 第 %1 行附近存在非有限运动坐标。</translation></message>
+    <message><source>Collision warning: tool path goes far below stock bottom near G-code line %1.</source><translation>碰撞警告：NC 第 %1 行附近的刀路明显低于模型底面。</translation></message>
+    <message><source>Initial positioning starts at an unknown machine position; only subsequent known segments were checked.</source><translation>初始机床位置未知；仅检查了后续坐标已知的运动段。</translation></message>
+    <message><source>Some motion lacks known XYZ endpoints and could not be checked.</source><translation>部分运动段的 XYZ 端点坐标未知，检查未完成。</translation></message>
+    <message><source>Tool diameter is missing or invalid; only tool-center samples are available.</source><translation>刀具直径缺失、无效或不足以采样；仅有刀心检查，不能输出。</translation></message>
+    <message><source>Geometric check budget exceeded; remaining surface samples were not checked.</source><translation>几何检查预算已耗尽；剩余表面采样未完成，不能输出。</translation></message>
+    <message><source>A vertical retract starts at surface contact and moves away; clearance at its start is not established.</source><translation>竖直退刀从表面接触处向上离开；起点尚无净空，仅完成采样初筛。</translation></message>
+    <message><source>Collision warning: sampled tool footprint approaches the model surface near G-code line %1.</source><translation>碰撞警告：NC 第 %1 行附近的刀尖截面采样接近或进入模型表面。</translation></message>
+    <message><source>Collision warning: rapid Z move approaches the model surface near G-code line %1.</source><translation>碰撞警告：NC 第 %1 行附近的 Z 向快速移动接近或进入模型表面。</translation></message>
+    <message><source>No fully known motion segment was available for geometric checks.</source><translation>没有坐标完全已知的运动段，几何检查未完成。</translation></message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message><source>Geometric check blocks output</source><translation>几何检查阻断输出</translation></message>
+    <message><source>Cannot %1 because the final motion check is incomplete or has reported a problem.
+
+%2</source><translation>最终运动检查未完成或发现问题，不能执行 %1。
+
+%2</translation></message>
+    <message><source>Trajectory playback ended. %1</source><translation>轨迹播放结束。%1</translation></message>
+</context>
 </TS>

@@ -1,4 +1,4 @@
-#include "src/ui/ToolOperationCompatibility.h"
+#include "src/workspaces/process_design/ui/ToolOperationCompatibility.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -62,6 +62,27 @@ int main(int argc, char **argv)
         QStringLiteral("hole_peck"), tool(QStringLiteral("drill"), 11.0, 30.0), hole, false);
     require(oversizeDrill.hasBlockingIssues(),
             "oversize drill should block the target hole operation");
+
+    ToolCompatibilityReport oversizeG73Drill = reviewToolCompatibility(
+        QStringLiteral("hole_g73"), tool(QStringLiteral("drill"), 11.0, 30.0), hole, false);
+    require(oversizeG73Drill.hasBlockingIssues(),
+            "oversize drill should also block G73 confirmation");
+
+    ToolCompatibilityReport oversizeG81Drill = reviewToolCompatibility(
+        QStringLiteral("hole_g81"), tool(QStringLiteral("drill"), 11.0, 30.0), hole, false);
+    require(oversizeG81Drill.hasBlockingIssues(),
+            "oversize drill should block independent G81 confirmation");
+
+    for (const QString &strategyId : {QStringLiteral("hole_g76"), QStringLiteral("hole_g86")}) {
+        ToolCompatibilityReport boringBar = reviewToolCompatibility(
+            strategyId, tool(QStringLiteral("boring_bar"), 8.0, 30.0), hole, false, 5.0);
+        require(!boringBar.hasBlockingIssues(),
+                "G76/G86 must accept a boring bar with sufficient reach");
+        ToolCompatibilityReport drillForBoring = reviewToolCompatibility(
+            strategyId, tool(QStringLiteral("drill"), 8.0, 30.0), hole, false, 5.0);
+        require(drillForBoring.hasBlockingIssues(),
+                "G76/G86 must reject a drill in place of a boring bar");
+    }
 
     ContourFeature slot;
     slot.subType = QStringLiteral("blind_slot");

@@ -7,6 +7,7 @@
 
 namespace {
 
+// 函数说明：normalizedProgramName负责当前模块的核心处理。
 static QString normalizedProgramName(const QString &value, const QString &prefix)
 {
     QString name;
@@ -38,6 +39,7 @@ static QString normalizedProgramName(const QString &value, const QString &prefix
     return name.left(24);
 }
 
+// 函数说明：normalizedLines负责当前模块的核心处理。
 static QString normalizedLines(const QStringList &lines)
 {
     QString content;
@@ -50,6 +52,7 @@ static QString normalizedLines(const QStringList &lines)
     return content;
 }
 
+// 函数说明：sha256负责当前模块的核心处理。
 static QString sha256(const QString &content)
 {
     return QString::fromLatin1(
@@ -58,6 +61,7 @@ static QString sha256(const QString &content)
             .toUpper());
 }
 
+// 函数说明：sameDefinition负责当前模块的核心处理。
 static bool sameDefinition(const SiemensProgramSection &left,
                            const SiemensProgramSection &right)
 {
@@ -65,6 +69,7 @@ static bool sameDefinition(const SiemensProgramSection &left,
            left.subprogramBodyLines == right.subprogramBodyLines;
 }
 
+// 函数说明：containsForbiddenSpfState负责当前模块的核心处理。
 static bool containsForbiddenSpfState(const QStringList &lines)
 {
     static const QRegularExpression forbiddenWord(
@@ -84,6 +89,7 @@ static bool containsForbiddenSpfState(const QStringList &lines)
 
 } // namespace
 
+// 函数说明：build负责当前模块的核心处理。
 SiemensProgramPackage SiemensProgramPackageBuilder::build(
     const SiemensProgramPackageRequest &request)
 {
@@ -169,6 +175,7 @@ SiemensProgramPackage SiemensProgramPackageBuilder::build(
     return package;
 }
 
+// 函数说明：fromValidatedMainProgram负责当前模块的核心处理。
 SiemensProgramPackage SiemensProgramPackageBuilder::fromValidatedMainProgram(
     const QString &mainProgramName,
     const QString &validatedGCode)

@@ -1,6 +1,9 @@
+#include "../workspaces/process_design/operations/MachiningInput.h"
 #include "ProjectManager.h"
+#include "../workspaces/process_design/operations/OperationWorkflow.h"
 #include <QCryptographicHash>
 #include <QFile>
+#include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -8,11 +11,65 @@
 #include <QUuid>
 #include <QVector3D>
 #include <QVariant>
+#include <cmath>
+#include <limits>
 
+static QJsonObject serializeParametricProgram(const ParametricToolpathProgram &program);
+
+QString ProgramEntry::generationContentFingerprint() const
+{
+    QJsonObject fields;
+    fields["version"] = 1;
+    fields["postProcessor"] = postProcessorId;
+    fields["machineProfile"] = QJsonArray{machineProfileId, machineProfileVersion};
+    fields["safeStartBlocks"] = QJsonArray::fromStringList(safeStartBlocks);
+    fields["operations"] = QJsonArray::fromStringList(sourceOperationIds);
+    fields["operationFingerprint"] = sourceOperationFingerprint;
+    fields["toolFingerprint"] = toolFingerprint;
+    fields["setupFingerprint"] = setupFingerprint;
+    fields["coordinateEvidence"] = coordinateEvidence;
+    fields["coordinates"] = coordinateFingerprint();
+    fields["finalText"] = gcodeText;
+    fields["expandedText"] = expandedGcodeText;
+    fields["macroText"] = macroText;
+    fields["mainFileName"] = mainProgramFileName;
+    QJsonArray files;
+    for (const auto &file : packageFiles)
+        files.append(QJsonArray{file.kind, file.fileName, file.content, file.sha256});
+    fields["files"] = files;
+    QJsonArray templates;
+    for (const auto &program : parametricPrograms) templates.append(serializeParametricProgram(program));
+    fields["templates"] = templates;
+    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(fields).toJson(QJsonDocument::Compact),
+        QCryptographicHash::Sha256).toHex());
+}
+
+bool ProgramEntry::generationContentMatches() const
+{
+    return coordinatesVerified() && !generationContentEvidence.isEmpty()
+        && generationContentEvidence == generationContentFingerprint();
+}
+
+QString ProgramEntry::coordinateFingerprint() const
+{
+    const QJsonArray fields{coordinateVersion,setupFingerprint,modelOrigin.x(),modelOrigin.y(),modelOrigin.z()};
+    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(fields).toJson(QJsonDocument::Compact),
+        QCryptographicHash::Sha256).toHex());
+}
+
+bool ProgramEntry::coordinatesVerified() const
+{
+    return coordinateVersion==1 && std::isfinite(modelOrigin.x()) && std::isfinite(modelOrigin.y())
+        && std::isfinite(modelOrigin.z()) && coordinateEvidence==coordinateFingerprint();
+}
+
+// 函数说明：ProjectManager负责当前模块的核心处理。
 ProjectManager::ProjectManager(QObject *parent)
+    // 函数说明：QObject负责当前模块的核心处理。
     : QObject(parent)
 {}
 
+// 函数说明：containsProgramId负责当前模块的核心处理。
 static bool containsProgramId(const QList<ProgramEntry> &programs, const QString &programId)
 {
     if (programId.trimmed().isEmpty()) {
@@ -26,6 +83,7 @@ static bool containsProgramId(const QList<ProgramEntry> &programs, const QString
     return false;
 }
 
+// 函数说明：ensureOperationIds负责当前模块的核心处理。
 static void ensureOperationIds(QList<MachiningOperation> &operations)
 {
     for (MachiningOperation &op : operations) {
@@ -35,6 +93,7 @@ static void ensureOperationIds(QList<MachiningOperation> &operations)
     }
 }
 
+// 函数说明：normalizedMachineProfile负责当前模块的核心处理。
 static MachineProfile normalizedMachineProfile(MachineProfile profile)
 {
     const MachineProfile defaults;
@@ -45,6 +104,7 @@ static MachineProfile normalizedMachineProfile(MachineProfile profile)
     return profile;
 }
 
+// 函数说明：setMesh负责当前模块的核心处理。
 void ProjectManager::setMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
@@ -52,12 +112,14 @@ void ProjectManager::setMesh(const MeshData &mesh)
     emit projectChanged();
 }
 
+// 函数说明：setLoadedMesh负责当前模块的核心处理。
 void ProjectManager::setLoadedMesh(const MeshData &mesh)
 {
     m_mesh = mesh;
     emit projectChanged();
 }
 
+// 函数说明：featureKindId负责当前模块的核心处理。
 static QString featureKindId(FeatureKind kind)
 {
     switch (kind) {
@@ -73,6 +135,7 @@ static QString featureKindId(FeatureKind kind)
     return QStringLiteral("hole");
 }
 
+// 函数说明：featureKindFromId负责当前模块的核心处理。
 static FeatureKind featureKindFromId(const QString &id)
 {
     if (id == QStringLiteral("slot")) return FeatureKind::Slot;
@@ -85,6 +148,7 @@ static FeatureKind featureKindFromId(const QString &id)
     return FeatureKind::Hole;
 }
 
+// 函数说明：faceRegionFromId负责当前模块的核心处理。
 static FaceRegion faceRegionFromId(const QString &id)
 {
     if (id == QStringLiteral("front")) return FaceRegion::Front;
@@ -93,6 +157,7 @@ static FaceRegion faceRegionFromId(const QString &id)
     return FaceRegion::Unknown;
 }
 
+// 函数说明：setFeatures负责当前模块的核心处理。
 void ProjectManager::setFeatures(const QVector<MachiningFeature> &features)
 {
     m_features = features;
@@ -100,14 +165,70 @@ void ProjectManager::setFeatures(const QVector<MachiningFeature> &features)
     emit projectChanged();
 }
 
+// 函数说明：setOperations负责当前模块的核心处理。
 void ProjectManager::setOperations(const QList<MachiningOperation> &operations)
 {
+    QSet<QString> previousIds;
+    for (const auto &operation : m_operations) previousIds.insert(operation.id);
     m_operations = operations;
     ensureOperationIds(m_operations);
+    QSet<QString> currentGroups;
+    QMap<QString, QList<SelectionChain>> newGroups;
+    for (const auto &operation : m_operations) {
+        if (operation.selectionGroupId.isEmpty()) continue;
+        currentGroups.insert(operation.selectionGroupId);
+        if (!m_selectionGroups.contains(operation.selectionGroupId) && !previousIds.contains(operation.id))
+            newGroups[operation.selectionGroupId].append(operation.selectionEvidence);
+    }
+    for (auto it = newGroups.cbegin(); it != newGroups.cend(); ++it)
+        if (it.value().size() > 1) m_selectionGroups.insert(it.key(), it.value());
+    for (auto it = m_selectionGroups.begin(); it != m_selectionGroups.end(); )
+        if (!currentGroups.contains(it.key())) it = m_selectionGroups.erase(it);
+        else ++it;
+    QSet<QString> currentIds;
+    for (const auto &operation : m_operations) {
+        currentIds.insert(operation.id);
+        if (!previousIds.contains(operation.id)) m_operationCreationOrder.append(operation.id);
+    }
+    for (int i = m_operationCreationOrder.size() - 1; i >= 0; --i)
+        if (!currentIds.contains(m_operationCreationOrder.at(i))) m_operationCreationOrder.removeAt(i);
     m_modified = true;
     emit operationsChanged();
 }
 
+SelectionChain ProjectManager::lastEstablishedSelection() const
+{
+    const auto selections = lastEstablishedSelections();
+    return selections.isEmpty() ? SelectionChain() : selections.first();
+}
+
+QList<SelectionChain> ProjectManager::lastEstablishedSelections() const
+{
+    for (auto id = m_operationCreationOrder.crbegin(); id != m_operationCreationOrder.crend(); ++id)
+        for (const auto &operation : m_operations)
+            if (operation.id == *id && operation.selectionEvidence.explicitUserSelection)
+                return operation.selectionGroupId.isEmpty()
+                    ? QList<SelectionChain>{operation.selectionEvidence}
+                    : m_selectionGroups.value(operation.selectionGroupId);
+    return {};
+}
+
+void ProjectManager::invalidateToolOperations(const QSet<int> &toolIds)
+{
+    bool changed = false;
+    for (MachiningOperation &operation : m_operations) {
+        if (toolIds.contains(operation.toolId)) {
+            operation.markToolpathStale(QStringLiteral("tool definition changed or missing"));
+            changed = true;
+        }
+    }
+    if (changed) {
+        m_modified = true;
+        emit operationsChanged();
+    }
+}
+
+// 函数说明：setPrograms负责当前模块的核心处理。
 void ProjectManager::setPrograms(const QList<ProgramEntry> &programs)
 {
     m_programs = programs;
@@ -120,6 +241,7 @@ void ProjectManager::setPrograms(const QList<ProgramEntry> &programs)
     emit programsChanged();
 }
 
+// 函数说明：setCurrentProgramId负责当前模块的核心处理。
 void ProjectManager::setCurrentProgramId(const QString &programId)
 {
     QString normalizedId = programId.trimmed();
@@ -130,33 +252,42 @@ void ProjectManager::setCurrentProgramId(const QString &programId)
         return;
     }
     m_currentProgramId = normalizedId;
-    m_modified = true;
 }
 
+// 函数说明：setSourceFilePath负责当前模块的核心处理。
 void ProjectManager::setSourceFilePath(const QString &path)
 {
     m_sourceFilePath = path;
     m_modified = true;
 }
 
+// 函数说明：setSourceFileFingerprint负责当前模块的核心处理。
 void ProjectManager::setSourceFileFingerprint(const QString &fingerprint)
 {
     m_sourceFileFingerprint = fingerprint;
     m_modified = true;
 }
 
+// 函数说明：setSetupRotation负责当前模块的核心处理。
 void ProjectManager::setSetupRotation(const QQuaternion &rotation)
 {
-    m_setupRotation = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    const QQuaternion normalized = rotation.isNull() ? QQuaternion() : rotation.normalized();
+    if (m_setupRotation == normalized) {
+        return;
+    }
+    m_setupRotation = normalized;
+    invalidateOperations(QStringLiteral("setup orientation changed"));
     m_modified = true;
 }
 
+// 函数说明：setActiveRegion负责当前模块的核心处理。
 void ProjectManager::setActiveRegion(FaceRegion region)
 {
     m_activeRegion = region;
     m_modified = true;
 }
 
+// 函数说明：setWorkOffset负责当前模块的核心处理。
 void ProjectManager::setWorkOffset(const QString &workOffset)
 {
     const QString normalized = workOffset.trimmed().toUpper();
@@ -164,25 +295,52 @@ void ProjectManager::setWorkOffset(const QString &workOffset)
         QStringLiteral("G54"), QStringLiteral("G55"), QStringLiteral("G56"),
         QStringLiteral("G57"), QStringLiteral("G58"), QStringLiteral("G59")
     };
-    m_workOffset = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    const QString accepted = allowed.contains(normalized) ? normalized : QStringLiteral("G54");
+    if (m_workOffset == accepted) {
+        return;
+    }
+    m_workOffset = accepted;
+    invalidateOperations(QStringLiteral("work offset changed"));
     m_modified = true;
 }
 
+// 函数说明：setSetupOrigin负责当前模块的核心处理。
 void ProjectManager::setSetupOrigin(const SetupOrigin &origin)
 {
+    const QString previous = m_setupOrigin.fingerprint(m_workOffset);
     m_setupOrigin = origin;
+    if (m_setupOrigin.fingerprint(m_workOffset) != previous) {
+        invalidateOperations(QStringLiteral("setup origin changed"));
+    }
     m_modified = true;
     emit projectChanged();
 }
 
+// 函数说明：setStockDefinition负责当前模块的核心处理。
 void ProjectManager::setStockDefinition(const StockDefinition &stock)
 {
+    const QString previous = m_stockDefinition.fingerprint();
     m_stockDefinition = stock;
     m_stockDefinition.normalize();
+    if (m_stockDefinition.fingerprint() != previous) {
+        invalidateOperations(QStringLiteral("stock changed"));
+    }
     m_modified = true;
     emit projectChanged();
 }
 
+// 中文说明：集中处理几何、Setup、毛坯或机床配置变化后的失效传播，
+// 保留旧程序内容但禁止其继续导出/发送。
+void ProjectManager::invalidateOperations(const QString &reason)
+{
+    if (m_operations.isEmpty()) {
+        return;
+    }
+    markOperationsStale(m_operations, reason);
+    emit operationsChanged();
+}
+
+// 函数说明：setupFingerprint负责当前模块的核心处理。
 QString ProjectManager::setupFingerprint() const
 {
     const QString originFingerprint = m_setupOrigin.fingerprint(m_workOffset);
@@ -196,16 +354,22 @@ QString ProjectManager::setupFingerprint() const
                                                         QCryptographicHash::Sha256).toHex());
 }
 
+// 中文说明：替换外部模型时同步更新指纹和候选特征，确保历史工序不会
+// 在新几何上被误复用；调用方应要求重新确认工艺。
 void ProjectManager::replaceChangedSource(const MeshData &mesh,
                                           const QVector<MachiningFeature> &features,
                                           const QString &sourceFilePath,
                                           const QString &sourceFileFingerprint)
 {
+    m_sourceType = ProjectSourceType::Step;
+    m_sketchDocument = SketchDocument();
     m_mesh = mesh;
     m_features = features;
     m_sourceFilePath = sourceFilePath;
     m_sourceFileFingerprint = sourceFileFingerprint;
     m_operations.clear();
+    m_operationCreationOrder.clear();
+    m_selectionGroups.clear();
     m_programs.clear();
     m_currentProgramId.clear();
     m_modified = true;
@@ -214,12 +378,14 @@ void ProjectManager::replaceChangedSource(const MeshData &mesh,
     emit programsChanged();
 }
 
+// 函数说明：setMachineProfile负责当前模块的核心处理。
 void ProjectManager::setMachineProfile(const MachineProfile &profile)
 {
     m_machineProfile = normalizedMachineProfile(profile);
     m_modified = true;
 }
 
+// 函数说明：upsertProgram负责当前模块的核心处理。
 QString ProjectManager::upsertProgram(ProgramEntry program)
 {
     if (program.id.trimmed().isEmpty()) {
@@ -260,6 +426,7 @@ QString ProjectManager::upsertProgram(ProgramEntry program)
     return program.id;
 }
 
+// 函数说明：programById负责当前模块的核心处理。
 ProgramEntry ProjectManager::programById(const QString &id) const
 {
     for (const ProgramEntry &program : m_programs) {
@@ -272,6 +439,7 @@ ProgramEntry ProjectManager::programById(const QString &id) const
 
 // ---------- serialization helpers ----------
 
+// 函数说明：serializePointLoop负责当前模块的核心处理。
 static QJsonArray serializePointLoop(const QVector<QVector3D> &points)
 {
     QJsonArray array;
@@ -285,6 +453,7 @@ static QJsonArray serializePointLoop(const QVector<QVector3D> &points)
     return array;
 }
 
+// 函数说明：deserializePointLoop负责当前模块的核心处理。
 static QVector<QVector3D> deserializePointLoop(const QJsonArray &array)
 {
     QVector<QVector3D> points;
@@ -298,6 +467,7 @@ static QVector<QVector3D> deserializePointLoop(const QJsonArray &array)
     return points;
 }
 
+// 函数说明：serializePointLoops负责当前模块的核心处理。
 static QJsonArray serializePointLoops(const QVector<QVector<QVector3D>> &loops)
 {
     QJsonArray array;
@@ -307,6 +477,7 @@ static QJsonArray serializePointLoops(const QVector<QVector<QVector3D>> &loops)
     return array;
 }
 
+// 函数说明：deserializePointLoops负责当前模块的核心处理。
 static QVector<QVector<QVector3D>> deserializePointLoops(const QJsonArray &array)
 {
     QVector<QVector<QVector3D>> loops;
@@ -317,6 +488,7 @@ static QVector<QVector<QVector3D>> deserializePointLoops(const QJsonArray &array
     return loops;
 }
 
+// 函数说明：serializeHoleFeature负责当前模块的核心处理。
 static QJsonObject serializeHoleFeature(const HoleFeature &f)
 {
     QJsonObject o;
@@ -328,6 +500,7 @@ static QJsonObject serializeHoleFeature(const HoleFeature &f)
     o["length"]  = f.length;
     o["secR"]    = f.secondaryRadius;
     o["pitch"]   = f.pitch;
+    o["coordinatePrecisionVersion"] = f.coordinatePrecisionVersion;
     o["cx"]      = f.center.x();
     o["cy"]      = f.center.y();
     o["cz"]      = f.center.z();
@@ -345,6 +518,7 @@ static QJsonObject serializeHoleFeature(const HoleFeature &f)
     return o;
 }
 
+// 函数说明：deserializeHoleFeature负责当前模块的核心处理。
 static HoleFeature deserializeHoleFeature(const QJsonObject &o)
 {
     HoleFeature f;
@@ -356,10 +530,15 @@ static HoleFeature deserializeHoleFeature(const QJsonObject &o)
     f.length          = o["length"].toDouble();
     f.secondaryRadius = o["secR"].toDouble();
     f.pitch           = o["pitch"].toDouble();
-    f.center          = QVector3D(o["cx"].toDouble(), o["cy"].toDouble(), o["cz"].toDouble());
+    f.center          = Coordinate3D(o["cx"].toDouble(), o["cy"].toDouble(), o["cz"].toDouble());
+    f.coordinatePrecisionVersion = o["coordinatePrecisionVersion"].toInt(0);
+    if (!o["cx"].isDouble() || !o["cy"].isDouble() || !o["cz"].isDouble())
+        f.coordinatePrecisionVersion = 0;
     f.axis            = QVector3D(float(o["ax"].toDouble(0.0)),
                                   float(o["ay"].toDouble(0.0)),
                                   float(o["az"].toDouble(1.0)));
+    if (!o["ax"].isDouble() || !o["ay"].isDouble() || !o["az"].isDouble())
+        f.axis = {};
     f.coneAngle       = o["cone"].toDouble();
     f.angle           = o["angle"].toDouble();
     f.region          = faceRegionFromId(o["region"].toString());
@@ -369,6 +548,7 @@ static HoleFeature deserializeHoleFeature(const QJsonObject &o)
     return f;
 }
 
+// 函数说明：serializeContourFeature负责当前模块的核心处理。
 static QJsonObject serializeContourFeature(const ContourFeature &f)
 {
     QJsonObject o;
@@ -391,15 +571,17 @@ static QJsonObject serializeContourFeature(const ContourFeature &f)
     o["az"]     = f.axis.z();
     o["region"] = faceRegionName(f.region);
     o["points"] = serializePointLoop(f.points);
+    o["planarBoundaryVerified"] = f.planarBoundaryVerified;
     o["islands"] = serializePointLoops(f.islands);
     return o;
 }
 
+// 函数说明：deserializeContourFeature负责当前模块的核心处理。
 static ContourFeature deserializeContourFeature(const QJsonObject &o)
 {
     ContourFeature f;
     f.subType = o["type"].toString();
-    f.center  = QVector3D(o["cx"].toDouble(), o["cy"].toDouble(), o["cz"].toDouble());
+    f.center  = Coordinate3D(o["cx"].toDouble(), o["cy"].toDouble(), o["cz"].toDouble());
     f.radius  = o["radius"].toDouble();
     f.depth   = o["depth"].toDouble();
     f.width   = o["width"].toDouble();
@@ -415,10 +597,12 @@ static ContourFeature deserializeContourFeature(const QJsonObject &o)
                           float(o["az"].toDouble(1.0)));
     f.region  = faceRegionFromId(o["region"].toString());
     f.points = deserializePointLoop(o["points"].toArray());
+    f.planarBoundaryVerified = o["planarBoundaryVerified"].toBool(false);
     f.islands = deserializePointLoops(o["islands"].toArray());
     return f;
 }
 
+// 函数说明：operationTypeName负责当前模块的核心处理。
 static QString operationTypeName(OperationType t)
 {
     switch (t) {
@@ -431,6 +615,7 @@ static QString operationTypeName(OperationType t)
     return QStringLiteral("hole");
 }
 
+// 函数说明：operationTypeFromName负责当前模块的核心处理。
 static OperationType operationTypeFromName(const QString &s)
 {
     if (s == QStringLiteral("roughing"))    return OperationType::Roughing;
@@ -440,6 +625,7 @@ static OperationType operationTypeFromName(const QString &s)
     return OperationType::Hole;
 }
 
+// 函数说明：operationStageName负责当前模块的核心处理。
 static QString operationStageName(OperationStage stage)
 {
     switch (stage) {
@@ -452,6 +638,7 @@ static QString operationStageName(OperationStage stage)
     return QStringLiteral("rough_cut");
 }
 
+// 函数说明：operationStageFromName负责当前模块的核心处理。
 static OperationStage operationStageFromName(const QString &s)
 {
     if (s == QStringLiteral("setup"))      return OperationStage::Setup;
@@ -461,6 +648,30 @@ static OperationStage operationStageFromName(const QString &s)
     return OperationStage::RoughCut;
 }
 
+// 函数说明：toolpathStateName负责当前模块的核心处理。
+static QString toolpathStateName(ToolpathState state)
+{
+    switch (state) {
+    case ToolpathState::Empty:       return QStringLiteral("empty");
+    case ToolpathState::Calculating: return QStringLiteral("calculating");
+    case ToolpathState::Valid:       return QStringLiteral("valid");
+    case ToolpathState::Stale:       return QStringLiteral("stale");
+    case ToolpathState::Error:       return QStringLiteral("error");
+    }
+    return QStringLiteral("empty");
+}
+
+// 函数说明：toolpathStateFromName负责当前模块的核心处理。
+static ToolpathState toolpathStateFromName(const QString &name)
+{
+    if (name == QStringLiteral("calculating")) return ToolpathState::Calculating;
+    if (name == QStringLiteral("valid"))       return ToolpathState::Valid;
+    if (name == QStringLiteral("stale"))       return ToolpathState::Stale;
+    if (name == QStringLiteral("error"))       return ToolpathState::Error;
+    return ToolpathState::Empty;
+}
+
+// 函数说明：serializeStringList负责当前模块的核心处理。
 static QJsonArray serializeStringList(const QStringList &values)
 {
     QJsonArray array;
@@ -470,6 +681,7 @@ static QJsonArray serializeStringList(const QStringList &values)
     return array;
 }
 
+// 函数说明：deserializeStringList负责当前模块的核心处理。
 static QStringList deserializeStringList(const QJsonArray &array)
 {
     QStringList values;
@@ -479,6 +691,171 @@ static QStringList deserializeStringList(const QJsonArray &array)
     return values;
 }
 
+// 函数说明：selectionVector负责当前模块的核心处理。
+static QJsonArray selectionVector(const QVector3D &value)
+{
+    return QJsonArray{value.x(), value.y(), value.z()};
+}
+
+static QVector3D selectionVector(const QJsonArray &value,
+                                 const QVector3D &fallback = {})
+{
+    return value.size() == 3
+        ? QVector3D(float(value.at(0).toDouble()),
+                    float(value.at(1).toDouble()),
+                    float(value.at(2).toDouble()))
+        : fallback;
+}
+
+// 函数说明：serializeSelectionChain负责当前模块的核心处理。
+static QJsonObject serializeSelectionChain(const SelectionChain &selection)
+{
+    QJsonObject object;
+    object["evidenceVersion"] = selection.evidenceVersion;
+    object["id"] = selection.id;
+    object["sourceFingerprint"] = selection.sourceFingerprint;
+    object["candidateGeometryId"] = selection.candidateGeometryId;
+    object["setupFingerprint"] = selection.setupFingerprint;
+    object["geometrySource"] = int(selection.geometrySource);
+    object["selectionMode"] = int(selection.selectionMode);
+    object["machiningSide"] = int(selection.machiningSide);
+    object["coordinateSystemId"] = selection.coordinateSystemId;
+    object["orderedGeometryIds"] = serializeStringList(selection.orderedGeometryIds);
+    QJsonArray topologyRefs;
+    for (const SelectionTopologyRef &ref : selection.orderedTopologyRefs) {
+        QJsonObject refObject;
+        refObject["id"] = ref.id;
+        refObject["kind"] = int(ref.kind);
+        refObject["forward"] = ref.forward;
+        topologyRefs.append(refObject);
+    }
+    object["orderedTopologyRefs"] = topologyRefs;
+    auto serializeAnchor = [](const SelectionAnchor &anchor) {
+        QJsonObject anchorObject;
+        anchorObject["topologyId"] = anchor.topologyId;
+        anchorObject["point"] = selectionVector(anchor.point);
+        anchorObject["hasCurveParameter"] = anchor.hasCurveParameter;
+        anchorObject["curveParameter"] = anchor.curveParameter;
+        return anchorObject;
+    };
+    object["startAnchor"] = serializeAnchor(selection.startAnchor);
+    object["hasStartAnchor"] = selection.hasStartAnchor;
+    object["endAnchor"] = serializeAnchor(selection.endAnchor);
+    object["hasEndAnchor"] = selection.hasEndAnchor;
+    QJsonArray boundaryLoops;
+    for (const SelectionBoundaryLoop &loop : selection.boundaryLoops) {
+        QJsonObject loopObject;
+        loopObject["faceId"] = loop.faceId;
+        loopObject["outer"] = loop.outer;
+        loopObject["orderedEdgeIds"] = serializeStringList(loop.orderedEdgeIds);
+        QJsonArray directions;
+        for (bool forward : loop.orderedForward) directions.append(forward);
+        loopObject["orderedForward"] = directions;
+        loopObject["machiningRole"] = int(loop.machiningRole);
+        if (loop.machiningRole != MachiningBoundaryRole::Undetermined) {
+            loopObject["machiningOuter"] = loop.machiningRole == MachiningBoundaryRole::Outer;
+            loopObject["maximumDepth"] = loop.maximumDepth;
+            loopObject["supportFaceIds"] = serializeStringList(loop.supportFaceIds);
+            QJsonArray points;
+            for (const auto &point : loop.machiningBoundary) points.append(selectionVector(point));
+            loopObject["machiningBoundary"] = points;
+            loopObject["boundaryTolerance"] = loop.boundaryTolerance;
+            loopObject["discretizationRule"]=loop.discretizationRule;loopObject["candidateRule"]=loop.candidateRule;
+            loopObject["volumeProofRule"]=loop.volumeProofRule;loopObject["sourceBoundaryBound"]=loop.sourceBoundaryBound;
+            loopObject["consumedBoundaryBound"]=loop.consumedBoundaryBound;loopObject["volumeProofBudget"]=loop.volumeProofBudget;
+            loopObject["maximumEscapeBudget"]=loop.maximumEscapeBudget;
+            QJsonArray curves;
+            for(const auto &curve:loop.curves){QJsonObject c;c["circular"]=curve.circular;c["start"]=selectionVector(curve.start);c["end"]=selectionVector(curve.end);c["center"]=selectionVector(curve.center);c["sweep"]=curve.sweep;c["type"]=curve.type;c["firstParameter"]=curve.firstParameter;c["lastParameter"]=curve.lastParameter;c["approximationBound"]=curve.approximationBound;curves.append(c);}
+            loopObject["curves"]=curves;
+        }
+        boundaryLoops.append(loopObject);
+    }
+    object["boundaryLoops"] = boundaryLoops;
+    object["selectedSurfaceNormal"] = selectionVector(selection.selectedSurfaceNormal);
+    object["toolAxis"] = selectionVector(selection.toolAxis);
+    object["startPoint"] = selectionVector(selection.startPoint);
+    object["hasStartPoint"] = selection.hasStartPoint;
+    object["reversed"] = selection.reversed;
+    object["closed"] = selection.closed;
+    object["outerLoopPointCount"] = selection.outerLoopPointCount;
+    object["islandCount"] = selection.islandCount;
+    object["freeEndCount"] = selection.freeEndCount;
+    object["explicitUserSelection"] = selection.explicitUserSelection;
+    object["sortStrategy"] = int(selection.sortStrategy);
+    return object;
+}
+
+// 函数说明：deserializeSelectionChain负责当前模块的核心处理。
+static SelectionChain deserializeSelectionChain(const QJsonObject &object)
+{
+    SelectionChain selection;
+    selection.evidenceVersion = object["evidenceVersion"].toInt(1);
+    selection.id = object["id"].toString();
+    selection.sourceFingerprint = object["sourceFingerprint"].toString();
+    selection.candidateGeometryId = object["candidateGeometryId"].toString();
+    selection.setupFingerprint = object["setupFingerprint"].toString();
+    selection.geometrySource = ChainGeometrySource(object["geometrySource"].toInt(0));
+    selection.selectionMode = ChainSelectionMode(object["selectionMode"].toInt(1));
+    selection.machiningSide = ChainMachiningSide(object["machiningSide"].toInt(2));
+    selection.coordinateSystemId = object["coordinateSystemId"].toString(QStringLiteral("G54"));
+    selection.orderedGeometryIds = deserializeStringList(object["orderedGeometryIds"].toArray());
+    for (const QJsonValue &value : object["orderedTopologyRefs"].toArray()) {
+        const QJsonObject refObject = value.toObject();
+        selection.orderedTopologyRefs.append({refObject["id"].toString(),
+            SelectionTopologyKind(refObject["kind"].toInt(1)),
+            refObject["forward"].toBool(true)});
+    }
+    auto deserializeAnchor = [](const QJsonObject &anchorObject) {
+        SelectionAnchor anchor;
+        anchor.topologyId = anchorObject["topologyId"].toString();
+        anchor.point = selectionVector(anchorObject["point"].toArray());
+        anchor.hasCurveParameter = anchorObject["hasCurveParameter"].toBool(false);
+        anchor.curveParameter = anchorObject["curveParameter"].toDouble(0.0);
+        return anchor;
+    };
+    selection.startAnchor = deserializeAnchor(object["startAnchor"].toObject());
+    selection.hasStartAnchor = object["hasStartAnchor"].toBool(false);
+    selection.endAnchor = deserializeAnchor(object["endAnchor"].toObject());
+    selection.hasEndAnchor = object["hasEndAnchor"].toBool(false);
+    for (const QJsonValue &value : object["boundaryLoops"].toArray()) {
+        const QJsonObject loopObject = value.toObject();
+        SelectionBoundaryLoop loop;
+        loop.faceId = loopObject["faceId"].toString();
+        loop.outer = loopObject["outer"].toBool(false);
+        loop.orderedEdgeIds = deserializeStringList(loopObject["orderedEdgeIds"].toArray());
+        for (const QJsonValue &direction : loopObject["orderedForward"].toArray())
+            loop.orderedForward.append(direction.toBool(true));
+        loop.machiningRole = MachiningBoundaryRole(loopObject["machiningRole"].toInt(
+            loopObject["machiningOuter"].toBool(false) ? int(MachiningBoundaryRole::Outer) : int(MachiningBoundaryRole::Undetermined)));
+        loop.maximumDepth = loopObject["maximumDepth"].toDouble(0.0);
+        const double unknownEvidenceNumber = loop.machiningRole == MachiningBoundaryRole::Undetermined
+            ? 0.0 : std::numeric_limits<double>::quiet_NaN();
+        loop.boundaryTolerance=loopObject["boundaryTolerance"].toDouble();
+        loop.discretizationRule=loopObject["discretizationRule"].toString();loop.candidateRule=loopObject["candidateRule"].toString();
+        loop.volumeProofRule=loopObject["volumeProofRule"].toString();loop.sourceBoundaryBound=loopObject["sourceBoundaryBound"].toDouble(unknownEvidenceNumber);
+        loop.consumedBoundaryBound=loopObject["consumedBoundaryBound"].toDouble(unknownEvidenceNumber);loop.volumeProofBudget=loopObject["volumeProofBudget"].toDouble(unknownEvidenceNumber);
+        loop.maximumEscapeBudget=loopObject["maximumEscapeBudget"].toDouble(unknownEvidenceNumber);
+        for(const auto &value:loopObject["curves"].toArray()){const auto c=value.toObject();MachiningBoundaryCurve curve;curve.circular=c["circular"].toBool();curve.start=selectionVector(c["start"].toArray());curve.end=selectionVector(c["end"].toArray());curve.center=selectionVector(c["center"].toArray());curve.sweep=c["sweep"].toDouble();curve.type=c["type"].toString();curve.firstParameter=c["firstParameter"].toDouble(unknownEvidenceNumber);curve.lastParameter=c["lastParameter"].toDouble(unknownEvidenceNumber);curve.approximationBound=c["approximationBound"].toDouble(unknownEvidenceNumber);loop.curves.append(curve);}
+        loop.supportFaceIds = deserializeStringList(loopObject["supportFaceIds"].toArray());
+        for (const auto &point : loopObject["machiningBoundary"].toArray())
+            loop.machiningBoundary.append(selectionVector(point.toArray()));
+        selection.boundaryLoops.append(loop);
+    }
+    selection.selectedSurfaceNormal = selectionVector(object["selectedSurfaceNormal"].toArray());
+    selection.toolAxis = selectionVector(object["toolAxis"].toArray(), QVector3D(0, 0, 1));
+    selection.startPoint = selectionVector(object["startPoint"].toArray());
+    selection.hasStartPoint = object["hasStartPoint"].toBool(false);
+    selection.reversed = object["reversed"].toBool(false);
+    selection.closed = object["closed"].toBool(false);
+    selection.outerLoopPointCount = object["outerLoopPointCount"].toInt(0);
+    selection.islandCount = object["islandCount"].toInt(0);
+    selection.freeEndCount = object["freeEndCount"].toInt(0);
+    selection.explicitUserSelection = object["explicitUserSelection"].toBool(false);
+    selection.sortStrategy = ChainSortStrategy(object["sortStrategy"].toInt(0));
+    return selection;
+}
+
+// 函数说明：serializeParametricProgram负责当前模块的核心处理。
 static QJsonObject serializeParametricProgram(
     const ParametricToolpathProgram &program)
 {
@@ -503,6 +880,7 @@ static QJsonObject serializeParametricProgram(
     return obj;
 }
 
+// 函数说明：deserializeParametricProgram负责当前模块的核心处理。
 static ParametricToolpathProgram deserializeParametricProgram(
     const QJsonObject &obj)
 {
@@ -526,13 +904,19 @@ static ParametricToolpathProgram deserializeParametricProgram(
     return program;
 }
 
+// 函数说明：serializeProgramEntry负责当前模块的核心处理。
 static QJsonObject serializeProgramEntry(const ProgramEntry &program)
 {
     QJsonObject obj;
+    obj["modelOrigin"] = QJsonArray{program.modelOrigin.x(),program.modelOrigin.y(),program.modelOrigin.z()};
+    obj["coordinateVersion"] = program.coordinateVersion;
+    obj["coordinateEvidence"] = program.coordinateEvidence;
+    obj["generationContentEvidence"] = program.generationContentEvidence;
     obj["id"] = program.id;
     obj["name"] = program.name;
     obj["postProcessorId"] = program.postProcessorId;
     obj["sourceOperationFingerprint"] = program.sourceOperationFingerprint;
+    obj["toolFingerprint"] = program.toolFingerprint;
     obj["setupFingerprint"] = program.setupFingerprint;
     obj["machineProfileId"] = program.machineProfileId;
     obj["machineProfileVersion"] = program.machineProfileVersion;
@@ -577,14 +961,32 @@ static QJsonObject serializeProgramEntry(const ProgramEntry &program)
     return obj;
 }
 
+// 函数说明：deserializeProgramEntry负责当前模块的核心处理。
 static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
 {
     ProgramEntry program;
+    const auto origin = obj["modelOrigin"].toArray();
+    bool validCoordinates=obj["coordinateVersion"].toInt()==1 && origin.size()==3;
+    for (const auto &value : origin) validCoordinates = validCoordinates && value.isDouble()
+        && std::isfinite(value.toDouble());
+    if (validCoordinates) {
+        program.modelOrigin = Coordinate3D(origin[0].toDouble(),origin[1].toDouble(),origin[2].toDouble());
+        program.coordinateVersion = 1;
+    }
     program.id = obj["id"].toString();
     program.name = obj["name"].toString();
     program.postProcessorId = obj["postProcessorId"].toString();
     program.sourceOperationFingerprint = obj["sourceOperationFingerprint"].toString();
+    if (!validCoordinates) program.sourceOperationFingerprint.clear();
+    program.toolFingerprint = obj["toolFingerprint"].toString();
     program.setupFingerprint = obj["setupFingerprint"].toString();
+    program.coordinateEvidence = obj["coordinateEvidence"].toString();
+    program.generationContentEvidence = obj["generationContentEvidence"].toString();
+    if (!program.coordinatesVerified()) {
+        program.coordinateVersion = 0;
+        program.modelOrigin = {};
+        program.sourceOperationFingerprint.clear();
+    }
     program.machineProfileId = obj["machineProfileId"].toString();
     program.machineProfileVersion = obj["machineProfileVersion"].toString();
     program.sourceSummary = obj["sourceSummary"].toString();
@@ -618,6 +1020,7 @@ static ProgramEntry deserializeProgramEntry(const QJsonObject &obj)
     return program;
 }
 
+// 函数说明：hasValidProjectStructure负责当前模块的核心处理。
 static bool hasValidProjectStructure(const QJsonObject &root)
 {
     return root.value(QStringLiteral("version")).isString()
@@ -627,10 +1030,130 @@ static bool hasValidProjectStructure(const QJsonObject &root)
         && root.value(QStringLiteral("programs")).isArray();
 }
 
+void ProjectManager::setStepSource(const QString &path, const QString &fingerprint)
+{
+    m_sourceType = ProjectSourceType::Step;
+    m_sketchDocument = SketchDocument();
+    m_sourceFilePath = path;
+    m_sourceFileFingerprint = fingerprint;
+    m_modified = true;
+    emit projectChanged();
+}
+
+bool ProjectManager::createSketchProject(const SketchDocument &document, QString *error)
+{
+    const QString problem = document.validationError();
+    if (!problem.isEmpty()) { if (error) *error = problem; return false; }
+    m_sourceType = ProjectSourceType::Sketch;
+    m_sketchDocument = document;
+    m_sourceFilePath.clear();
+    m_sourceFileFingerprint = document.fingerprint();
+    m_mesh = document.wireGeometry();
+    m_features.clear();
+    m_operations.clear();
+    m_operationCreationOrder.clear();
+    m_selectionGroups.clear();
+    m_programs.clear();
+    m_currentProgramId.clear();
+    m_setupRotation = QQuaternion();
+    m_activeRegion = FaceRegion::Front;
+    m_workOffset = QStringLiteral("G54");
+    m_setupOrigin = SetupOrigin();
+    m_stockDefinition = StockDefinition();
+    m_modified = true;
+    emit projectChanged();
+    emit operationsChanged();
+    emit programsChanged();
+    return true;
+}
+
+bool ProjectManager::updateSketchDocument(const SketchDocument &document,
+                                          const QString &expectedFingerprint, QString *error)
+{
+    QString problem = document.validationError();
+    if (problem.isEmpty() && (m_sourceType != ProjectSourceType::Sketch ||
+        expectedFingerprint != m_sourceFileFingerprint || document.id != m_sketchDocument.id ||
+        document.revision != m_sketchDocument.revision || document.annotationRevision != m_sketchDocument.annotationRevision))
+        problem = QStringLiteral("草图来源已改变，请关闭后重新编辑。");
+    if (!problem.isEmpty()) { if (error) *error = problem; return false; }
+    if (document.toJson() == m_sketchDocument.toJson()) return true;
+    const bool annotationsChanged=document.toJson().value("annotations")!=m_sketchDocument.toJson().value("annotations");
+    if(annotationsChanged && document.annotationRevision==std::numeric_limits<int>::max()) {
+        if(error)*error=QStringLiteral("标注修订号已达到上限。");
+        return false;
+    }
+    if (document.fingerprint() == m_sourceFileFingerprint) {
+        m_sketchDocument=document;
+        ++m_sketchDocument.annotationRevision;
+        m_modified=true;emit projectChanged();return true;
+    }
+    if (document.revision == std::numeric_limits<int>::max()) {
+        if (error) *error = QStringLiteral("草图修订号已达到上限。");
+        return false;
+    }
+    m_sketchDocument = document;
+    ++m_sketchDocument.revision;
+    if(annotationsChanged)++m_sketchDocument.annotationRevision;
+    m_sourceFileFingerprint = m_sketchDocument.fingerprint();
+    m_mesh = m_sketchDocument.wireGeometry();
+    m_features.clear();
+    m_setupOrigin.confirmed = false;
+    m_stockDefinition.confirmed = false;
+    m_modified = true;
+    invalidateOperations(QStringLiteral("sketch geometry changed"));
+    emit projectChanged();
+    emit programsChanged();
+    return true;
+}
+
+void ProjectManager::adoptLoadedState(const ProjectManager &source)
+{
+    m_mesh = source.m_mesh;
+    m_features = source.m_features;
+    m_operations = source.m_operations;
+    m_operationCreationOrder = source.m_operationCreationOrder;
+    m_selectionGroups = source.m_selectionGroups;
+    m_programs = source.m_programs;
+    m_currentProgramId = source.m_currentProgramId;
+    m_sourceFilePath = source.m_sourceFilePath;
+    m_sourceFileFingerprint = source.m_sourceFileFingerprint;
+    m_sourceType = source.m_sourceType;
+    m_sketchDocument = source.m_sketchDocument;
+    m_setupRotation = source.m_setupRotation;
+    m_activeRegion = source.m_activeRegion;
+    m_workOffset = source.m_workOffset;
+    m_setupOrigin = source.m_setupOrigin;
+    m_stockDefinition = source.m_stockDefinition;
+    m_machineProfile = source.m_machineProfile;
+    m_modified = source.m_modified;
+    emit projectChanged();
+    emit operationsChanged();
+    emit programsChanged();
+}
+
+// 函数说明：saveToFile负责当前模块的核心处理。
 bool ProjectManager::saveToFile(const QString &path)
 {
     QJsonObject root;
     root["version"] = "2.0";
+    root["sourceType"] = m_sourceType == ProjectSourceType::Sketch ? "sketch" : "step";
+    if (m_sourceType == ProjectSourceType::Sketch) {
+        if (!m_sketchDocument.validationError().isEmpty() ||
+            m_sourceFileFingerprint != m_sketchDocument.fingerprint() || !m_sourceFilePath.isEmpty()) return false;
+        root["sketchDocument"] = m_sketchDocument.toJson();
+    }
+    root["operationCreationOrder"] = serializeStringList(m_operationCreationOrder);
+    QJsonObject selectionGroups;
+    for (auto it = m_selectionGroups.cbegin(); it != m_selectionGroups.cend(); ++it) {
+        QJsonArray regions;
+        for (const auto &selection : it.value()) regions.append(serializeSelectionChain(selection));
+        QJsonObject group;
+        group["regions"] = regions;
+        group["fingerprint"] = QString::fromLatin1(QCryptographicHash::hash(
+            QJsonDocument(regions).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
+        selectionGroups[it.key()] = group;
+    }
+    root["selectionGroups"] = selectionGroups;
     root["sourceFilePath"] = m_sourceFilePath;
     root["sourceFileFingerprint"] = m_sourceFileFingerprint;
     root["currentProgramId"] = m_currentProgramId;
@@ -681,6 +1204,7 @@ bool ProjectManager::saveToFile(const QString &path)
         fo["length"] = f.length;
         fo["secondaryRadius"] = f.secondaryRadius;
         fo["pitch"] = f.pitch;
+        fo["coordinatePrecisionVersion"] = f.coordinatePrecisionVersion;
         fo["cx"]     = f.center.x();
         fo["cy"]     = f.center.y();
         fo["cz"]     = f.center.z();
@@ -696,6 +1220,7 @@ bool ProjectManager::saveToFile(const QString &path)
         }
         fo["faceIndices"] = faceIndices;
         fo["boundaryPoints"] = serializePointLoop(f.boundaryPoints);
+        fo["planarBoundaryVerified"] = f.planarBoundaryVerified;
         fo["islandBoundaries"] = serializePointLoops(f.islandBoundaries);
         featureArr.append(fo);
     }
@@ -710,6 +1235,12 @@ bool ProjectManager::saveToFile(const QString &path)
         oo["featureRef"] = op.featureRef;
         oo["strategyId"] = op.strategyId;
         oo["toolId"]     = op.toolId;
+        oo["enabled"] = op.enabled;
+        oo["geometryRefs"] = serializeStringList(op.geometryRefs);
+        oo["toolpathState"] = toolpathStateName(op.toolpathState);
+        oo["warnings"] = serializeStringList(op.warnings);
+        oo["selectionEvidence"] = serializeSelectionChain(op.selectionEvidence);
+        oo["selectionGroupId"] = op.selectionGroupId;
 
         QJsonObject paramsObj;
         for (auto it = op.params.values.cbegin(); it != op.params.values.cend(); ++it) {
@@ -732,13 +1263,15 @@ bool ProjectManager::saveToFile(const QString &path)
     }
     root["programs"] = programArr;
 
-    QFile file(path);
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(QJsonDocument(root).toJson());
+    const QByteArray bytes = QJsonDocument(root).toJson();
+    if (file.write(bytes) != bytes.size() || !file.commit()) return false;
     m_modified = false;
     return true;
 }
 
+// 函数说明：loadFromFile负责当前模块的核心处理。
 bool ProjectManager::loadFromFile(const QString &path)
 {
     QFile file(path);
@@ -748,6 +1281,41 @@ bool ProjectManager::loadFromFile(const QString &path)
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return false;
     QJsonObject root = doc.object();
     if (!hasValidProjectStructure(root)) return false;
+    const QString sourceType = root.contains("sourceType") ? root["sourceType"].toString() : QStringLiteral("step");
+    if (sourceType != "step" && sourceType != "sketch") return false;
+    SketchDocument sketch;
+    if (sourceType == "sketch") {
+        QString error;
+        if (!root["sketchDocument"].isObject() ||
+            !SketchDocument::fromJson(root["sketchDocument"].toObject(), &sketch, &error) ||
+            !root["sourceFilePath"].toString().isEmpty() ||
+            !root["sourceFileFingerprint"].isString() || root["sourceFileFingerprint"].toString() != sketch.fingerprint()) return false;
+        if (root.contains("setup") && !root["setup"].isObject()) return false;
+        const auto setup = root["setup"].toObject();
+        for (const auto &key : {"rotationX", "rotationY", "rotationZ", "rotationW"})
+            if (setup.contains(key) && !setup[key].isDouble()) return false;
+        if (setup["rotationX"].toDouble() != 0 || setup["rotationY"].toDouble() != 0 ||
+            setup["rotationZ"].toDouble() != 0 || std::abs(setup["rotationW"].toDouble(1)) != 1) return false;
+        if (setup.contains("activeRegion") && !setup["activeRegion"].isString()) return false;
+        const QString region = setup["activeRegion"].toString();
+        if (!region.isEmpty() && region != "unknown" && region != "front") return false;
+    } else if (root.contains("sketchDocument")) return false;
+    m_sourceType = sourceType == "sketch" ? ProjectSourceType::Sketch : ProjectSourceType::Step;
+    m_sketchDocument = sketch;
+    m_mesh = m_sourceType == ProjectSourceType::Sketch ? sketch.wireGeometry() : MeshData();
+    m_operationCreationOrder = deserializeStringList(root["operationCreationOrder"].toArray());
+    m_selectionGroups.clear();
+    const QJsonObject selectionGroups = root["selectionGroups"].toObject();
+    for (auto it = selectionGroups.begin(); it != selectionGroups.end(); ++it) {
+        const auto group = it.value().toObject();
+        const auto regions = group["regions"].toArray();
+        const QString fingerprint = QString::fromLatin1(QCryptographicHash::hash(
+            QJsonDocument(regions).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
+        if (regions.size() < 2 || group["fingerprint"].toString() != fingerprint) continue;
+        QList<SelectionChain> selections;
+        for (const auto &region : regions) selections.append(deserializeSelectionChain(region.toObject()));
+        m_selectionGroups.insert(it.key(), selections);
+    }
     m_sourceFilePath = root["sourceFilePath"].toString();
     m_sourceFileFingerprint = root["sourceFileFingerprint"].toString();
     m_currentProgramId = root["currentProgramId"].toString();
@@ -773,13 +1341,17 @@ bool ProjectManager::loadFromFile(const QString &path)
                            : QStringLiteral("G54");
         m_setupOrigin.anchor = setupOriginAnchorFromId(
             setup["originAnchor"].toString(QStringLiteral("top_center")));
-        m_setupOrigin.customPoint = QVector3D(float(setup["originCustomX"].toDouble()),
-                                              float(setup["originCustomY"].toDouble()),
-                                              float(setup["originCustomZ"].toDouble()));
-        m_setupOrigin.offset = QVector3D(float(setup["originOffsetX"].toDouble()),
-                                         float(setup["originOffsetY"].toDouble()),
-                                         float(setup["originOffsetZ"].toDouble()));
+        m_setupOrigin.customPoint = Coordinate3D(setup["originCustomX"].toDouble(),
+                                              setup["originCustomY"].toDouble(),
+                                              setup["originCustomZ"].toDouble());
+        m_setupOrigin.offset = Coordinate3D(setup["originOffsetX"].toDouble(),
+                                         setup["originOffsetY"].toDouble(),
+                                         setup["originOffsetZ"].toDouble());
         m_setupOrigin.confirmed = setup["originConfirmed"].toBool(false);
+    }
+    if (m_sourceType == ProjectSourceType::Sketch) {
+        m_setupRotation = QQuaternion();
+        m_activeRegion = FaceRegion::Front;
     }
     const QJsonObject stock = root["stock"].toObject();
     if (stock.isEmpty() || stock["type"].toString() != QStringLiteral("rectangular")) {
@@ -821,10 +1393,16 @@ bool ProjectManager::loadFromFile(const QString &path)
         f.length = fo["length"].toDouble();
         f.secondaryRadius = fo["secondaryRadius"].toDouble();
         f.pitch = fo["pitch"].toDouble();
-        f.center = QVector3D(fo["cx"].toDouble(), fo["cy"].toDouble(), fo["cz"].toDouble());
+        f.center = Coordinate3D(fo["cx"].toDouble(), fo["cy"].toDouble(), fo["cz"].toDouble());
+        f.coordinatePrecisionVersion = fo["coordinatePrecisionVersion"].toInt(0);
+        if (!fo["cx"].isDouble() || !fo["cy"].isDouble() || !fo["cz"].isDouble())
+            f.coordinatePrecisionVersion = 0;
         f.axis   = QVector3D(float(fo["ax"].toDouble(0.0)),
                              float(fo["ay"].toDouble(0.0)),
                              float(fo["az"].toDouble(1.0)));
+        if ((f.kind == FeatureKind::Hole || f.kind == FeatureKind::Thread) &&
+            (!fo["ax"].isDouble() || !fo["ay"].isDouble() || !fo["az"].isDouble()))
+            f.axis = {};
         f.coneAngle = fo["coneAngle"].toDouble();
         f.angle = fo["angle"].toDouble();
         f.region = faceRegionFromId(fo["region"].toString());
@@ -832,6 +1410,7 @@ bool ProjectManager::loadFromFile(const QString &path)
             f.faceIndices.append(faceIndex.toInt());
         }
         f.boundaryPoints = deserializePointLoop(fo["boundaryPoints"].toArray());
+        f.planarBoundaryVerified = fo["planarBoundaryVerified"].toBool(false);
         f.islandBoundaries = deserializePointLoops(fo["islandBoundaries"].toArray());
         m_features.append(f);
     }
@@ -847,6 +1426,14 @@ bool ProjectManager::loadFromFile(const QString &path)
         op.featureRef = oo["featureRef"].toString();
         op.strategyId = oo["strategyId"].toString();
         op.toolId     = oo["toolId"].toInt(-1);
+        op.enabled = oo["enabled"].toBool(true);
+        op.geometryRefs = deserializeStringList(oo["geometryRefs"].toArray());
+        op.toolpathState = toolpathStateFromName(
+            oo["toolpathState"].toString(QStringLiteral("empty")));
+        op.warnings = deserializeStringList(oo["warnings"].toArray());
+        op.selectionGroupId = oo["selectionGroupId"].toString();
+        op.selectionEvidence = deserializeSelectionChain(
+            oo["selectionEvidence"].toObject());
 
         const QJsonObject paramsObj = oo["params"].toObject();
         for (auto it = paramsObj.begin(); it != paramsObj.end(); ++it) {
@@ -857,10 +1444,18 @@ bool ProjectManager::loadFromFile(const QString &path)
             op.holeFeature = deserializeHoleFeature(oo["holeFeature"].toObject());
         } else {
             op.contourFeature = deserializeContourFeature(oo["contourFeature"].toObject());
+            op.contourFeature = applyMachiningParameters(op.contourFeature,op.params);
         }
         m_operations.append(op);
     }
     ensureOperationIds(m_operations);
+    if (m_sourceType == ProjectSourceType::Sketch) {
+        m_features.clear();
+        bool stale = false;
+        for (const auto &operation : m_operations)
+            stale |= operation.selectionEvidence.sourceFingerprint != m_sourceFileFingerprint;
+        if (stale) markOperationsStale(m_operations, QStringLiteral("sketch source changed"));
+    }
 
     m_programs.clear();
     const QJsonArray programArray = root["programs"].toArray();

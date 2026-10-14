@@ -1,6 +1,6 @@
 #include "../src/postprocessor/Cq8PostProcessor.h"
-#include "../src/services/ProgramGenerationService.h"
-#include "../src/simulation/SimulationController.h"
+#include "../src/workspaces/program_verification/generation/ProgramGenerationService.h"
+#include "../src/workspaces/program_verification/simulation/SimulationController.h"
 #include "../src/strategies/hole/PeckDrillingStrategy.h"
 #include "../src/strategies/hole/SpotDrillingStrategy.h"
 
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     MachiningOperation peckOperation = spotOperation;
     peckOperation.id = QStringLiteral("peck-d10"); peckOperation.stage = OperationStage::DeepHole;
     peckOperation.strategyId = peck->id(); peckOperation.toolId = 10;
-    peckOperation.params = peck->defaultParams(); peckOperation.holeFeature = hole;
+    peckOperation.params = peck->defaultParams(); peckOperation.params.set(QStringLiteral("depth"), 5.0); peckOperation.holeFeature = hole;
     PostProcessorOptions options; options.programNumber = QStringLiteral("O2501");
     options.safeStartBlocks = QStringList{QStringLiteral("G17 G40 G49 G80"), QStringLiteral("G21"), QStringLiteral("G90"), QStringLiteral("G54"), QStringLiteral("G94")};
     Cq8PostProcessor post; ProgramGenerationSnapshotOptions snapshot;
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
         if (rapid.at(i)) continue;
         const QVector3D &to = path.at(i + 1);
         spotDepth |= std::abs(to.x() - 20.0f) < 1e-3f && std::abs(to.y() - 30.0f) < 1e-3f && std::abs(to.z() + 2.0f) < 1e-3f;
-        drillDepth |= std::abs(to.x() - 20.0f) < 1e-3f && std::abs(to.y() - 30.0f) < 1e-3f && std::abs(to.z() + 12.0f) < 1e-3f;
+        drillDepth |= std::abs(to.x() - 20.0f) < 1e-3f && std::abs(to.y() - 30.0f) < 1e-3f && std::abs(to.z() + 5.0f) < 1e-3f;
     }
     return expect(spotDepth && drillDepth,
                   "final CQ8 simulation must include both spot and peck cutting depths") ? 0 : 1;

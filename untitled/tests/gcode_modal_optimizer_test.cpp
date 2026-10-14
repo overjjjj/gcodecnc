@@ -58,6 +58,25 @@ int main(int argc, char **argv)
     require(GCodeModalOptimizer::optimize(protectedSource) == protectedSource,
             "safety and cutter-compensation lines must remain untouched");
 
+    for (const QString &cycle : {QStringLiteral("G73"), QStringLiteral("G76"),
+                                 QStringLiteral("G81"), QStringLiteral("G83"),
+                                 QStringLiteral("G86")}) {
+        const QString qWord = cycle == QStringLiteral("G76")
+            ? QStringLiteral(" Q0.100")
+            : (cycle == QStringLiteral("G73") || cycle == QStringLiteral("G83"))
+                ? QStringLiteral(" Q2.000") : QString();
+        const QString cycleSource = QStringLiteral(
+            "G0 Z25.000\n"
+            "G98 %1 Z-5.000 R3.000%2 F40.000 X10.000 Y20.000\n"
+            "X30.000 Y20.000\n"
+            "G80\n"
+            "G0 Z25.000\n")
+                .arg(cycle, qWord);
+        const QString cycleOptimized = GCodeModalOptimizer::optimize(cycleSource);
+        require(cycleOptimized.contains(QStringLiteral("G80\nG0 Z25.000")),
+                "G80 must invalidate the pre-cycle motion mode so retract keeps explicit G0");
+    }
+
     QTextStream(stdout) << "PASS gcode_modal_optimizer_test" << Qt::endl;
     return 0;
 }

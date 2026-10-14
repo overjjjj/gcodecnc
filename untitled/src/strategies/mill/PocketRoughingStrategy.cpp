@@ -1,10 +1,19 @@
 #include "PocketRoughingStrategy.h"
+#include "PocketAllowances.h"
 
 #include <QObject>
 #include <algorithm>
 #include <cmath>
 
 namespace {
+
+// Decimal output must never cut below the requested floor allowance.
+static double outputZAtOrAbove(double requestedZ)
+{
+    double z = QString::number(requestedZ, 'f', 3).toDouble();
+    if (z < requestedZ) z += 0.001;
+    return z;
+}
 
 struct ScanLine {
     double y = 0.0;
@@ -21,12 +30,14 @@ struct ScanChain {
     QVector<ScanLine> rows;
 };
 
+// 函数说明：cross2D负责当前模块的核心处理。
 static double cross2D(const QVector3D &a, const QVector3D &b, const QVector3D &c)
 {
     return (double(b.x()) - a.x()) * (double(c.y()) - a.y())
         - (double(b.y()) - a.y()) * (double(c.x()) - a.x());
 }
 
+// 函数说明：pointOnSegment负责当前模块的核心处理。
 static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector3D &point)
 {
     if (std::abs(cross2D(a, b, point)) > 1.0e-7) {
@@ -38,6 +49,7 @@ static bool pointOnSegment(const QVector3D &a, const QVector3D &b, const QVector
         && point.y() <= std::max(a.y(), b.y()) + 1.0e-7f;
 }
 
+// 函数说明：segmentsIntersect负责当前模块的核心处理。
 static bool segmentsIntersect(const QVector3D &a,
                               const QVector3D &b,
                               const QVector3D &c,
@@ -57,6 +69,7 @@ static bool segmentsIntersect(const QVector3D &a,
         || (std::abs(cdB) <= 1.0e-7 && pointOnSegment(c, d, b));
 }
 
+// 函数说明：isSimplePolygon负责当前模块的核心处理。
 static bool isSimplePolygon(const QVector<QVector3D> &polygon)
 {
     if (polygon.size() < 3) {
@@ -92,6 +105,7 @@ static bool isSimplePolygon(const QVector<QVector3D> &polygon)
     return true;
 }
 
+// 函数说明：pointInsidePolygon负责当前模块的核心处理。
 static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3D &point)
 {
     bool inside = false;
@@ -113,6 +127,7 @@ static bool pointInsidePolygon(const QVector<QVector3D> &polygon, const QVector3
     return inside;
 }
 
+// 函数说明：polygonStrictlyContains负责当前模块的核心处理。
 static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
                                     const QVector<QVector3D> &inner)
 {
@@ -135,6 +150,7 @@ static bool polygonStrictlyContains(const QVector<QVector3D> &outer,
     return true;
 }
 
+// 函数说明：cutMove负责当前模块的核心处理。
 static QString cutMove(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -143,6 +159,7 @@ static QString cutMove(double x, double y, double feed)
         .arg(int(feed));
 }
 
+// 函数说明：distance2D负责当前模块的核心处理。
 static double distance2D(double x0, double y0, double x1, double y1)
 {
     const double dx = x1 - x0;
@@ -150,6 +167,7 @@ static double distance2D(double x0, double y0, double x1, double y1)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+// 函数说明：mergedIntervals负责当前模块的核心处理。
 static QVector<Interval> mergedIntervals(QVector<Interval> intervals)
 {
     std::sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b) {
@@ -169,6 +187,7 @@ static QVector<Interval> mergedIntervals(QVector<Interval> intervals)
     return merged;
 }
 
+// 函数说明：polygonIntervalsAtY负责当前模块的核心处理。
 static QVector<Interval> polygonIntervalsAtY(const QVector<QVector3D> &polygon, double y)
 {
     QVector<double> intersections;
@@ -190,6 +209,7 @@ static QVector<Interval> polygonIntervalsAtY(const QVector<QVector3D> &polygon, 
     return intervals;
 }
 
+// 函数说明：subtractIntervals负责当前模块的核心处理。
 static QVector<Interval> subtractIntervals(const QVector<Interval> &source,
                                            const QVector<Interval> &removed)
 {
@@ -213,6 +233,7 @@ static QVector<Interval> subtractIntervals(const QVector<Interval> &source,
     return result;
 }
 
+// 函数说明：appendCircleInterval负责当前模块的核心处理。
 static void appendCircleInterval(QVector<Interval> &intervals,
                                  const QVector3D &center,
                                  double y,
@@ -226,6 +247,7 @@ static void appendCircleInterval(QVector<Interval> &intervals,
     intervals.push_back({center.x() - span, center.x() + span});
 }
 
+// 函数说明：boundaryClearanceIntervals负责当前模块的核心处理。
 static QVector<Interval> boundaryClearanceIntervals(const QVector<QVector3D> &polygon,
                                                     double y,
                                                     double clearance)
@@ -256,6 +278,7 @@ static QVector<Interval> boundaryClearanceIntervals(const QVector<QVector3D> &po
     return mergedIntervals(forbidden);
 }
 
+// 函数说明：safeIntervalsAtY负责当前模块的核心处理。
 static QVector<Interval> safeIntervalsAtY(
     const QVector<QVector3D> &outer,
     const QVector<QVector<QVector3D>> &islands,
@@ -271,6 +294,7 @@ static QVector<Interval> safeIntervalsAtY(
     return subtractIntervals(allowed, removed);
 }
 
+// 函数说明：hasTopologyVertexBetween负责当前模块的核心处理。
 static bool hasTopologyVertexBetween(
     const QVector<QVector3D> &outer,
     const QVector<QVector<QVector3D>> &islands,
@@ -298,6 +322,7 @@ static bool hasTopologyVertexBetween(
     return false;
 }
 
+// 函数说明：safeScanChains负责当前模块的核心处理。
 static QVector<ScanChain> safeScanChains(
     const QVector<ScanLine> &rows,
     const QVector<QVector3D> &outer,
@@ -330,6 +355,7 @@ static QVector<ScanChain> safeScanChains(
     return chains;
 }
 
+// 函数说明：expandParametricProgram负责当前模块的核心处理。
 static QString expandParametricProgram(const ParametricToolpathProgram &program)
 {
     QStringList lines = program.prefixLines;
@@ -345,6 +371,7 @@ static QString expandParametricProgram(const ParametricToolpathProgram &program)
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }
 
+// 函数说明：generateIrregularPocket负责当前模块的核心处理。
 static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
                                               const ToolEntry &tool,
                                               const StrategyParams &params)
@@ -380,8 +407,11 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
     const double spindle = params.get(QStringLiteral("spindleSpeed"), 1800.0);
     const double feed = params.get(QStringLiteral("feedRate"), 600.0);
     const double plunge = params.get(QStringLiteral("plungeRate"), 200.0);
+    // Three-decimal XY rounding moves an endpoint by at most sqrt(2)*0.0005 mm.
+    // Keep that error inside the polygon; final NC validation remains strict.
     const double clearance = tool.diameter * 0.5
-        + params.get(QStringLiteral("stockToLeave"), 0.3);
+        + pocketRoughingAllowances(params).side + 0.001;
+    const double cuttingDepth = feature.depth - pocketRoughingAllowances(params).floor;
     if (axial <= 0.0 || radial <= 0.0 || feed <= 0.0 || plunge <= 0.0) {
         res.errorMsg = QObject::tr("Stepdown, stepover, feed, and plunge rate must be greater than zero.");
         return res;
@@ -429,7 +459,7 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
     const QVector<ScanChain> chains = safeScanChains(
         rows, feature.points, feature.islands, radial);
 
-    const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
+    const int zLayers = static_cast<int>(std::ceil(cuttingDepth / axial));
     const double ztop = feature.center.z();
     ParametricToolpathProgram program;
     program.routineName = QStringLiteral("IRREGULAR_POCKET_LAYER");
@@ -482,7 +512,8 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
             QStringLiteral("G0 Z%1").arg(safe, 0, 'f', 3));
     }
     for (int layer = 1; layer <= zLayers; ++layer) {
-        const double zLayer = ztop - std::min(layer * axial, feature.depth);
+        const double requestedZ = ztop - std::min(layer * axial, cuttingDepth);
+        const double zLayer = outputZAtOrAbove(requestedZ);
         ParametricToolpathCall call;
         call.arguments.insert(
             QStringLiteral("DEPTH_Z"), QString::number(zLayer, 'f', 3));
@@ -497,6 +528,7 @@ static ToolpathResult generateIrregularPocket(const ContourFeature &feature,
     return res;
 }
 
+// 函数说明：isCircularPocket负责当前模块的核心处理。
 static bool isCircularPocket(const ContourFeature &feature)
 {
     const QString sub = feature.subType.toLower();
@@ -504,6 +536,7 @@ static bool isCircularPocket(const ContourFeature &feature)
         || sub.contains(QStringLiteral("circular"));
 }
 
+// 函数说明：appendRectangularRows负责当前模块的核心处理。
 static void appendRectangularRows(QVector<ScanLine> &rows,
                                   double cx,
                                   double cy,
@@ -521,6 +554,7 @@ static void appendRectangularRows(QVector<ScanLine> &rows,
     }
 }
 
+// 函数说明：appendCircularRows负责当前模块的核心处理。
 static void appendCircularRows(QVector<ScanLine> &rows,
                                double cx,
                                double cy,
@@ -541,6 +575,7 @@ static void appendCircularRows(QVector<ScanLine> &rows,
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PocketRoughingStrategy::defaultParams() const
 {
     StrategyParams p;
@@ -552,11 +587,13 @@ StrategyParams PocketRoughingStrategy::defaultParams() const
     p.set("feedRate",      600.0);
     p.set("plungeRate",    200.0);
     p.set("stockToLeave",    0.3);
+    p.set("floorStockToLeave", 0.0);
     p.set("helixRadius",     2.0);
     p.set("helixPitch",      0.0);
     return p;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketRoughingStrategy::generate(const HoleFeature &,
                                                  const ToolEntry &,
                                                  const StrategyParams &) const
@@ -564,6 +601,7 @@ ToolpathResult PocketRoughingStrategy::generate(const HoleFeature &,
     return {QString(), false, QObject::tr("型腔开粗策略需要轮廓或区域特征。"), 0.0};
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
                                                  const ToolEntry      &tool,
                                                  const StrategyParams &params) const
@@ -588,7 +626,13 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
     const double S      = params.get("spindleSpeed", 1800.0);
     const double F      = params.get("feedRate",      600.0);
     const double Fp     = params.get("plungeRate",    200.0);
-    const double stock  = params.get("stockToLeave",    0.3);
+    const auto allowances = pocketRoughingAllowances(params);
+    if (!allowances.valid(feature.depth)) {
+        res.errorMsg = QObject::tr("侧壁与底面余量必须有限且非负，底面余量必须小于加工深度。");
+        return res;
+    }
+    const double stock = allowances.side;
+    const double cuttingDepth = feature.depth - allowances.floor;
     double helixRadius  = params.get("helixRadius",     2.0);
     double helixPitch   = params.get("helixPitch",      0.0);
 
@@ -665,7 +709,7 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
                          0.0f);
     };
 
-    const int zLayers = static_cast<int>(std::ceil(feature.depth / axial));
+    const int zLayers = static_cast<int>(std::ceil(cuttingDepth / axial));
 
     QString gc;
     gc += QStringLiteral("T%1 M6\n").arg(tool.id);
@@ -677,7 +721,7 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
 
     double totalLen = 0.0;
     for (int layer = 1; layer <= zLayers; ++layer) {
-        const double zLayer = ztop - std::min(layer * axial, feature.depth);
+        const double zLayer = outputZAtOrAbove(ztop - std::min(layer * axial, cuttingDepth));
         bool leftToRight = true;
         double currentX = cx;
         double currentY = cy;
@@ -778,7 +822,7 @@ ToolpathResult PocketRoughingStrategy::generate(const ContourFeature &feature,
             ParametricToolpathCall call;
             call.arguments.insert(
                 QStringLiteral("DEPTH_Z"),
-                QString::number(ztop - std::min(layer * axial, feature.depth), 'f', 3));
+                QString::number(outputZAtOrAbove(ztop - std::min(layer * axial, cuttingDepth)), 'f', 3));
             program.calls.append(call);
         }
         if (expandParametricProgram(program) == res.gcode) {

@@ -1,13 +1,16 @@
 #pragma once
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <QVector3D>
+#include "../core/Coordinate3D.h"
 #include <QQuaternion>
 #include <QMap>
 #include <QPair>
 
 #ifdef CNEXT_ENABLE_OCC
 #include <GeomAbs_SurfaceType.hxx>
+#include <TopoDS_Shape.hxx>
 #include <gp_Ax1.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 #endif
@@ -18,8 +21,39 @@ struct Triangle {
     int       faceIndex = 0;
 };
 
+struct MeshPickVertex {
+    QString id;
+    QVector3D point;
+    QStringList incidentEdgeIds;
+};
+
+struct MeshPickEdge {
+    QString id;
+    QString firstVertexId;
+    QString lastVertexId;
+    QVector<int> adjacentFaceIndices;
+    QVector<QVector3D> points;
+    QVector<double> parameters;
+    bool closed = false;
+    bool degenerated = false;
+};
+
+struct MeshBoundaryLoop {
+    QString faceId;
+    int faceIndex = 0;
+    bool outer = false;
+    QStringList orderedEdgeIds;
+    QVector<bool> orderedForward;
+};
+
 struct MeshData {
+#ifdef CNEXT_ENABLE_OCC
+    TopoDS_Shape sourceShape; // exact source geometry in the same normalized coordinates
+#endif
     QVector<Triangle> triangles;
+    QVector<MeshPickEdge> pickEdges;
+    QVector<MeshPickVertex> pickVertices;
+    QVector<MeshBoundaryLoop> boundaryLoops;
     QVector3D         bbMin, bbMax;
     bool              isEmpty() const { return triangles.isEmpty(); }
 };
@@ -53,14 +87,16 @@ struct MachiningFeature {
     double    width   = 0.0;
     double    length  = 0.0;
     double    secondaryRadius = 0.0; // countersink/counterbore or top radius
+    int coordinatePrecisionVersion = 1; // 1: double machining center; legacy files require re-selection.
     double    pitch = 0.0;           // thread pitch
-    QVector3D center;
+    Coordinate3D center;
     QVector3D axis    = {0, 0, 1};
     double    coneAngle = 0.0;
     double    angle = 0.0;       // slot/feature orientation in XY plane (degrees, 0=X axis)
     FaceRegion region = FaceRegion::Unknown;
     QVector<int> faceIndices;
     QVector<QVector3D> boundaryPoints; // recognized outer boundary for pocket-like features
+    bool planarBoundaryVerified = false; // complete original planar straight wire, never a preview box
     QVector<QVector<QVector3D>> islandBoundaries; // inner loops that must remain uncut
 };
 
@@ -68,7 +104,7 @@ using HoleFeature = MachiningFeature;
 
 struct ContourFeature {
     QString   subType;       // "circle", "closed_contour", "open_contour"
-    QVector3D center;        // circle center (or contour origin)
+    Coordinate3D center;        // circle center (or contour origin)
     double    radius  = 0.0; // for "circle" subtype
     double    depth   = 0.0; // total machining depth (positive = downward)
     double    width   = 0.0; // slot/pocket width when applicable
@@ -82,6 +118,8 @@ struct ContourFeature {
     QVector3D axis    = {0, 0, 1}; // normal of the contour plane
     FaceRegion region = FaceRegion::Unknown;
     QVector<QVector3D> points;     // for arbitrary contour subtypes
+    QVector<Coordinate3D> precisePoints; // Rebuilt from current sketch evidence; never persisted authority.
+    bool planarBoundaryVerified = false;
     QVector<QVector<QVector3D>> islands; // closed inner loops that must remain uncut
 };
 
@@ -106,6 +144,8 @@ struct TopoGraph {
     QVector<FaceNode> nodes;
     AAG aag;
     TopTools_IndexedMapOfShape faceMap;
+    TopTools_IndexedMapOfShape edgeMap;
+    TopTools_IndexedMapOfShape vertexMap;
 };
 #endif
 

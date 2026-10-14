@@ -1,4 +1,6 @@
 #include "PocketFloorFinishStrategy.h"
+#include "PocketRoughingStrategy.h"
+#include "PocketFinishStrategy.h"
 
 #include <QObject>
 #include <algorithm>
@@ -6,6 +8,7 @@
 
 namespace {
 
+// 函数说明：linearMove负责当前模块的核心处理。
 static QString linearMove(double x, double y, double feed)
 {
     return QStringLiteral("G1 X%1 Y%2 F%3\n")
@@ -14,6 +17,7 @@ static QString linearMove(double x, double y, double feed)
 
 } // namespace
 
+// 函数说明：defaultParams负责当前模块的核心处理。
 StrategyParams PocketFloorFinishStrategy::defaultParams() const
 {
     StrategyParams params;
@@ -28,6 +32,7 @@ StrategyParams PocketFloorFinishStrategy::defaultParams() const
     return params;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFloorFinishStrategy::generate(const HoleFeature &,
                                                     const ToolEntry &,
                                                     const StrategyParams &) const
@@ -37,10 +42,39 @@ ToolpathResult PocketFloorFinishStrategy::generate(const HoleFeature &,
     return result;
 }
 
+// 函数说明：generate负责当前模块的核心处理。
 ToolpathResult PocketFloorFinishStrategy::generate(const ContourFeature &feature,
                                                     const ToolEntry &tool,
                                                     const StrategyParams &params) const
 {
+    if(feature.subType=="verified_slot_opening") {
+        if(!feature.planarBoundaryVerified || !feature.islands.isEmpty() || feature.points.size()<3)
+            return {QString(),false,QStringLiteral("POCKET_FLOOR_VERIFIED_SINGLE_REGION_REQUIRED"),0};
+        // The same bounded raster runs at exactly one finishing level.
+        auto floorParams=defaultParams();
+        for(auto it=params.values.cbegin();it!=params.values.cend();++it)floorParams.values[it.key()]=it.value();
+        floorParams.set("sideStockToLeave",params.get("sideStockToLeave",params.get("stockToLeave",0)));
+        floorParams.set("floorStockToLeave",params.get("floorStockToLeave",params.get("stockToLeave",0)));
+        floorParams.set("stepDown",feature.depth-floorParams.get("floorStockToLeave"));
+        const double stepover=floorParams.get("stepover");
+        if(!std::isfinite(stepover) || stepover<=0 || stepover>tool.diameter)
+            return {QString(),false,QStringLiteral("POCKET_FLOOR_STEPOVER_MUST_NOT_EXCEED_TOOL_DIAMETER"),0};
+        // Rounded Y rows must still overlap even for a non-grid cutter diameter.
+        floorParams.set("stepover",std::min(stepover,std::floor(tool.diameter*1000)/1000));
+        auto perimeter=PocketFinishStrategy::generateRegionPass(feature,tool,floorParams,false);
+        if(!perimeter.ok)return perimeter;
+        auto result=PocketRoughingStrategy().generate(feature,tool,floorParams);
+        if(result.ok) {
+            result.gcode.replace("POCKET REGION: IRREGULAR","POCKET REGION: VERIFIED FLOOR FINISH");
+            for(auto &line:result.parametricProgram.prefixLines)line.replace("POCKET REGION: IRREGULAR","POCKET REGION: VERIFIED FLOOR FINISH");
+            result.parametricProgram.routineName="POCKET_FLOOR_FINISH";
+            perimeter.gcode.replace("VERIFIED WALL FINISH","VERIFIED FLOOR PERIMETER");
+            result.gcode+=perimeter.gcode;
+            result.parametricProgram.suffixLines.append(perimeter.gcode.split('\n',Qt::SkipEmptyParts));
+            result.estimatedTimeS+=perimeter.estimatedTimeS;
+        }
+        return result;
+    }
     ToolpathResult result;
     const bool rectangular = feature.subType == QStringLiteral("rectangular_pocket");
     const bool circular = feature.subType == QStringLiteral("circular_pocket");

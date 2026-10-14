@@ -1,6 +1,7 @@
 #include "FanucPostProcessor.h"
 #include <QDateTime>
 #include <QMap>
+#include "../core/GCodeCoordinate.h"
 
 namespace {
 
@@ -21,8 +22,10 @@ struct HoleCycleCall {
     bool   valid = false;
 };
 
+// 函数说明：fd用于完成当前模块的对应处理。
 static QString fd(double v) { return QString::number(v, 'f', 3); }
 
+// 函数说明：parseHoleCycle负责当前模块的核心处理。
 static HoleCycleCall parseHoleCycle(const QString &line)
 {
     HoleCycleCall call;
@@ -65,14 +68,21 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
     if (call.code == QStringLiteral("G81")) {
         // G81 X_ Y_ Z_ R_ F_  (spot / center drilling)
         return QStringLiteral("G81 Z%1 R%2 F%3")
-            .arg(fd(call.z), fd(rPlane), fd(call.f));
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), fd(call.f));
     }
 
     if (call.code == QStringLiteral("G82")) {
         // G82 Z_ R_ P_ F_  (counter-boring with dwell, P in ms)
         const int dwellMs = call.p > 0.0 ? static_cast<int>(call.p) : 0;
         return QStringLiteral("G82 Z%1 R%2 P%3 F%4")
-            .arg(fd(call.z), fd(rPlane), QString::number(dwellMs), fd(call.f));
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), QString::number(dwellMs), fd(call.f));
+    }
+
+    if (call.code == QStringLiteral("G73")) {
+        // G73 Z_ R_ Q_ F_  (high-speed chip-breaking peck drilling)
+        if (call.q <= 0.0) return QString();
+        return QStringLiteral("G73 Z%1 R%2 Q%3 F%4")
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), formatGCodeCoordinate(call.q), fd(call.f));
     }
 
     if (call.code == QStringLiteral("G83")) {
@@ -80,7 +90,7 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
         // Fanuc Q is always positive and in same unit as other lengths
         const double q = call.q > 0.0 ? call.q : 1.0;
         return QStringLiteral("G83 Z%1 R%2 Q%3 F%4")
-            .arg(fd(call.z), fd(rPlane), fd(q), fd(call.f));
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), formatGCodeCoordinate(q), fd(call.f));
     }
 
     if (call.code == QStringLiteral("G84")) {
@@ -91,30 +101,43 @@ static QString fanucCycleHeader(const HoleCycleCall &call)
                                ? call.pitch * call.rpm
                                : call.f;
         return QStringLiteral("G84 Z%1 R%2 F%3")
-            .arg(fd(call.z), fd(rPlane), fd(tapFeed));
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), fd(tapFeed));
     }
 
     if (call.code == QStringLiteral("G85")) {
         // G85 Z_ R_ F_  (reaming / boring)
         return QStringLiteral("G85 Z%1 R%2 F%3")
-            .arg(fd(call.z), fd(rPlane), fd(call.f));
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), fd(call.f));
+    }
+
+    if (call.code == QStringLiteral("G76")) {
+        if (call.q <= 0.0) return QString();
+        return QStringLiteral("G76 Z%1 R%2 Q%3 F%4")
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), formatGCodeCoordinate(call.q), fd(call.f));
+    }
+
+    if (call.code == QStringLiteral("G86")) {
+        return QStringLiteral("G86 Z%1 R%2 F%3")
+            .arg(formatGCodeCoordinate(call.z), formatGCodeCoordinate(rPlane), fd(call.f));
     }
 
     return QString();
 }
 
+// 函数说明：cycleSignature负责当前模块的核心处理。
 static QString cycleSignature(const HoleCycleCall &call)
 {
     return QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9")
                .arg(call.code,
-                    fd(call.rtp), fd(call.rfp), fd(call.sdis), fd(call.z),
-                    fd(call.q), fd(call.p), fd(call.f),
+                    formatGCodeCoordinate(call.rtp), formatGCodeCoordinate(call.rfp), formatGCodeCoordinate(call.sdis), formatGCodeCoordinate(call.z),
+                    formatGCodeCoordinate(call.q), fd(call.p), fd(call.f),
                     QString::number(call.vari))
-           + QStringLiteral("|%1|%2").arg(fd(call.pitch), fd(call.rpm));
+           + QStringLiteral("|%1|%2|%3").arg(fd(call.pitch), fd(call.rpm), fanucCycleHeader(call));
 }
 
 } // namespace
 
+// 函数说明：wrapGCode负责当前模块的核心处理。
 QString FanucPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                                        const PostProcessorOptions &opts) const
 {
@@ -162,17 +185,17 @@ QString FanucPostProcessor::wrapGCode(const QStringList &gcodeBlocks,
                 if (!header.isEmpty()) {
                     // First hole position is included in the cycle call line
                     out += QStringLiteral("G98 %1 X%2 Y%3\n")
-                               .arg(header, fd(cycle.x), fd(cycle.y));
+                               .arg(header, formatGCodeCoordinate(cycle.x), formatGCodeCoordinate(cycle.y));
                     activeCycle = true;
                     activeSignature = signature;
                 } else {
                     out += QStringLiteral("X%1 Y%2\n")
-                               .arg(fd(cycle.x), fd(cycle.y));
+                               .arg(formatGCodeCoordinate(cycle.x), formatGCodeCoordinate(cycle.y));
                 }
             } else {
                 // Same cycle parameters — only output X Y for additional holes
                 out += QStringLiteral("X%1 Y%2\n")
-                           .arg(fd(cycle.x), fd(cycle.y));
+                           .arg(formatGCodeCoordinate(cycle.x), formatGCodeCoordinate(cycle.y));
             }
             continue;
         }

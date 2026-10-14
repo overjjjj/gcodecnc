@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ProgramSnapshotFingerprint.h"
+#include "../workspaces/program_verification/fingerprint/ProgramSnapshotFingerprint.h"
 
 #include <QList>
 #include <QString>
@@ -26,5 +26,8 @@ struct ProgramSnapshotStatus
                                           const QStringList &sourceOperationIds,
                                           const QString &storedFingerprint,
                                           const QString &currentSetupFingerprint = QString(),
-                                          const QString &storedSetupFingerprint = QString());
+                                          const QString &storedSetupFingerprint = QString(),
+                                          const QString &currentToolFingerprint = QString(),
+                                          const QString &storedToolFingerprint = QString(),
+                                          bool coordinatesVerified = true);
 };

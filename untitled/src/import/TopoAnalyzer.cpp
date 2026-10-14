@@ -26,11 +26,13 @@
 
 namespace {
 
+// 函数说明：toVector3D负责当前模块的核心处理。
 static QVector3D toVector3D(const gp_Dir &dir)
 {
     return QVector3D(float(dir.X()), float(dir.Y()), float(dir.Z()));
 }
 
+// 函数说明：faceNormalAtUv负责当前模块的核心处理。
 static bool faceNormalAtUv(const TopoDS_Face &face,
                            double u,
                            double v,
@@ -54,6 +56,7 @@ static bool faceNormalAtUv(const TopoDS_Face &face,
     return true;
 }
 
+// 函数说明：sampleFaceNormal负责当前模块的核心处理。
 static bool sampleFaceNormal(const TopoDS_Face &face, gp_Dir &outNormal)
 {
     double uMin = 0.0;
@@ -88,6 +91,7 @@ static bool sampleFaceNormal(const TopoDS_Face &face, gp_Dir &outNormal)
     return false;
 }
 
+// 函数说明：classifyRegion负责当前模块的核心处理。
 static FaceRegion classifyRegion(const QVector3D &normal)
 {
     const QVector3D unit = normal.normalized();
@@ -104,6 +108,7 @@ static FaceRegion classifyRegion(const QVector3D &normal)
     return FaceRegion::Side;
 }
 
+// 函数说明：makeFaceNode负责当前模块的核心处理。
 static FaceNode makeFaceNode(int index, const TopoDS_Face &face)
 {
     FaceNode node;
@@ -139,6 +144,7 @@ static FaceNode makeFaceNode(int index, const TopoDS_Face &face)
     return node;
 }
 
+// 函数说明：surfaceNormalAtMidpoint负责当前模块的核心处理。
 static bool surfaceNormalAtMidpoint(const TopoDS_Edge &edge,
                                     const TopoDS_Face &face,
                                     gp_Dir &outNormal)
@@ -171,6 +177,7 @@ static bool surfaceNormalAtMidpoint(const TopoDS_Edge &edge,
     return true;
 }
 
+// 函数说明：edgeTangentAtMidpoint负责当前模块的核心处理。
 static bool edgeTangentAtMidpoint(const TopoDS_Edge &edge, gp_Dir &outTangent)
 {
     BRepAdaptor_Curve curve(edge);
@@ -190,6 +197,7 @@ static bool edgeTangentAtMidpoint(const TopoDS_Edge &edge, gp_Dir &outTangent)
     return true;
 }
 
+// 函数说明：makeEdgeAttr负责当前模块的核心处理。
 static EdgeAttr makeEdgeAttr(const TopoDS_Edge &edge,
                              const TopoDS_Face &face,
                              const TopoDS_Face &neighbor)
@@ -214,10 +222,13 @@ static EdgeAttr makeEdgeAttr(const TopoDS_Edge &edge,
 
 } // namespace
 
+// 函数说明：analyze负责当前模块的核心处理。
 TopoGraph TopoAnalyzer::analyze(const TopoDS_Shape &shape) const
 {
     TopoGraph graph;
     TopExp::MapShapes(shape, TopAbs_FACE, graph.faceMap);
+    TopExp::MapShapes(shape, TopAbs_EDGE, graph.edgeMap);
+    TopExp::MapShapes(shape, TopAbs_VERTEX, graph.vertexMap);
 
     graph.nodes.reserve(graph.faceMap.Extent());
     for (int faceIndex = 1; faceIndex <= graph.faceMap.Extent(); ++faceIndex) {

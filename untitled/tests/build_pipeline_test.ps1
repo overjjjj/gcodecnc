@@ -22,6 +22,27 @@ foreach ($path in $expected) {
 }
 
 $runTestsText = Get-Content -LiteralPath (Join-Path $ProjectDir "scripts\run_tests.ps1") -Raw
+$registeredNames = @([regex]::Matches($runTestsText, '(?m)^\s*-Name "([^"]+)"') |
+    ForEach-Object { $_.Groups[1].Value })
+$testFiles = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*_test.cpp' |
+    ForEach-Object { $_.BaseName })
+foreach ($testName in $testFiles) {
+    if (@($registeredNames | Where-Object { $_ -eq $testName }).Count -ne 1) {
+        throw "test must be registered exactly once: $testName"
+    }
+}
+foreach ($testName in $registeredNames) {
+    if ($testName -notin $testFiles) { throw "registered test source is missing: $testName" }
+}
+$unknownRejected = $false
+try {
+    & (Join-Path $ProjectDir "scripts\run_tests.ps1") -TestNames 'definitely_unknown_test'
+} catch {
+    if ($_.Exception.Message -notlike '*Unknown test name*definitely_unknown_test*') { throw }
+    $unknownRejected = $true
+}
+if (!$unknownRejected) { throw "unknown test name must fail before running any tests" }
+
 $programGenerationMatch = [regex]::Match(
     $runTestsText,
     '(?s)-Name "program_generation_service_test"\s*`\s*-Sources @\((.*?)\)')
