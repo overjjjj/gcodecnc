@@ -6,6 +6,7 @@
 #include "ChamferMotionValidation.h"
 #include "../../../strategies/hole/ChamferStrategy.h"
 #include "../../process_design/selection/PocketOpening.h"
+#include "../../process_design/selection/SlopedFloorOperation.h"
 #include "../../../strategies/mill/ContourSideGeometry.h"
 
 #include "../../../gcode/GCodeModalOptimizer.h"
@@ -315,6 +316,7 @@ QString operationBlock(int operationNumber,
         operation.params.get(QStringLiteral("workOffset"), 54.0)));
     lines << QStringLiteral("G%1").arg(workOffset);
     lines << gcode.trimmed();
+    lines << QStringLiteral("; ---- End Operation %1 ----").arg(operationNumber);
     return lines.join(QLatin1Char('\n'));
 }
 
@@ -485,7 +487,11 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     QSet<QString> operationIds;
+    const QRegularExpression safeOperationId(QStringLiteral("\\A[A-Za-z0-9_.:-]+\\z"));
     for (int index = 0; index < operations.size(); ++index) {
+        if (!safeOperationId.match(operations[index].id).hasMatch()) {
+            output.errors << QStringLiteral("Operation %1: INVALID_OPERATION_ID.").arg(index + 1);
+        }
         if(operationIds.contains(operations[index].id))
             output.errors << QStringLiteral("Operation %1 has a duplicate operation ID.").arg(index+1);
         operationIds.insert(operations[index].id);
@@ -537,6 +543,9 @@ ProgramGenerationResult ProgramGenerationService::generate(
             const QString openingError = pocketOpeningOperationError(operations[index].selectionEvidence,
                 operations[index].contourFeature,operations[index].params,operations[index].strategyId,snapshotOptions.sourceMesh);
             if (!openingError.isEmpty()) output.errors << openingError;
+            const QString slopeError=slopedFloorOperationError(operations[index].selectionEvidence,
+                operations[index].contourFeature,operations[index].strategyId,snapshotOptions.sourceMesh);
+            if(!slopeError.isEmpty())output.errors<<slopeError;
         }
         if (depthMode != 0.0) {
             output.errors << QStringLiteral(
@@ -878,20 +887,94 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     QHash<QString,const MachiningOperation *> regionOperations;
+    QHash<QString,double> slopedSourceTops;
+    bool hasSlopedFloor=false;
     for(const auto &operation:operations)
-        if(isPocketRegionStrategy(operation.strategyId) && operation.contourFeature.points.size()>=3 &&
-           (operation.strategyId=="mill_pocket_rough" || operation.contourFeature.subType=="verified_slot_opening"))
+        if(operation.strategyId=="mill_sloped_floor" || (isPocketRegionStrategy(operation.strategyId) && operation.contourFeature.points.size()>=3 &&
+           (operation.strategyId=="mill_pocket_rough" || operation.contourFeature.subType=="verified_slot_opening"))) {
             regionOperations.insert(operation.id,&operation);
+            hasSlopedFloor|=operation.strategyId=="mill_sloped_floor";
+            if(operation.strategyId=="mill_sloped_floor") {
+                const auto bound=bindSlopedFloor(*snapshotOptions.sourceMesh,operation.selectionEvidence);
+                if(!bound.error.isEmpty()){output.errors<<bound.error;return output;}
+                slopedSourceTops.insert(operation.id,bound.sourceTopZ);
+            }
+        }
     if(!regionOperations.isEmpty()) {
         const auto lines=expandedGCode.split('\n');
+        QHash<QString,const MachiningOperation *> allOperations;
+        double initialSafeZ=0;
+        for(const auto &operation:operations) {
+            allOperations.insert(operation.id,&operation);
+            initialSafeZ=std::max(initialSafeZ,operation.params.get("safeHeight",50));
+            if(regionOperations.contains(operation.id)) {
+                for(const auto &point:operation.contourFeature.points)
+                    initialSafeZ=std::max(initialSafeZ,double(point.z())+operation.params.get("feedHeight",3));
+                if(slopedSourceTops.contains(operation.id))
+                    initialSafeZ=std::max(initialSafeZ,slopedSourceTops.value(operation.id)-snapshotOptions.modelOrigin.z()+operation.params.get("feedHeight",3));
+            }
+        }
+        // Match the complete, ordered headers emitted by this generation, not
+        // arbitrary op tags in strategy comments or postprocessor output.
+        QStringList expectedHeaders;
+        for(const auto &block:blocks) {
+            expectedHeaders.append(block.section('\n',0,0));
+            expectedHeaders.append(block.section('\n',-1));
+        }
+        int nextHeader=0;
         QVector<const MachiningOperation *> owners;const MachiningOperation *owner=nullptr;
         const QRegularExpression marker("\\[op:([^\\]]+)\\]");
-        for(const auto &line:lines){const auto match=marker.match(line);if(match.hasMatch())owner=regionOperations.value(match.captured(1),nullptr);owners.append(owner);}
+        for(const auto &line:lines) {
+            if(line.contains("[op:") || line.contains("; ---- End Operation ")) {
+                if(nextHeader>=expectedHeaders.size() || line!=expectedHeaders[nextHeader]) {
+                    output.errors<<QStringLiteral("FINAL_NC_OPERATION_OWNER_MISMATCH");return output;
+                }
+                if(nextHeader%2==0) {
+                    const auto match=marker.match(line);
+                    owner=allOperations.value(match.captured(1),nullptr);
+                    if(!owner) {output.errors<<QStringLiteral("FINAL_NC_OPERATION_OWNER_UNKNOWN");return output;}
+                } else owner=nullptr;
+                ++nextHeader;
+            }
+            owners.append(owner);
+        }
+        if(nextHeader!=expectedHeaders.size()) {
+            output.errors<<QStringLiteral("FINAL_NC_OPERATION_OWNER_MISSING");return output;
+        }
         SimulationController parser;parser.loadGCode(expandedGCode,false);
         if(!parser.motionError().isEmpty()){output.errors<<parser.motionError();return output;}
         for(const auto &move:parser.moves()) {
             const auto *operation=move.sourceLine>=0 && move.sourceLine<owners.size()?owners[move.sourceLine]:nullptr;
-            if(!operation)continue;
+            if(!operation) {
+                // A program header may establish safe Z before any operation.
+                if(move.isRapid && move.commandedAxes==4 && (move.toKnownAxes&4) &&
+                   move.to.z()>=initialSafeZ &&
+                   (!(move.fromKnownAxes&4) || move.from.z()>=initialSafeZ))continue;
+                output.errors<<QStringLiteral("FINAL_NC_MOTION_OWNER_MISSING");return output;
+            }
+            if(!regionOperations.contains(operation->id))continue;
+            if(operation->strategyId=="mill_sloped_floor") {
+                QString error;
+                const auto *mesh=snapshotOptions.sourceMesh;
+                const double ceiling=slopedSourceTops.value(operation->id)+operation->params.get("feedHeight",3);
+                const auto from=move.from+snapshotOptions.modelOrigin,to=move.to+snapshotOptions.modelOrigin;
+                if(!mesh || move.chordDeviation!=0)error="SLOPED_FLOOR_LINEAR_SOURCE_MOTION_REQUIRED";
+                else if(move.isRapid && move.commandedAxes==4 && (move.toKnownAxes&4) && move.fromKnownAxes!=7 &&
+                        to.z()>=ceiling) {
+                    // Establish the initial safe Z before the first known XY position.
+                }
+                else if(move.isRapid && move.toKnownAxes==7 && to.z()>=ceiling &&
+                        (move.fromKnownAxes!=7 || from.z()>=ceiling)) {
+                    // Initial positioning and XY links are wholly above all source material.
+                } else if(move.fromKnownAxes!=7 || move.toKnownAxes!=7)error="SLOPED_FLOOR_UNKNOWN_MOTION";
+                else if(move.isRapid && (from.x()!=to.x() || from.y()!=to.y() || to.z()<from.z()))error="SLOPED_FLOOR_UNSAFE_RAPID";
+                else {
+                    const int faceIndex=operation->selectionEvidence.orderedTopologyRefs.first().id.section(':',1).toInt();
+                    error=slopedFloorMoveError(*mesh,faceIndex,from,to,generationTools.value(operation->toolId));
+                }
+                if(!error.isEmpty()){output.errors<<QString("%1 at final NC line %2").arg(error).arg(move.sourceLine+1);return output;}
+                continue;
+            }
             const QString error=regionMoveError(move,operation->contourFeature,operation->params,generationTools.value(operation->toolId).diameter);
             if(!error.isEmpty()){output.errors<<QString("%1 at final NC line %2").arg(error).arg(move.sourceLine+1);return output;}
         }
@@ -908,7 +991,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     // Keep mixed chamfer programs expanded: the final-motion proof cannot parse
     // controller macro calls. Macro-only programs retain their compact output.
     if (postProcessor.id() == QStringLiteral("cq8") && !parametricPrograms.isEmpty()
-        && chamferReferenceBodies.isEmpty()) {
+        && chamferReferenceBodies.isEmpty() && !hasSlopedFloor) {
         QStringList compactBlocks = blocks;
         for (int parametricIndex = 0; parametricIndex < parametricPrograms.size(); ++parametricIndex) {
             const ParametricToolpathProgram &parametricProgram = parametricPrograms.at(parametricIndex);
@@ -968,7 +1051,7 @@ ProgramGenerationResult ProgramGenerationService::generate(
     snapshot.sourceSummary = snapshotOptions.sourceSummary;
     snapshot.gcodeText = finalGCode;
     snapshot.expandedGcodeText = finalGCode == expandedGCode ? QString() : expandedGCode;
-    if (!cq8MacroProgram.libraryText.isEmpty() && chamferReferenceBodies.isEmpty()) {
+    if (!cq8MacroProgram.libraryText.isEmpty() && chamferReferenceBodies.isEmpty() && !hasSlopedFloor) {
         snapshot.macroText = QStringLiteral("; CQ8 MACRO CALLS\n%1\n\n; CQ8 MACRO LIBRARY\n%2")
                                  .arg(cq8MacroProgram.callText,
                                       cq8MacroProgram.libraryText);

@@ -1,5 +1,7 @@
 #include "../operations/MachiningInput.h"
 #include "../selection/PocketOpening.h"
+#include "../selection/SlopedFloorOperation.h"
+#include "SlopedFloorPreview.h"
 #include "../../../app/AppController.h"
 #include "../../../core/ProjectManager.h"
 #include "../../../core/MachiningCoordinates.h"
@@ -96,6 +98,10 @@ OperationEditDialog::OperationEditDialog(const MachiningOperation &operation, QW
     m_tools->setCurrentIndex(m_tools->findData(operation.toolId));
     form->addRow(QStringLiteral("刀具"), m_tools);
     layout->addLayout(form);
+    if(operation.strategyId=="mill_sloped_floor") {
+        const auto *project=AppController::instance().projectManager();
+        if(project){auto *preview=new QLabel(this);showSlopedFloorPreview(preview,bindSlopedFloor(project->mesh(),operation.selectionEvidence));layout->addWidget(preview);}
+    }
     m_table = new QTableWidget(0, 2, this);
     m_table->hide();
     auto editableValues = operation.params.values;
@@ -194,6 +200,9 @@ QString operationEditError(const MachiningOperation &operation, const StrategyPa
         const QString error=pocketOpeningOperationError(operation.selectionEvidence,feature,params,
             operation.strategyId,project ? &project->mesh() : nullptr);
         if(!error.isEmpty())return error;
+        const QString slopeError=slopedFloorOperationError(operation.selectionEvidence,feature,
+            operation.strategyId,project ? &project->mesh() : nullptr);
+        if(!slopeError.isEmpty())return slopeError;
     }
     const auto origin=machiningOrigin(AppController::instance().projectManager());
     const auto heightError=operation.opType==OperationType::Hole

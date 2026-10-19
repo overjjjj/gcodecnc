@@ -35,7 +35,7 @@ namespace {
 
 static bool requiresPocketEntry(const QString &strategy, const MachiningFeature &feature)
 {
-    return strategy=="mill_pocket_rough" || (feature.subType=="verified_slot_opening" &&
+    return strategy=="mill_sloped_floor" || strategy=="mill_pocket_rough" || (feature.subType=="verified_slot_opening" &&
         (strategy=="mill_pocket_finish" || strategy=="mill_pocket_floor_finish"));
 }
 
@@ -92,6 +92,7 @@ static QString preferredSlotStrategy(const MachiningFeature &feature)
 // 函数说明：strategyDisplayName负责当前模块的核心处理。
 static QString strategyDisplayName(const QString &strategyId, bool zh)
 {
+    if(strategyId=="mill_sloped_floor")return zh?QStringLiteral("斜面底面可达区"):QStringLiteral("Accessible sloped floor");
     if (zh) {
         if (strategyId == QStringLiteral("hole_spot")) return QStringLiteral("定点钻");
         if (strategyId == QStringLiteral("hole_g81")) return QStringLiteral("钻孔 G81");
@@ -433,6 +434,7 @@ StrategyPanel::StrategyPanel(QWidget *parent)
 QStringList StrategyPanel::strategyIdsForCurrentContext() const
 {
     if (m_hasContourFeature) {
+        if(m_contourFeature.subType=="verified_sloped_floor")return {QStringLiteral("mill_sloped_floor")};
         if (isFlatSurfaceFeature(m_contourFeature)) {
             return {
                 QStringLiteral("mill_face"),
@@ -550,7 +552,9 @@ void StrategyPanel::selectPreferredStrategyForCurrentContext()
 {
     QString preferred;
     if (m_hasContourFeature) {
-        if (isFlatSurfaceFeature(m_contourFeature)) {
+        if(m_contourFeature.subType=="verified_sloped_floor") {
+            preferred=QStringLiteral("mill_sloped_floor");
+        } else if (isFlatSurfaceFeature(m_contourFeature)) {
             preferred = QStringLiteral("mill_face");
         } else if (isSlotFeatureSelected()) {
             preferred = preferredSlotStrategy(m_contourFeature);
@@ -1093,6 +1097,7 @@ void StrategyPanel::onConfirmOperation()
             && m_contourFeature.subType != QStringLiteral("rectangular_pocket")
             && m_contourFeature.subType != QStringLiteral("circular_pocket");
         const bool finishing = strategyId == QStringLiteral("mill_pocket_finish") ||
+            strategyId == QStringLiteral("mill_sloped_floor") ||
             strategyId == QStringLiteral("mill_pocket_floor_finish");
         const bool continueVertical = QMessageBox::warning(
             this,
@@ -1217,7 +1222,10 @@ void StrategyPanel::retranslateUi()
                      .arg(m_feature.radius * 2.0, 0, 'f', 2)
                      .arg(m_feature.depth, 0, 'f', 2));
     } else if (m_hasContourFeature) {
-        if (isFlatSurfaceFeature(m_contourFeature)) {
+        if (m_contourFeature.subType=="verified_sloped_floor") {
+            m_featureLabel->setText(zh?QStringLiteral("当前特征：带孔斜面，仅加工 +Z 可达区；遮挡条带、孔边及余量保留")
+                :QStringLiteral("Perforated slope: fixed-Z accessible area only; occluded strips, hole margins and stock retained"));
+        } else if (isFlatSurfaceFeature(m_contourFeature)) {
             m_featureLabel->setText(
                 zh ? QStringLiteral("当前特征：平面 L%1，W%2，深度 %3")
                          .arg(m_contourFeature.length, 0, 'f', 2)
@@ -1341,6 +1349,10 @@ void StrategyPanel::retranslateUi()
 // 函数说明：paramDisplayName负责当前模块的核心处理。
 QString StrategyPanel::paramDisplayName(const QString &key) const
 {
+    if(m_currentStrategyId=="mill_sloped_floor") {
+        if(key=="feedHeight")return isChineseUi()?QStringLiteral("源模型上方最小净空"):QStringLiteral("Minimum clearance above source");
+        if(key=="floorStockToLeave")return isChineseUi()?QStringLiteral("底面 Z 向余量"):QStringLiteral("Vertical floor allowance");
+    }
     if (key == "peckDepth" && m_currentStrategyId == "hole_peck") return isChineseUi() ? QStringLiteral("单次深度上限 Q") : QStringLiteral("Peck depth upper limit Q");
     if (key=="stockToLeave" && m_currentStrategyId=="mill_pocket_rough") return isChineseUi()?QStringLiteral("侧壁余量"):QStringLiteral("Side allowance");
     if (key=="stockToLeave" && isPlanarMillingStrategy(m_currentStrategyId)) return isChineseUi()?QStringLiteral("底余量"):QStringLiteral("Floor allowance");
@@ -1439,6 +1451,9 @@ QString StrategyPanel::preferredToolType(const QString &strategyId) const
 QString StrategyPanel::strategyHint(const QString &strategyId) const
 {
     const bool zh = isChineseUi();
+    if(strategyId=="mill_sloped_floor")return zh
+        ?QStringLiteral("固定 +Z 平底刀扫描可达区域；红色遮挡条带保留。须先清空下刀空间；各段从安全高度进给下刀并全退刀。底余量按 Z 向计，平底刀在斜面上另有残留。")
+        :QStringLiteral("Fixed-Z flat cutter, accessible region only; occluded strips retained. Clear entry space first. Each span feeds from safe Z and fully retracts. Floor allowance is vertical; flat-cutter slope residue remains.");
     if (!zh) {
         if (strategyId == QStringLiteral("hole_spot"))
             return QStringLiteral("Spot drill for positioning only. Keep the depth shallow.");

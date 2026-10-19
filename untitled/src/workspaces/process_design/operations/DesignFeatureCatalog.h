@@ -66,6 +66,7 @@ inline const QVector<DesignFeatureEntry> &designFeatureCatalog()
         {"D04.rounded_slot", "圆角槽", "MainWindow::beginOperationWorkflow", "mill_pocket_rough", "直线圆弧闭环", "公共浅层开口证明", "真实八段闭环子集已验收", true},
         {"D04.wall_finish", "侧壁精加工", "MainWindow::beginOperationWorkflow", "mill_pocket_finish", "闭合区域", "单一平底凸区域；源模型证明及明确留量", "待完整验收", true, false, "铣削", "侧壁精加工", true},
         {"D04.floor_finish", "底面精加工", "MainWindow::beginOperationWorkflow", "mill_pocket_floor_finish", "闭合区域", "单一平底凸区域；源模型证明及明确留量", "待完整验收", true, false, "铣削", "底面精加工", true},
+        {"D04.sloped_floor", "斜面底面可达区", "MainWindow::beginOperationWorkflow", "mill_sloped_floor", "完整实体面及孔环", "固定+Z平底刀；直边凸外环及相邻平面直边墙；保留遮挡条带与加工余量", "待真实完整验收", false, false, "铣削", "斜面可达区", true},
         {"D04.planar_finish", "平面精加工", "MillingOperationDialog", "mill_surface_finish", "平面", "单Z平面；不代表曲面能力"},
         {"D04.islands", "环形及含岛", "", "", "区域与岛屿", "已有基础算法；完整入口待验收"},
         {"D04.dynamic", "动态铣", "", "", "区域", "待实现负载约束算法", "未验收"},

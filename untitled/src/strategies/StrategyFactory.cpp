@@ -16,6 +16,7 @@
 #include "mill/PocketFloorFinishStrategy.h"
 #include "mill/ContourFinishStrategy.h"
 #include "mill/SurfaceFinishStrategy.h"
+#include "mill/SlopedFloorStrategy.h"
 #include "mill/ClosedContourMillingStrategy.h"
 #include "mill/OpenContourMillingStrategy.h"
 #include "mill/SlotMillingStrategy.h"
@@ -76,6 +77,7 @@ void StrategyFactory::registerDefaults()
     registerStrategy(std::make_shared<PocketFloorFinishStrategy>());
     registerStrategy(std::make_shared<ContourFinishStrategy>());
     registerStrategy(std::make_shared<SurfaceFinishStrategy>());
+    registerStrategy(std::make_shared<SlopedFloorStrategy>());
     registerStrategy(std::make_shared<ClosedContourMillingStrategy>());
     registerStrategy(std::make_shared<OpenContourMillingStrategy>());
     registerStrategy(std::make_shared<SlotMillingStrategy>());

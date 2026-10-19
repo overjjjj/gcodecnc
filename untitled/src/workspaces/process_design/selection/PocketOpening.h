@@ -20,6 +20,8 @@ bool verifyPocketOpening(const MeshData &mesh, const MeshBoundaryLoop &source,
 bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
                           const SelectionBoundaryLoop &opening, double *depth,
                           QString *error = nullptr, double *floorZ = nullptr);
+bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &source,
+                             const SelectionBoundaryLoop &opening, double *depth, QString *error = nullptr);
 inline QVector3D machiningBoundaryCenter(const QVector<QVector3D> &points)
 {
     QVector3D lo=points.first(),hi=lo;
@@ -64,10 +66,14 @@ inline QString pocketOpeningOperationError(const SelectionChain &selection, cons
         return QStringLiteral("POCKET_OPENING_NEGATIVE_ALLOWANCE");
     const double depth = params.get(QStringLiteral("depth"),0);
     double maximumDepth=opening->maximumDepth;
-    if(finishing || (std::isfinite(depth) && depth>maximumDepth)) {
+    const bool floorFinishing=strategy=="mill_pocket_floor_finish";
+    // Finite wall passes use the freshly proved void. Only floor contact needs
+    // a floor; deeper rough/wall passes require a separate floor or exit proof.
+    if(floorFinishing || (std::isfinite(depth) && depth>maximumDepth)) {
         double floorDepth=0;
         QString floorError;
         if(verifyPocketFlatFloor(*sourceMesh,*sourceOpening,*opening,&floorDepth,&floorError))maximumDepth=floorDepth;
+        else if(!floorFinishing && verifyPocketThroughExit(*sourceMesh,*sourceOpening,*opening,&floorDepth,&floorError))maximumDepth=floorDepth;
         else if(finishing)return floorError;
         // A three-decimal depth may stop less than one output increment above the
         // source floor. Never round the authorized depth into material.

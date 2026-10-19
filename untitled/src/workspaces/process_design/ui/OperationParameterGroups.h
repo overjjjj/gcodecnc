@@ -162,7 +162,9 @@ inline void rebuildOperationParameterGroups(QTabWidget *tabs, QTableWidget *tabl
             label = QStringLiteral("安全高度（工作坐标绝对Z）");
             spin->setToolTip(QStringLiteral("相对于已确认工件原点的绝对Z值；更改原点后请重新核对净空。"));
         } else if (key == "feedHeight") {
-            label = QStringLiteral("进给净空（距加工顶面）");
+            label = strategyId=="mill_sloped_floor"?QStringLiteral("源模型上方最小净空"):QStringLiteral("进给净空（距加工顶面）");
+        } else if(key=="floorStockToLeave" && strategyId=="mill_sloped_floor") {
+            label=QStringLiteral("底面 Z 向余量");
         }
         if (key == QStringLiteral("peckDepth")) label = strategyId == "hole_peck"
             ? QStringLiteral("单次深度上限 Q (mm)") : QStringLiteral("单次深度 Q (mm)");

@@ -125,6 +125,10 @@ HEADERS += \
     src/workspaces/process_design/selection/SelectionChainController.h \
     src/workspaces/process_design/selection/SelectionCandidate.h \
     src/workspaces/process_design/selection/PocketOpening.h \
+    src/workspaces/process_design/selection/SlopedFloorProof.h \
+    src/workspaces/process_design/selection/SlopedFloorBinding.h \
+    src/workspaces/process_design/selection/SlopedFloorOperation.h \
+    src/workspaces/process_design/ui/SlopedFloorPreview.h \
     src/workspaces/process_design/selection/BoundedCurveDiscretization.h \
     src/workspaces/process_design/selection/PocketVolumeProof.h \
     src/workspaces/process_design/ui/SelectionChainDialog.h \
@@ -189,6 +193,7 @@ HEADERS += \
     src/strategies/mill/PocketFloorFinishStrategy.h \
     src/strategies/mill/ContourFinishStrategy.h \
     src/strategies/mill/SurfaceFinishStrategy.h \
+    src/strategies/mill/SlopedFloorStrategy.h \
     src/strategies/mill/ClosedContourMillingStrategy.h \
     src/strategies/mill/OpenContourMillingStrategy.h \
     src/strategies/mill/SlotMachiningGeometry.h \

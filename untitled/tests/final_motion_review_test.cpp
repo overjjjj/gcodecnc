@@ -9,6 +9,21 @@ public:
  QString text;
  ToolpathResult generate(const ContourFeature &,const ToolEntry &,const StrategyParams &)const override {ToolpathResult r;r.ok=true;r.gcode=text;return r;}
 };
+class AlteredPost : public Cq8PostProcessor {
+public:
+ QString mode;
+ QString wrapGCode(const QStringList &blocks,const PostProcessorOptions &options)const override {
+  auto text=Cq8PostProcessor::wrapGCode(blocks,options);
+  if(mode=="missing")text.replace("; ---- Operation 1 [op:motion-review] ----","");
+  if(mode=="unknown")text.replace("[op:motion-review]","[op:ghost]");
+  if(mode=="moved") {
+   const QString second="; ---- Operation 2 [op:ordinary-contour] ----";
+   text.replace(second+"\n","");
+   text.replace("; ---- Operation 1 [op:motion-review] ----", "; ---- Operation 1 [op:motion-review] ----\n"+second);
+  }
+  return text;
+ }
+};
 int main(int argc,char**argv){QCoreApplication app(argc,argv);int failures=0;
  auto expect=[&](bool condition,const char*name){std::cout<<(condition?"PASS ":"FAIL ")<<name<<std::endl;if(!condition)++failures;};
  auto strategy=std::make_shared<InjectedPocket>();ToolEntry tool;tool.id=1;tool.type="end_mill";tool.diameter=2;tool.fluteLen=30;tool.totalLen=60;
@@ -29,5 +44,34 @@ int main(int argc,char**argv){QCoreApplication app(argc,argv);int failures=0;
  // Known upward rapid from below the bottom must never use an initialization exemption.
  ToolMove known;known.from={0,0,-4};known.to={0,0,3};known.isRapid=true;
  expect(regionMoveError(known,op.contourFeature,op.params,2)=="REGION_TOOLPATH_DEPTH_EXCEEDED","known below-bottom rapid remains a depth violation");
+ const QString unsafe=prefix+"G1 X50 Y0 F100"+suffix;
+ expect(!generate(unsafe).ok,"normal owner runs final boundary rejection");
+ for(const auto &id:QStringList{"slope]","slope[","slope\nother","slope]\n; [op:ghost]"}) {
+  op.id=id;expect(!generate(unsafe).ok,qPrintable("unsafe NC rejected with malformed ID: "+id));
+ }
+ op.id="motion-review";
+ expect(!generate(prefix+"; [op:ghost]\nG1 X50 Y0 F100"+suffix).ok,"forged unknown owner cannot disable final check");
+ strategy->text="T1 M6\nS1200 M3\nM8\n"+unsafe;
+ for(const auto &mode:QStringList{"missing","unknown"}) {
+  AlteredPost altered;altered.mode=mode;
+  expect(!service.generate({op},altered,options,snapshot).ok,qPrintable("final text owner "+mode+" is rejected"));
+ }
+ strategy->text="T1 M6\nS1200 M3\nM8\n"+prefix+"G1 X5 Y0 F100"+suffix;
+ auto nonRegion=op;nonRegion.id="ordinary-contour";nonRegion.strategyId="mill_closed_contour";
+ nonRegion.params.set("compensation",0);
+ expect(service.generate({nonRegion,op,nonRegion},post,options,snapshot).ok==false,"duplicate IDs still rejected");
+ auto after=nonRegion;after.id="ordinary-after";
+ const auto mixed=service.generate({nonRegion,op,after},post,options,snapshot);
+ std::cout<<mixed.errors.join(" | ").toStdString()<<std::endl;
+ expect(mixed.ok,"known non-region operations before and after region remain valid");
+ auto headerOptions=options;headerOptions.safeStartBlocks<<"G0 Z50";
+ expect(service.generate({op},post,headerOptions,snapshot).ok,"header may establish safe Z before first operation");
+ headerOptions.safeStartBlocks.last()="G0 Z1";
+ expect(!service.generate({op},post,headerOptions,snapshot).ok,"unowned low header motion is rejected");
+ strategy->text="T1 M6\nS1200 M3\nM8\n"+prefix+"; [op:ordinary-contour]\nG1 X50 Y0 F100"+suffix;
+ expect(!service.generate({op,nonRegion},post,options,snapshot).ok,"forged known non-region owner rejected");
+ strategy->text="T1 M6\nS1200 M3\nM8\n"+unsafe;
+ AlteredPost moved;moved.mode="moved";
+ expect(!service.generate({op,nonRegion},moved,options,snapshot).ok,"moved genuine non-region header cannot steal region motions");
  std::cout<<"Failures="<<failures<<std::endl;return failures?1:0;
 }

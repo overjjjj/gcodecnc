@@ -4,6 +4,7 @@
 
 #include "../selection/FeatureIdentity.h"
 #include "../selection/PocketOpening.h"
+#include "../selection/SlopedFloorOperation.h"
 #include "../../../strategies/mill/ContourSideGeometry.h"
 #include "../../../strategies/hole/HoleStrategyUtils.h"
 #include "../../../tool/ToolLibrary.h"
@@ -26,6 +27,7 @@ OperationType operationTypeForProposal(const OperationProposal &proposal)
         proposal.strategyId == QStringLiteral("mill_pocket_finish") ||
         proposal.strategyId == QStringLiteral("mill_pocket_floor_finish") ||
         proposal.strategyId == QStringLiteral("mill_surface_finish") ||
+        proposal.strategyId == QStringLiteral("mill_sloped_floor") ||
         proposal.strategyId == QStringLiteral("mill_closed_contour") ||
         proposal.strategyId == QStringLiteral("mill_open_contour")) {
         return OperationType::Finish;
@@ -168,6 +170,9 @@ OperationConfirmationResult OperationFactory::confirm(
         const QString openingError = pocketOpeningOperationError(proposal.selectionEvidence,
             proposal.contourFeature,proposal.params,proposal.strategyId,context.sourceMesh);
         if (!openingError.isEmpty()) { result.error = openingError; return result; }
+        result.error=slopedFloorOperationError(proposal.selectionEvidence,proposal.contourFeature,
+            proposal.strategyId,context.sourceMesh);
+        if(!result.error.isEmpty())return result;
     }
     if (proposal.strategyId == QStringLiteral("mill_pocket_rough")) {
         if (!proposal.params.values.contains(QStringLiteral("entryMode"))) {

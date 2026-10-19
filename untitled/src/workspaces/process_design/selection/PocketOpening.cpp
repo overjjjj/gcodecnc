@@ -13,6 +13,7 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepOffsetAPI_MakeOffset.hxx>
 #include <BRepTools_WireExplorer.hxx>
+#include <BRepTools.hxx>
 #include <BRepGProp.hxx>
 #include <GProp_GProps.hxx>
 #include <BRepCheck_Analyzer.hxx>
@@ -365,3 +366,95 @@ bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
 #endif
 }
 
+
+
+bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &source,
+                             const SelectionBoundaryLoop &opening, double *depth, QString *error)
+{
+    if(depth)*depth=0;
+    auto fail=[&](const char *message){if(error)*error=QString::fromLatin1(message);return false;};
+#ifdef CNEXT_ENABLE_OCC
+    using namespace PocketVolumeDetail;
+    try {
+        SelectionBoundaryLoop fresh;
+        if(!verifyPocketOpening(mesh,source,&fresh,nullptr) || !(fresh==opening))
+            return fail("POCKET_THROUGH_SOURCE_PROOF_MISMATCH");
+        const auto material=BRepBuilderAPI_Copy(mesh.sourceShape).Shape();
+        QVector<TopoDS_Solid> solids;
+        if(!completeSolids(material,solids))return fail("POCKET_THROUGH_SOLID_REQUIRED");
+        Bnd_Box bounds;BRepBndLib::Add(material,bounds,false);
+        if(bounds.IsVoid() || bounds.IsOpen())return fail("POCKET_THROUGH_BOUNDS_INVALID");
+        double x0,y0,z0,x1,y1,z1;bounds.Get(x0,y0,z0,x1,y1,z1);
+        const double scale=std::max({1.,std::abs(x0),std::abs(y0),std::abs(z0),std::abs(x1),std::abs(y1),std::abs(z1)});
+        const double top=machiningBoundaryCenter(opening.machiningBoundary).z();
+        BRepBuilderAPI_MakePolygon upperPolygon;
+        for(const auto &p:opening.machiningBoundary)upperPolygon.Add(gp_Pnt(p.x(),p.y(),top));
+        upperPolygon.Close();if(!upperPolygon.IsDone())return fail("POCKET_THROUGH_CAP_INVALID");
+        BRepBuilderAPI_MakeFace upper(upperPolygon.Wire(),true);
+        if(!upper.IsDone() || !BRepCheck_Analyzer(upper.Face()).IsValid())return fail("POCKET_THROUGH_CAP_INVALID");
+        // The source bounds only locate exterior space, never the cutting depth.
+        const double exteriorZ=z0-std::max(1.,shapeTolerance(material)*16);
+        const auto escape=BRepPrimAPI_MakePrism(upper.Face(),gp_Vec(0,0,exteriorZ-top)).Shape();
+        if(!verifyPocketVolume(escape,material).separated)return fail("POCKET_THROUGH_EXTERIOR_CLEARANCE_UNPROVEN");
+        TopTools_IndexedMapOfShape faces;TopExp::MapShapes(material,TopAbs_FACE,faces);
+        if(source.faceIndex<1 || source.faceIndex>faces.Extent())return fail("POCKET_THROUGH_SOURCE_FACE_INVALID");
+        TopTools_IndexedMapOfShape ownerFaces;
+        int owners=0;
+        for(const auto &solid:solids) {
+            TopTools_IndexedMapOfShape candidate;TopExp::MapShapes(solid,TopAbs_FACE,candidate);
+            if(candidate.Contains(faces(source.faceIndex))) {ownerFaces=candidate;++owners;}
+        }
+        if(owners!=1)return fail("POCKET_THROUGH_SOURCE_OWNER_UNPROVEN");
+        double deepest=0;
+        for(int index=1;index<=faces.Extent();++index) {
+            if(!ownerFaces.Contains(faces(index)))continue;
+            const auto face=TopoDS::Face(faces(index));
+            BRepAdaptor_Surface surface(face);
+            if(surface.GetType()!=GeomAbs_Plane)continue;
+            const auto plane=surface.Plane();auto normal=plane.Axis().Direction();
+            if(face.Orientation()==TopAbs_REVERSED)normal.Reverse();
+            if(normal.X()!=0 || normal.Y()!=0 || normal.Z()!=-1)continue;
+            const double bottom=plane.Location().Z(),candidateDepth=top-bottom;
+            if(!std::isfinite(candidateDepth) || candidateDepth<=opening.maximumDepth || candidateDepth<=deepest)continue;
+            BRepBuilderAPI_MakePolygon lowerPolygon;
+            for(const auto &p:opening.machiningBoundary)lowerPolygon.Add(gp_Pnt(p.x(),p.y(),bottom));
+            lowerPolygon.Close();if(!lowerPolygon.IsDone())continue;
+            BRepBuilderAPI_MakeFace lower(plane,lowerPolygon.Wire(),true);
+            if(!lower.IsDone() || !BRepCheck_Analyzer(lower.Face()).IsValid())continue;
+            const auto outer=BRepTools::OuterWire(face);
+            for(TopExp_Explorer wires(face,TopAbs_WIRE);wires.More();wires.Next()) {
+                const auto wire=TopoDS::Wire(wires.Current());
+                if(wire.IsSame(outer))continue;
+                BRepBuilderAPI_MakeFace hole(plane,wire,true);
+                if(!hole.IsDone() || !BRepCheck_Analyzer(hole.Face()).IsValid())continue;
+                const double budget=shapeTolerance(material)+shapeTolerance(lower.Face())+shapeTolerance(hole.Face())+
+                    Precision::Confusion()+128*std::numeric_limits<double>::epsilon()*scale;
+                bool covered=std::isfinite(budget) && budget>0,hasEdges=false;
+                for(TopExp_Explorer edge(hole.Face(),TopAbs_EDGE);covered && edge.More();edge.Next()) {
+                    hasEdges=true;
+                    BRepExtrema_DistShapeShape distance(lower.Face(),edge.Current(),Precision::Confusion());
+                    if(!distance.IsDone() || distance.NbSolution()==0 || distance.InnerSolution() ||
+                       !std::isfinite(distance.Value()) || distance.Value()<=budget)covered=false;
+                }
+                if(!covered || !hasEdges)continue;
+                gp_Pnt witness;double u=0,v=0;
+                if(!BRepClass3d_SolidExplorer::FindAPointInTheFace(lower.Face(),witness,u,v))continue;
+                BRepClass_FaceClassifier own(lower.Face(),witness,budget),inside(hole.Face(),witness,budget);
+                if(own.State()!=TopAbs_IN || inside.State()!=TopAbs_IN)continue;
+                BRepAlgoAPI_Cut outside;
+                TopTools_ListOfShape arguments,tools;arguments.Append(lower.Face());tools.Append(hole.Face());
+                outside.SetArguments(arguments);outside.SetTools(tools);outside.SetNonDestructive(true);outside.Build();
+                if(!outside.IsDone() || TopExp_Explorer(outside.Shape(),TopAbs_FACE).More())continue;
+                deepest=candidateDepth;
+            }
+        }
+        if(deepest<=0)return fail("POCKET_THROUGH_SOURCE_EXIT_UNPROVEN");
+        if(depth)*depth=deepest;
+        if(error)error->clear();
+        return true;
+    } catch(const Standard_Failure &) {return fail("POCKET_THROUGH_GEOMETRY_FAILED");}
+#else
+    Q_UNUSED(mesh);Q_UNUSED(source);Q_UNUSED(opening);
+    return fail("REGION_EXACT_GEOMETRY_UNAVAILABLE");
+#endif
+}

@@ -7,6 +7,8 @@
 #include "../workspaces/program_verification/ui/OperationPathVisibility.h"
 #include "MainWindow.h"
 #include "../workspaces/process_design/selection/PocketOpening.h"
+#include "../workspaces/process_design/selection/SlopedFloorOperation.h"
+#include "../workspaces/process_design/ui/SlopedFloorPreview.h"
 #include "../strategies/mill/ContourSideGeometry.h"
 #include "../core/MachiningCoordinates.h"
 #include "../core/SketchSelectionBinding.h"
@@ -3181,6 +3183,12 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::showOperationParameters()
 {
+    auto *slopePreview=m_parameterDialog->findChild<QLabel *>("slopedFloorAccessPreview");
+    if(slopePreview)slopePreview->hide();
+    if(m_workflowStrategy=="mill_sloped_floor") {
+        if(!slopePreview){slopePreview=new QLabel(m_parameterDialog);static_cast<QVBoxLayout *>(m_parameterDialog->layout())->insertWidget(0,slopePreview);}
+        showSlopedFloorPreview(slopePreview,bindSlopedFloor(AppController::instance().projectManager()->mesh(),m_workflowSelection));
+    }
     if (m_geometryDialog) m_geometryDialog->hide();
     if (m_designSideStack && m_operationPanel)
         m_designSideStack->setCurrentWidget(m_operationPanel);
@@ -3511,7 +3519,8 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
                     error = QStringLiteral("SELECTION_SOURCE_OR_SETUP_STALE");
                 } else if (verifyPocketOpening(current->mesh(), loop, &proof, &opening, &error)) {
                     double floorDepth=0;
-                    if(strategyId=="mill_pocket_rough" || verifyPocketFlatFloor(current->mesh(),loop,proof,&floorDepth,&error)) {
+                    if(strategyId=="mill_pocket_rough" || strategyId=="mill_pocket_finish" ||
+                       verifyPocketFlatFloor(current->mesh(),loop,proof,&floorDepth,&error)) {
                         candidate.machiningBoundaries.append(proof);
                         openingFeatures->insert(key, opening);
                         return;
@@ -3539,6 +3548,7 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
                 current->setupFingerprint() != setupVersion)
                 return tr("模型或加工设置已改变，请重新选择几何。");
             if (sketch) return bindCurrentSketch(selection).error;
+            if(strategyId=="mill_sloped_floor")return bindSlopedFloor(current->mesh(),selection).error;
             for (const auto &loop : selection.boundaryLoops)
                 if (selectionContainsCompleteOpening(selection,loop) &&
                     openingFeatures->contains(loop.faceId + "/" + loop.orderedEdgeIds.join(','))) return QString();
@@ -3584,6 +3594,7 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
             if (!stillCurrent()) return;
             const auto selections = dialog->selections();
             if (sketch && selections.size()!=1) { onErrorOccurred(tr("草图加工请选择一个完整轮廓。")); return; }
+            if(strategyId=="mill_sloped_floor" && selections.size()!=1) {onErrorOccurred(tr("斜面加工请选择一个完整实体面。"));return;}
             QVector<int> indices;
             QVector<QVector<QVector3D>> regionPoints;
             if (selections.size() > 1) {
@@ -3600,6 +3611,19 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
             m_workflowSelection = dialog->selection();
             m_workflowPoints = dialog->selectedPoints();
             const QString id = dialog->selectedCandidateGeometryId();
+            if(strategyId=="mill_sloped_floor") {
+                const auto *current=AppController::instance().projectManager();
+                const auto binding=bindSlopedFloor(current->mesh(),m_workflowSelection);
+                if(!binding.error.isEmpty()){onErrorOccurred(binding.error);return;}
+                m_workflowFeatureIndex=-1;m_workflowStrategy=strategyId;
+                m_workflowPoints=binding.feature.boundaryPoints;
+                m_strategyPanel->setContourFeature(binding.feature);
+                showOperationParameters();
+                m_viewport->setConfirmedContourPreview(binding.feature.boundaryPoints,true);
+                m_bottomBar->setStatus(tr("仅加工当前 +Z 装夹可达区域；轮廓外条带保留。遮挡侧壁：%1。孔边与加工余量另行保留。")
+                    .arg(binding.overhangingWallIds.isEmpty()?tr("无"):binding.overhangingWallIds.join(", ")));
+                return;
+            }
             if (sketch) {
                 const auto binding=bindCurrentSketch(m_workflowSelection);
                 if(!binding.error.isEmpty()){onErrorOccurred(binding.error);return;}
@@ -3622,15 +3646,20 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
                 m_workflowStrategy = strategyId;
                 m_strategyPanel->setContourFeature(openingFeatures->value(key));
                 showOperationParameters();
-                double floorDepth=0;
+                double floorDepth=0,throughDepth=0;
                 const auto *current=AppController::instance().projectManager();
                 if(current)for(const auto &source:current->mesh().boundaryLoops)
                     if(source.faceId==loop.faceId && source.orderedEdgeIds==loop.orderedEdgeIds) {
-                        verifyPocketFlatFloor(current->mesh(),source,loop,&floorDepth);break;
+                        if(!verifyPocketFlatFloor(current->mesh(),source,loop,&floorDepth) && strategyId!="mill_pocket_floor_finish")
+                            verifyPocketThroughExit(current->mesh(),source,loop,&throughDepth);
+                        break;
                     }
                 if(floorDepth>0)
                     m_bottomBar->setStatus(tr("已验证真实平底深度 %1 mm；请确认加工深度，侧壁与底面余量分别设置。深度取整时向浅处取值。")
                         .arg(floorDepth,0,'g',12));
+                else if(throughDepth>0)
+                    m_bottomBar->setStatus(tr("已验证所选实体的贯通出口深度 %1 mm；粗加工与侧壁不得超过该深度。带孔斜面须另建底面工序。")
+                        .arg(throughDepth,0,'g',12));
                 else
                     m_bottomBar->setStatus(tr("槽口作为加工外边界；源内环身份保留。请明确输入深度，公共可加工上限 %1 mm；更深斜底及下层开口未验证。")
                         .arg(loop.maximumDepth,0,'f',3));
@@ -3646,10 +3675,10 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
             m_strategyPanel->setContourFeature(features[index]);
             showOperationParameters();
         });
-        connect(dialog, &QDialog::finished, this, [this]() {
+        connect(dialog, &QDialog::finished, this, [this, strategyId](int result) {
             m_viewport->setTopologyPickMode(static_cast<int>(ViewportWidget::TopologyPickMode::Face));
             m_viewport->clearTopologyPickFilter();
-            m_viewport->clearConfirmedContourPreview();
+            if(strategyId!="mill_sloped_floor" || result!=QDialog::Accepted)m_viewport->clearConfirmedContourPreview();
             m_viewport->clearContourChoicePreview();
             if (m_designSideStack && m_operationPanel)
                 m_designSideStack->setCurrentWidget(m_operationPanel);
@@ -5522,6 +5551,7 @@ void MainWindow::connectSignals()
                 }
                 if(error.isEmpty())error=contourSideOperationError(operation.selectionEvidence,feature,operation.params,operation.strategyId);
                 if(error.isEmpty())error=pocketOpeningOperationError(operation.selectionEvidence,feature,operation.params,operation.strategyId,project?&project->mesh():nullptr);
+                if(error.isEmpty())error=slopedFloorOperationError(operation.selectionEvidence,feature,operation.strategyId,project?&project->mesh():nullptr);
                 if(!error.isEmpty()){m_operationPanel->setToolpathResult(operation.id,false,error);++failed;continue;}
             }
             const StrategyParams params = isSlotMillingStrategy(operation.strategyId)

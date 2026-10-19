@@ -79,7 +79,7 @@ inline QString summary(const QString &raw)
         {"CQ8 macro", "CQ8 宏文件未通过检查。请查看详情并重新生成完整程序包。"}
     };
     QStringList result;
-    for(const auto &message:messages)if(raw.contains(QString::fromLatin1(message.key)) &&
+    for(const auto &message:messages)if(raw.contains(QString::fromUtf8(message.key)) &&
         !result.contains(QString::fromUtf8(message.text)))result.append(QString::fromUtf8(message.text));
     if(!result.isEmpty())return result.join(QStringLiteral("\n\n"));
     if(raw.contains("Tool number") && raw.contains("already exists"))return QStringLiteral("该刀具编号已存在。请使用其他编号，或编辑已有刀具。");

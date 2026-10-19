@@ -27,17 +27,21 @@ public:
                 box->text().contains(QStringLiteral("请")) && !box->text().contains("UNPROVEN") &&
                 !box->text().contains("UNEXPECTED_TEST_FAILURE") && !box->text().contains(QChar(0xfffd));
             const bool detail=box->detailedText().contains(expected);
+            if(expected.startsWith(QStringLiteral("STEP 导入失败")) && box->text()!=QStringLiteral("模型导入失败。请检查 STEP 文件是否完整、可读取，并查看详情中的导入诊断。"))++failures;
             if(!readable || !detail || !box->button(QMessageBox::Ok) || box->button(QMessageBox::Ok)->text()!=QStringLiteral("确定")) {
                 ++failures;std::cerr<<"FAIL operator text/details: "<<box->text().toStdString()<<std::endl;
             }
             if(IsWindowVisible(reinterpret_cast<HWND>(box->winId())))++failures;
             box->grab().save(directory+QString("/error-%1.png").arg(count));
+            bool foundDetails=false;
             for(auto *button:box->buttons())if(button->text()==QStringLiteral("查看详情")) {
+                foundDetails=true;
                 button->click();QApplication::processEvents();
                 auto *details=box->findChild<QTextEdit *>();
-                if(!details || details->toPlainText()!=expected)++failures;
+                if(!details || !details->isVisible() || details->toPlainText()!=expected || button->text()!=QStringLiteral("收起详情"))++failures;
                 box->grab().save(directory+QString("/details-%1.png").arg(count));break;
             }
+            if(!foundDetails){++failures;std::cerr<<"FAIL required details button missing"<<std::endl;}
             box->accept();
         });
         return false;
@@ -50,7 +54,7 @@ int main(int argc,char **argv) {
     QSettings::setPath(QSettings::IniFormat,QSettings::SystemScope,settings.path());
     DialogProbe probe;probe.directory=QString::fromLocal8Bit(argv[1]);QDir().mkpath(probe.directory);app.installEventFilter(&probe);
     MainWindow window;window.setAttribute(Qt::WA_DontShowOnScreen);
-    for(const auto &raw:QStringList{"POCKET_SINGLE_FLAT_FLOOR_UNPROVEN",QStringLiteral("程序生成已中止：\nPOCKET_OPENING_SOURCE_PROOF_MISMATCH"),"UNEXPECTED_TEST_FAILURE: kernel detail <tag>"}) {
+    for(const auto &raw:QStringList{"POCKET_SINGLE_FLAT_FLOOR_UNPROVEN",QStringLiteral("程序生成已中止：\nPOCKET_OPENING_SOURCE_PROOF_MISMATCH"),"UNEXPECTED_TEST_FAILURE: kernel detail <tag>",QStringLiteral("STEP 导入失败：Cannot read invalid STEP record")}) {
         probe.expected=raw;
         if(!QMetaObject::invokeMethod(&window,"onErrorOccurred",Qt::DirectConnection,Q_ARG(QString,raw)))return 2;
     }
@@ -60,7 +64,7 @@ int main(int argc,char **argv) {
     table->item(0,1)->setText("-1");probe.expected=QStringLiteral("深度 必须大于 0。");
     QMetaObject::invokeMethod(&parameters,"onAccept",Qt::DirectConnection);
     if(parameters.result()==QDialog::Accepted || parameters.params().get("depth")!=4)return 5;
-    if(probe.count!=4)return 3;
+    if(probe.count!=5)return 3;
     std::cout<<"dialogs="<<probe.count<<" failures="<<probe.failures<<std::endl;
     return probe.failures?1:0;
 }
