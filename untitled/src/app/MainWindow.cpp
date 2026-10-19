@@ -3620,8 +3620,10 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
                 m_strategyPanel->setContourFeature(binding.feature);
                 showOperationParameters();
                 m_viewport->setConfirmedContourPreview(binding.feature.boundaryPoints,true);
-                m_bottomBar->setStatus(tr("仅加工当前 +Z 装夹可达区域；轮廓外条带保留。遮挡侧壁：%1。孔边与加工余量另行保留。")
-                    .arg(binding.overhangingWallIds.isEmpty()?tr("无"):binding.overhangingWallIds.join(", ")));
+                m_bottomBar->setStatus(binding.curvedWallCandidate
+                    ? tr("曲线斜面候选边界；可达性尚未证明。生成时须通过完整实体刀具与刀柄扫掠检查；孔边与加工余量保留。")
+                    : tr("仅加工当前 +Z 装夹可达区域；轮廓外条带保留。遮挡侧壁：%1。孔边与加工余量另行保留。")
+                        .arg(binding.overhangingWallIds.isEmpty()?tr("无"):binding.overhangingWallIds.join(", ")));
                 return;
             }
             if (sketch) {

@@ -12,7 +12,8 @@ public:
     static ToolpathResult generateRegionPass(const ContourFeature &feature,
                                             const ToolEntry &tool,
                                             const StrategyParams &params,
-                                            bool includeToolCall);
+                                            bool includeToolCall,
+                                            bool allowConcaveWall = false);
     StrategyParams defaultParams() const override;
     ToolpathResult generate(const HoleFeature &feature,
                             const ToolEntry &tool,

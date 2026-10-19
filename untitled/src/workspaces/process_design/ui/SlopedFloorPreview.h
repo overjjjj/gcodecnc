@@ -23,8 +23,12 @@ inline void showSlopedFloorPreview(QLabel *label,const SlopedFloorBinding &bindi
     painter.setPen(QPen(QColor("#136ca3"),1.5));painter.drawPath(reachable);
     for(const auto &hole:binding.feature.islandBoundaries){const auto region=path(hole);painter.fillPath(region,Qt::white);painter.setPen(QPen(Qt::black,1));painter.drawPath(region);}
     painter.setPen(Qt::black);painter.drawText(12,163,QStringLiteral("孔边、侧留量与底面 Z 向余量另行保留"));
-    painter.drawText(12,183,QStringLiteral("遮挡侧壁：%1").arg(binding.overhangingWallIds.join(", ")));
+    painter.drawText(12,183,binding.curvedWallCandidate
+        ? QStringLiteral("曲线侧壁：候选区须通过完整实体扫掠验证")
+        : QStringLiteral("遮挡侧壁：%1").arg(binding.overhangingWallIds.join(", ")));
     label->setPixmap(image);label->setObjectName("slopedFloorAccessPreview");
-    label->setToolTip(QStringLiteral("真实底面与相邻侧壁的 +Z 投影；红色为当前装夹不可达条带。蓝色仅表示候选区域，完整刀具扫掠仍须通过。"));
+    label->setToolTip(binding.curvedWallCandidate
+        ? QStringLiteral("真实曲线底面的候选区域，尚未证明侧壁可达性。蓝色不代表完整覆盖；最终刀具与刀柄扫掠必须通过完整源实体检查。")
+        : QStringLiteral("真实底面与相邻侧壁的 +Z 投影；红色为当前装夹不可达条带。蓝色仅表示候选区域，完整刀具扫掠仍须通过。"));
     label->show();
 }

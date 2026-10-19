@@ -121,7 +121,8 @@ struct SelectionBoundaryLoop {
 inline bool openingEvidenceSupported(const SelectionBoundaryLoop &loop)
 {
     if(loop.discretizationRule!="occ-bezier-finite-chord-v1" ||
-       (loop.candidateRule!="occ-wire-inward-offset-v1" && loop.candidateRule!="source-polygon-inset-candidate-v1") ||
+       (loop.candidateRule!="occ-wire-inward-offset-v1" && loop.candidateRule!="source-polygon-inset-candidate-v1" &&
+        loop.candidateRule!="source-section-inset-candidate-v1") ||
        loop.volumeProofRule!="occ-boundary-component-escape-v1" || loop.curves.isEmpty() ||
        !std::isfinite(loop.boundaryTolerance) || loop.boundaryTolerance<=0 ||
        !std::isfinite(loop.volumeProofBudget) || loop.volumeProofBudget<=0 ||

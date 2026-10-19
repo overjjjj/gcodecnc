@@ -90,8 +90,10 @@ inline BoundedCurveResult discretizeCurve(const BRepAdaptor_Curve &curve,double 
             // Reuse the previous stored junction explicitly and charge its full
             // displacement from this subarc's start to the same error budget.
             const auto fa=hasPrevious?result.points.last():stored(a),fb=stored(b);
+            // Quantization shares the checked chord budget; its actual value is
+            // charged below instead of imposing an independent quarter-budget cap.
             const double quantization=std::max(a.Distance(point(fa)),b.Distance(point(fb)));
-            if(!std::isfinite(quantization) || quantization>tolerance*.25){error="CURVE_FLOAT_BUDGET_EXCEEDED";return false;}
+            if(!std::isfinite(quantization) || quantization+Precision::Confusion()>tolerance*.75){error="CURVE_FLOAT_BUDGET_EXCEEDED";return false;}
             const gp_Vec chord(a,b);const double square=chord.SquareMagnitude();
             double hull=0,scale=1;
             for(int i=1;i<=arc->NbPoles();++i) {
@@ -125,8 +127,8 @@ inline BoundedCurveResult discretizeCurve(const BRepAdaptor_Curve &curve,double 
             if(!append(arc,0))return fail(error.toLatin1().constData());
             ++result.continuityIntervals;
         }
-        if(result.points.size()<2 || curve.Value(lo).Distance(point(result.points.first()))>tolerance*.25 ||
-           curve.Value(hi).Distance(point(result.points.last()))>tolerance*.25)return fail("CURVE_ENDPOINT_MISSING");
+        if(result.points.size()<2 || curve.Value(lo).Distance(point(result.points.first()))>tolerance ||
+           curve.Value(hi).Distance(point(result.points.last()))>tolerance)return fail("CURVE_ENDPOINT_MISSING");
         if(first>last)std::reverse(result.points.begin(),result.points.end());
         result.computedBound+=result.conversionEndpointDisplacement;
         if(result.computedBound>tolerance)return fail("CURVE_TOTAL_BUDGET_EXCEEDED");

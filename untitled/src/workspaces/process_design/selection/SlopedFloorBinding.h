@@ -15,6 +15,7 @@ struct SlopedFloorBinding {
     QVector<QVector3D> sourceOuterBoundary;
     QStringList overhangingWallIds;
     double sourceTopZ=0;
+    bool curvedWallCandidate=false;
 };
 
 inline SlopedFloorBinding bindSlopedFloor(const MeshData &mesh, const SelectionChain &selection)
@@ -78,13 +79,25 @@ inline SlopedFloorBinding bindSlopedFloor(const MeshData &mesh, const SelectionC
         if(feature.boundaryPoints.size()<3 || matched.size()!=selection.boundaryLoops.size())
             return fail("SLOPED_FLOOR_COMPLETE_SOURCE_WIRES_REQUIRED");
         result.sourceOuterBoundary=feature.boundaryPoints;
+        auto finish=[&]() {
+            feature.center=feature.boundaryPoints.first();feature.planarBoundaryVerified=true;feature.faceIndices={index};
+            auto lo=feature.center,hi=feature.center;
+            for(const auto &p:feature.boundaryPoints)for(int axis=0;axis<3;++axis){lo[axis]=std::min(double(lo[axis]),double(p[axis]));hi[axis]=std::max(double(hi[axis]),double(p[axis]));}
+            feature.length=hi.x()-lo.x();feature.width=hi.y()-lo.y();feature.depth=std::max(.001,double(hi.z()-lo.z()));
+            return result;
+        };
         // Restrict the candidate region by the full vertical projection of each
         // adjacent planar wall. The exact whole-source sweep remains mandatory.
         QVector<gp_Pnt> polygon;
         QVector<TopoDS_Edge> outerEdges;
         for(BRepTools_WireExplorer it(outer,face);it.More();it.Next()) {
             BRepAdaptor_Curve curve(it.Current());
-            if(curve.GetType()!=GeomAbs_Line)return fail("SLOPED_FLOOR_STRAIGHT_CONVEX_OUTER_REQUIRED");
+            if(curve.GetType()!=GeomAbs_Line) {
+                // Complete source trims are candidates only. Curved walls have no
+                // planar shadow proof; every final cutter/shank sweep must pass.
+                result.curvedWallCandidate=true;
+                return finish();
+            }
             polygon.append(BRep_Tool::Pnt(TopExp::FirstVertex(it.Current(),true)));
             outerEdges.append(it.Current());
         }
@@ -146,11 +159,7 @@ inline SlopedFloorBinding bindSlopedFloor(const MeshData &mesh, const SelectionC
         }
         feature.boundaryPoints.clear();
         for(const auto &p:polygon)feature.boundaryPoints.append(QVector3D(float(p.X()),float(p.Y()),float(p.Z())));
-        feature.center=feature.boundaryPoints.first();feature.planarBoundaryVerified=true;feature.faceIndices={index};
-        auto lo=feature.center,hi=feature.center;
-        for(const auto &p:feature.boundaryPoints)for(int axis=0;axis<3;++axis){lo[axis]=std::min(double(lo[axis]),double(p[axis]));hi[axis]=std::max(double(hi[axis]),double(p[axis]));}
-        feature.length=hi.x()-lo.x();feature.width=hi.y()-lo.y();feature.depth=std::max(.001,double(hi.z()-lo.z()));
-        return result;
+        return finish();
     } catch(const Standard_Failure &) {return fail("SLOPED_FLOOR_GEOMETRY_FAILED");}
 #else
     Q_UNUSED(mesh);

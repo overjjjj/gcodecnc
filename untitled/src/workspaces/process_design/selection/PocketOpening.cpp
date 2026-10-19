@@ -8,6 +8,7 @@
 #include <BRepBuilderAPI_MakePolygon.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -27,8 +28,55 @@
 #endif
 
 
-bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
-                         SelectionBoundaryLoop *evidence,MachiningFeature *feature,QString *error)
+#ifdef CNEXT_ENABLE_OCC
+// A middle section proposes the core of a stepped opening. It grants no depth:
+// containment and the complete source-volume checks below still decide access.
+static TopoDS_Face sectionOpeningCandidate(const TopoDS_Shape &material,
+                                          const TopoDS_Face &sourceFace,
+                                          const TopoDS_Face &opening,double top)
+{
+    TopoDS_Shape owner;
+    for(TopExp_Explorer solid(material,TopAbs_SOLID);solid.More();solid.Next()) {
+        bool owns=false;
+        for(TopExp_Explorer face(solid.Current(),TopAbs_FACE);face.More();face.Next())
+            owns|=face.Current().IsSame(sourceFace);
+        if(owns) {if(!owner.IsNull())return {};owner=solid.Current();}
+    }
+    if(owner.IsNull())return {};
+    Bnd_Box bounds;BRepBndLib::Add(owner,bounds,false);
+    if(bounds.IsVoid() || bounds.IsOpen())return {};
+    double x0,y0,z0,x1,y1,z1;bounds.Get(x0,y0,z0,x1,y1,z1);
+    const double z=(z0+top)*.5;
+    if(!std::isfinite(z) || z>=top)return {};
+    BRepBuilderAPI_MakeFace plane(gp_Pln(gp_Pnt(0,0,z),gp_Dir(0,0,1)),x0-1,x1+1,y0-1,y1+1);
+    if(!plane.IsDone())return {};
+    BRepAlgoAPI_Common section;
+    TopTools_ListOfShape arguments,tools;arguments.Append(plane.Face());tools.Append(owner);
+    section.SetArguments(arguments);section.SetTools(tools);section.SetNonDestructive(true);section.Build();
+    if(!section.IsDone())return {};
+    TopoDS_Face found;
+    for(TopExp_Explorer faces(section.Shape(),TopAbs_FACE);faces.More();faces.Next()) {
+        const auto face=TopoDS::Face(faces.Current());const auto outer=BRepTools::OuterWire(face);
+        for(TopExp_Explorer wires(face,TopAbs_WIRE);wires.More();wires.Next()) {
+            if(wires.Current().IsSame(outer))continue;
+            BRepBuilderAPI_MakeFace cap(TopoDS::Wire(wires.Current()),true);
+            if(!cap.IsDone() || !BRepCheck_Analyzer(cap.Face()).IsValid())continue;
+            gp_Trsf lift;lift.SetTranslation(gp_Vec(0,0,top-z));
+            const auto candidate=TopoDS::Face(BRepBuilderAPI_Transform(cap.Face(),lift,true).Shape());
+            BRepAlgoAPI_Cut outside;
+            TopTools_ListOfShape caps,regions;caps.Append(candidate);regions.Append(opening);
+            outside.SetArguments(caps);outside.SetTools(regions);outside.SetNonDestructive(true);outside.Build();
+            if(!outside.IsDone() || TopExp_Explorer(outside.Shape(),TopAbs_FACE).More())continue;
+            if(!found.IsNull())return {};
+            found=candidate;
+        }
+    }
+    return found;
+}
+#endif
+
+static bool verifyPocketOpeningCandidate(const MeshData &mesh,const MeshBoundaryLoop &source,
+                         SelectionBoundaryLoop *evidence,MachiningFeature *feature,QString *error,bool sectionCandidate)
 {
     auto fail=[&](const char *message){if(error)*error=QString::fromLatin1(message);return false;};
     if(evidence)*evidence={};
@@ -165,13 +213,21 @@ bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
             if(!candidateFace.IsDone() || !BRepCheck_Analyzer(candidateFace.Face()).IsValid())return fail("REGION_SOURCE_POLYGON_INVALID");
             offsetInput=candidateFace.Face();
         }
+        if(sectionCandidate) {
+            offsetInput=sectionOpeningCandidate(sourceShape,face,makeFace.Face(),center.z());
+            if(offsetInput.IsNull())return fail("REGION_UNIQUE_SECTION_CORE_UNPROVEN");
+            proof.candidateRule="source-section-inset-candidate-v1";
+        }
         // Offset construction supplies a candidate; containment and the full
         // volume proof below establish the usable region without volume-noise allowances.
-        GProp_GProps originalArea;BRepGProp::SurfaceProperties(makeFace.Face(),originalArea);
+        GProp_GProps originalArea;BRepGProp::SurfaceProperties(offsetInput,originalArea);
         TopoDS_Face insetFace;
+        // Reserve another tolerance inside a section-derived core. This only
+        // shrinks the candidate; all approximation and volume gates stay unchanged.
+        const double inset=sectionCandidate?2*tolerance:tolerance;
         for(double sign:{-1.0,1.0}){
             BRepOffsetAPI_MakeOffset offset(offsetInput,GeomAbs_Arc);
-            offset.Perform(sign*tolerance);
+            offset.Perform(sign*inset);
             if(!offset.IsDone())continue;
             TopExp_Explorer loops(offset.Shape(),TopAbs_WIRE);
             if(!loops.More())continue;
@@ -188,58 +244,72 @@ bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
             insetFace=candidate.Face();break;
         }
         if(insetFace.IsNull() || !BRepCheck_Analyzer(insetFace).IsValid())return fail("REGION_INWARD_TOLERANCE_OFFSET_FAILED");
-        proof.machiningBoundary.clear();
-        TopExp_Explorer insetLoops(insetFace,TopAbs_WIRE);
-        const auto insetWire=TopoDS::Wire(insetLoops.Current());
-        QVector<QVector3D> insetEnds,insetStarts;QVector<double> insetBounds;
-        for(BRepTools_WireExplorer it(insetWire,insetFace);it.More();it.Next()){
-            const auto edge=it.Current();BRepAdaptor_Curve curve(edge);
-            double a=curve.FirstParameter(),b=curve.LastParameter();if(edge.Orientation()==TopAbs_REVERSED)std::swap(a,b);
-            const auto sampled=discretizeCurve(curve,a,b,tolerance*.25);
-            if(!sampled.error.isEmpty())return fail(qPrintable(sampled.error));
-            insetStarts.append(sampled.points.first());insetEnds.append(sampled.points.last());insetBounds.append(sampled.computedBound);
-            for(int j=0;j<sampled.points.size()-1;++j)proof.machiningBoundary.append(sampled.points[j]);
+        TopoDS_Face consumedRegion,liftedRegion;
+        double samplingTolerance=tolerance*.25;
+        for(int attempt=0;attempt<2;++attempt) {
+            proof.machiningBoundary.clear();
+            TopExp_Explorer insetLoops(insetFace,TopAbs_WIRE);
+            const auto insetWire=TopoDS::Wire(insetLoops.Current());
+            QVector<QVector3D> insetEnds,insetStarts;QVector<double> insetBounds;
+            for(BRepTools_WireExplorer it(insetWire,insetFace);it.More();it.Next()){
+                const auto edge=it.Current();BRepAdaptor_Curve curve(edge);
+                double a=curve.FirstParameter(),b=curve.LastParameter();if(edge.Orientation()==TopAbs_REVERSED)std::swap(a,b);
+                const auto sampled=discretizeCurve(curve,a,b,samplingTolerance);
+                if(!sampled.error.isEmpty())return fail(qPrintable(sampled.error));
+                insetStarts.append(sampled.points.first());insetEnds.append(sampled.points.last());insetBounds.append(sampled.computedBound);
+                for(int j=0;j<sampled.points.size()-1;++j)proof.machiningBoundary.append(sampled.points[j]);
+            }
+            BRepBuilderAPI_MakePolygon polygon;
+            double consumedBound=0,flatten=0;
+            for(int i=0;i<insetEnds.size();++i)consumedBound=std::max(consumedBound,insetBounds[i]+double((insetEnds[i]-insetStarts[(i+1)%insetStarts.size()]).length()));
+            for(auto &p:proof.machiningBoundary){flatten=std::max(flatten,std::abs(double(p.z())-center.z()));p.setZ(center.z());polygon.Add(gp_Pnt(p.x(),p.y(),p.z()));}
+            if(consumedBound+flatten>tolerance*.25)return fail("REGION_CONSUMED_BOUNDARY_BUDGET_EXCEEDED");
+            proof.consumedBoundaryBound=consumedBound+flatten;
+            polygon.Close();
+            if(!polygon.IsDone())return fail("REGION_DISCRETE_BOUNDARY_INVALID");
+            BRepBuilderAPI_MakeFace consumedFace(polygon.Wire(),true);
+            if(!consumedFace.IsDone() || !BRepCheck_Analyzer(consumedFace.Face()).IsValid())return fail("REGION_DISCRETE_BOUNDARY_INVALID");
+            // Compare XY regions on the same source plane. The actual constant-Z
+            // polygon and its prism below remain unchanged for the 3D proof.
+            BRepAdaptor_Surface originalSurface(makeFace.Face());
+            if(originalSurface.GetType()!=GeomAbs_Plane)return fail("REGION_SOURCE_PLANE_INVALID");
+            const auto plane=originalSurface.Plane();const auto origin=plane.Location();const auto direction=plane.Axis().Direction();
+            for(double value:{origin.X(),origin.Y(),origin.Z(),direction.X(),direction.Y(),direction.Z()})
+                if(!std::isfinite(value))return fail("REGION_SOURCE_PLANE_INVALID");
+            if(std::abs(direction.Z())<.99999)return fail("REGION_SOURCE_PLANE_INVALID");
+            BRepBuilderAPI_MakePolygon liftedPolygon;double maximumLift=0,maximumResidual=0,liftScale=1;
+            for(const auto &p:proof.machiningBoundary) {
+                const double z=origin.Z()-(direction.X()*(double(p.x())-origin.X())+direction.Y()*(double(p.y())-origin.Y()))/direction.Z();
+                if(!std::isfinite(z))return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
+                const gp_Pnt lifted(p.x(),p.y(),z);liftedPolygon.Add(lifted);
+                maximumLift=std::max(maximumLift,std::abs(z-double(p.z())));
+                maximumResidual=std::max(maximumResidual,plane.Distance(lifted));
+                liftScale=std::max({liftScale,std::abs(double(p.x())),std::abs(double(p.y())),std::abs(z),std::abs(origin.X()),std::abs(origin.Y()),std::abs(origin.Z())});
+            }
+            liftedPolygon.Close();if(!liftedPolygon.IsDone())return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
+            BRepBuilderAPI_MakeFace liftedFace(plane,liftedPolygon.Wire(),true);
+            if(!liftedFace.IsDone() || !BRepCheck_Analyzer(liftedFace.Face()).IsValid())return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
+            const double liftBudget=PocketVolumeDetail::shapeTolerance(makeFace.Face())+PocketVolumeDetail::shapeTolerance(liftedFace.Face())+
+                Precision::Confusion()+128*std::numeric_limits<double>::epsilon()*liftScale;
+            if(!std::isfinite(liftBudget) || !std::isfinite(maximumResidual) || maximumResidual>liftBudget)
+                return fail("REGION_CONTAINMENT_PROJECTION_BUDGET_EXCEEDED");
+            if(consumedBound+maximumLift+liftBudget>tolerance*.25) {
+                const double remaining=tolerance*.25-maximumLift-liftBudget;
+                if(attempt!=0 || remaining<16*Precision::Confusion())
+                    return fail("REGION_CONTAINMENT_PROJECTION_BUDGET_EXCEEDED");
+                // Spend only the budget left by source topology and projection.
+                samplingTolerance=remaining;
+                continue;
+            }
+            proof.consumedBoundaryBound=std::max(proof.consumedBoundaryBound,consumedBound+maximumLift+liftBudget);
+            consumedRegion=consumedFace.Face();liftedRegion=liftedFace.Face();
+            break;
         }
-        BRepBuilderAPI_MakePolygon polygon;
-        double consumedBound=0,flatten=0;
-        for(int i=0;i<insetEnds.size();++i)consumedBound=std::max(consumedBound,insetBounds[i]+double((insetEnds[i]-insetStarts[(i+1)%insetStarts.size()]).length()));
-        for(auto &p:proof.machiningBoundary){flatten=std::max(flatten,std::abs(double(p.z())-center.z()));p.setZ(center.z());polygon.Add(gp_Pnt(p.x(),p.y(),p.z()));}
-        if(consumedBound+flatten>tolerance*.25)return fail("REGION_CONSUMED_BOUNDARY_BUDGET_EXCEEDED");
-        proof.consumedBoundaryBound=consumedBound+flatten;
-        polygon.Close();
-        if(!polygon.IsDone())return fail("REGION_DISCRETE_BOUNDARY_INVALID");
-        BRepBuilderAPI_MakeFace consumedFace(polygon.Wire(),true);
-        if(!consumedFace.IsDone() || !BRepCheck_Analyzer(consumedFace.Face()).IsValid())return fail("REGION_DISCRETE_BOUNDARY_INVALID");
-        // Compare XY regions on the same source plane. The actual constant-Z
-        // polygon and its prism below remain unchanged for the 3D proof.
-        BRepAdaptor_Surface originalSurface(makeFace.Face());
-        if(originalSurface.GetType()!=GeomAbs_Plane)return fail("REGION_SOURCE_PLANE_INVALID");
-        const auto plane=originalSurface.Plane();const auto origin=plane.Location();const auto direction=plane.Axis().Direction();
-        for(double value:{origin.X(),origin.Y(),origin.Z(),direction.X(),direction.Y(),direction.Z()})
-            if(!std::isfinite(value))return fail("REGION_SOURCE_PLANE_INVALID");
-        if(std::abs(direction.Z())<.99999)return fail("REGION_SOURCE_PLANE_INVALID");
-        BRepBuilderAPI_MakePolygon liftedPolygon;double maximumLift=0,maximumResidual=0,liftScale=1;
-        for(const auto &p:proof.machiningBoundary) {
-            const double z=origin.Z()-(direction.X()*(double(p.x())-origin.X())+direction.Y()*(double(p.y())-origin.Y()))/direction.Z();
-            if(!std::isfinite(z))return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
-            const gp_Pnt lifted(p.x(),p.y(),z);liftedPolygon.Add(lifted);
-            maximumLift=std::max(maximumLift,std::abs(z-double(p.z())));
-            maximumResidual=std::max(maximumResidual,plane.Distance(lifted));
-            liftScale=std::max({liftScale,std::abs(double(p.x())),std::abs(double(p.y())),std::abs(z),std::abs(origin.X()),std::abs(origin.Y()),std::abs(origin.Z())});
-        }
-        liftedPolygon.Close();if(!liftedPolygon.IsDone())return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
-        BRepBuilderAPI_MakeFace liftedFace(plane,liftedPolygon.Wire(),true);
-        if(!liftedFace.IsDone() || !BRepCheck_Analyzer(liftedFace.Face()).IsValid())return fail("REGION_CONTAINMENT_PROJECTION_INVALID");
-        const double liftBudget=PocketVolumeDetail::shapeTolerance(makeFace.Face())+PocketVolumeDetail::shapeTolerance(liftedFace.Face())+
-            Precision::Confusion()+128*std::numeric_limits<double>::epsilon()*liftScale;
-        if(!std::isfinite(liftBudget) || !std::isfinite(maximumResidual) || maximumResidual>liftBudget ||
-           consumedBound+maximumLift+liftBudget>tolerance*.25)return fail("REGION_CONTAINMENT_PROJECTION_BUDGET_EXCEEDED");
-        proof.consumedBoundaryBound=std::max(proof.consumedBoundaryBound,consumedBound+maximumLift+liftBudget);
         BRepAlgoAPI_Cut outsideConsumed;
-        TopTools_ListOfShape consumedArguments,consumedTools;consumedArguments.Append(liftedFace.Face());consumedTools.Append(makeFace.Face());
+        TopTools_ListOfShape consumedArguments,consumedTools;consumedArguments.Append(liftedRegion);consumedTools.Append(makeFace.Face());
         outsideConsumed.SetArguments(consumedArguments);outsideConsumed.SetTools(consumedTools);outsideConsumed.SetNonDestructive(true);outsideConsumed.Build();
         if(!outsideConsumed.IsDone() || TopExp_Explorer(outsideConsumed.Shape(),TopAbs_FACE).More())return fail("REGION_CONSUMED_POLYGON_NOT_CONTAINED");
-        const auto prism=BRepPrimAPI_MakePrism(consumedFace.Face(),gp_Vec(0,0,-proof.maximumDepth)).Shape();
+        const auto prism=BRepPrimAPI_MakePrism(consumedRegion,gp_Vec(0,0,-proof.maximumDepth)).Shape();
         BRepAlgoAPI_Common intersection;
         TopTools_ListOfShape intersectionArguments,intersectionTools;intersectionArguments.Append(prism);intersectionTools.Append(sourceShape);
         intersection.SetArguments(intersectionArguments);intersection.SetTools(intersectionTools);intersection.SetNonDestructive(true);intersection.Build();
@@ -270,6 +340,20 @@ bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
     Q_UNUSED(mesh);Q_UNUSED(feature);
     return fail("REGION_EXACT_GEOMETRY_UNAVAILABLE");
 #endif
+}
+
+bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
+                         SelectionBoundaryLoop *evidence,MachiningFeature *feature,QString *error)
+{
+    QString reason;
+    if(verifyPocketOpeningCandidate(mesh,source,evidence,feature,&reason,false)) {
+        if(error)error->clear();return true;
+    }
+    if(reason=="REGION_ISLAND_OR_WALL_OBSTRUCTION" &&
+       verifyPocketOpeningCandidate(mesh,source,evidence,feature,&reason,true)) {
+        if(error)error->clear();return true;
+    }
+    if(error)*error=reason;return false;
 }
 
 bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,

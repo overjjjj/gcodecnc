@@ -3,10 +3,88 @@
 
 #include <QObject>
 #include <QPointF>
+#include <QPolygonF>
 #include <cmath>
+#include <algorithm>
+#ifdef CNEXT_ENABLE_OCC
+#include "../../workspaces/process_design/selection/BoundedCurveDiscretization.h"
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#endif
+
+namespace {
+bool wallSegmentClear(QPointF a,QPointF b,const QVector<QPointF> &boundary,double clearance)
+{
+    QPolygonF polygon(boundary);
+    if(!polygon.containsPoint((a+b)*.5,Qt::OddEvenFill))return false;
+    auto cross=[](QPointF u,QPointF v){return u.x()*v.y()-u.y()*v.x();};
+    auto distance=[](QPointF p,QPointF u,QPointF v){
+        const auto d=v-u;const double square=d.x()*d.x()+d.y()*d.y();
+        const double t=square?qBound(0.,((p-u).x()*d.x()+(p-u).y()*d.y())/square,1.):0.;
+        const auto delta=p-u-d*t;return std::hypot(delta.x(),delta.y());
+    };
+    for(int i=0;i<boundary.size();++i) {
+        const auto c=boundary[i],d=boundary[(i+1)%boundary.size()];
+        if(cross(b-a,c-a)*cross(b-a,d-a)<=0 && cross(d-c,a-c)*cross(d-c,b-c)<=0 &&
+           qMax(qMin(a.x(),b.x()),qMin(c.x(),d.x()))<=qMin(qMax(a.x(),b.x()),qMax(c.x(),d.x())) &&
+           qMax(qMin(a.y(),b.y()),qMin(c.y(),d.y()))<=qMin(qMax(a.y(),b.y()),qMax(c.y(),d.y())))return false;
+        if(std::min({distance(a,c,d),distance(b,c,d),distance(c,a,b),distance(d,a,b)})<clearance)return false;
+    }
+    return true;
+}
+
+QVector<QPointF> concaveWallCandidate(const QVector<QPointF> &boundary,double clearance)
+{
+#ifdef CNEXT_ENABLE_OCC
+    try {
+        BRepBuilderAPI_MakePolygon polygon;
+        for(const auto &p:boundary)polygon.Add(gp_Pnt(p.x(),p.y(),0));
+        polygon.Close();if(!polygon.IsDone())return {};
+        BRepBuilderAPI_MakeFace face(polygon.Wire(),true);
+        if(!face.IsDone() || !BRepCheck_Analyzer(face.Face()).IsValid())return {};
+        for(double sign:{-1.,1.}) {
+            // Reserve tessellation and NC rounding separately. The resulting
+            // rounded segments must still pass the original boundary clearance.
+            BRepOffsetAPI_MakeOffset offset(face.Face(),GeomAbs_Arc);offset.Perform(sign*(clearance+.002));
+            if(!offset.IsDone())continue;
+            TopExp_Explorer wires(offset.Shape(),TopAbs_WIRE);if(!wires.More())continue;
+            const auto wire=TopoDS::Wire(wires.Current());wires.Next();if(wires.More())continue;
+            if(!BRepCheck_Analyzer(wire).IsValid())continue;
+            QVector<QPointF> path;bool valid=true;
+            for(BRepTools_WireExplorer it(wire);it.More();it.Next()) {
+                const auto edge=it.Current();BRepAdaptor_Curve curve(edge);
+                double a=curve.FirstParameter(),b=curve.LastParameter();if(edge.Orientation()==TopAbs_REVERSED)std::swap(a,b);
+                const auto sampled=discretizeCurve(curve,a,b,.0005);
+                if(!sampled.error.isEmpty()){valid=false;break;}
+                for(int j=0;j<sampled.points.size()-1;++j) {
+                    const auto p=sampled.points[j];
+                    const QPointF rounded(QString::number(p.x(),'f',3).toDouble(),QString::number(p.y(),'f',3).toDouble());
+                    if(path.isEmpty() || path.last()!=rounded)path.append(rounded);
+                }
+            }
+            if(path.size()>1 && path.first()==path.last())path.removeLast();
+            if(!valid || path.size()<3)continue;
+            for(int i=0;i<path.size();++i)
+                if(!wallSegmentClear(path[i],path[(i+1)%path.size()],boundary,clearance)){valid=false;break;}
+            if(valid)return path;
+        }
+    } catch(const Standard_Failure &) {}
+#else
+    Q_UNUSED(boundary);Q_UNUSED(clearance);
+#endif
+    return {};
+}
+}
 
 ToolpathResult PocketFinishStrategy::generateRegionPass(const ContourFeature &feature, const ToolEntry &tool,
-                                 const StrategyParams &params, bool includeToolCall)
+                                 const StrategyParams &params, bool includeToolCall, bool allowConcaveWall)
 {
     auto reject=[](const char *reason){ToolpathResult r;r.errorMsg=QString::fromLatin1(reason);return r;};
     if(!feature.planarBoundaryVerified || feature.points.size()<3 || !feature.islands.isEmpty())
@@ -36,19 +114,20 @@ ToolpathResult PocketFinishStrategy::generateRegionPass(const ContourFeature &fe
     // Convex half-planes also prove the interior lead from the path centroid.
     // The 0.001 guard contains three-decimal XY rounding; final NC is checked again.
     const double clearance=tool.diameter*.5+stock.side+.001;
+    bool convex=true;
     for(int i=0;i<points.size();++i) {
         const auto edge=points[(i+1)%points.size()]-points[i];
         const double length=std::hypot(edge.x(),edge.y());
         if(!std::isfinite(length) || length<=0)return reject("POCKET_WALL_INVALID_EDGE");
-        for(const auto &p:points)if(direction*cross(edge,p-points[i])<0)
-            return reject("POCKET_WALL_CONVEX_REGION_REQUIRED");
+        for(const auto &p:points)if(direction*cross(edge,p-points[i])<0){convex=false;break;}
         const QPointF normal=QPointF(-edge.y(),edge.x())*(direction/length);
         normals.append(normal);offsets.append(dot(normal,points[i])+clearance);
     }
     // Clip by every inset half-plane. Small rounded edges may become redundant
     // as the inset grows; intersecting adjacent lines would wrongly reject them.
-    QVector<QPointF> path=points;
-    for(int i=0;i<normals.size();++i) {
+    if(!convex && !allowConcaveWall)return reject("POCKET_WALL_CONVEX_REGION_REQUIRED");
+    QVector<QPointF> path=convex?points:concaveWallCandidate(points,clearance);
+    for(int i=0;convex && i<normals.size();++i) {
         QVector<QPointF> clipped;
         if(path.isEmpty())return reject("POCKET_WALL_TOOL_DOES_NOT_FIT");
         auto a=path.last();double da=dot(normals[i],a)-offsets[i];
@@ -65,12 +144,19 @@ ToolpathResult PocketFinishStrategy::generateRegionPass(const ContourFeature &fe
     for(int i=0;i<path.size();++i) {
         const auto p=path[i];
         if(!std::isfinite(p.x()) || !std::isfinite(p.y()))return reject("POCKET_WALL_INVALID_OFFSET");
-        for(int j=0;j<normals.size();++j)if(dot(normals[j],p)<offsets[j]-1e-9)
+        for(int j=0;convex && j<normals.size();++j)if(dot(normals[j],p)<offsets[j]-1e-9)
             return reject("POCKET_WALL_TOOL_DOES_NOT_FIT");
         center+=p;pathArea+=cross(p,path[(i+1)%path.size()]);
     }
     if(!std::isfinite(pathArea) || pathArea==0)return reject("POCKET_WALL_TOOL_DOES_NOT_FIT");
     center/=path.size();
+    if(!convex) {
+        center={QString::number(center.x(),'f',3).toDouble(),QString::number(center.y(),'f',3).toDouble()};
+        int entry=-1;
+        for(int i=0;i<path.size();++i)if(wallSegmentClear(center,path[i],points,clearance)){entry=i;break;}
+        if(entry<0)return reject("POCKET_WALL_INTERIOR_LEAD_UNPROVEN");
+        std::rotate(path.begin(),path.begin()+entry,path.end());
+    }
     const double cuttingDepth=feature.depth-stock.floor;
     const int layers=int(std::ceil(cuttingDepth/step));
     QString code;
@@ -127,7 +213,7 @@ ToolpathResult PocketFinishStrategy::generate(const ContourFeature &feature,
                                                const ToolEntry &tool,
                                                const StrategyParams &params) const
 {
-    if(feature.subType=="verified_slot_opening")return generateRegionPass(feature,tool,params,true);
+    if(feature.subType=="verified_slot_opening")return generateRegionPass(feature,tool,params,true,true);
     ToolpathResult result;
     const bool rectangular = feature.subType == QStringLiteral("rectangular_pocket");
     const bool circular = feature.subType == QStringLiteral("circular_pocket");

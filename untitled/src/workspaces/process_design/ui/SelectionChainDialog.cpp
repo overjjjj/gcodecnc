@@ -925,6 +925,12 @@ void SelectionChainDialog::refresh()
         .arg(draft.closed ? tr("闭合") : tr("未闭合"))
         .arg(draft.orderedTopologyRefs.size())
         .arg(nextStep));
+    for (const auto &loop : draft.boundaryLoops)
+        if (loop.candidateRule == "source-section-inset-candidate-v1" &&
+            openingEvidenceSupported(loop) && selectionContainsCompleteOpening(draft, loop)) {
+            m_chainStatus->setText(m_chainStatus->text() + tr("\n仅主体核心区；原入口其余区域保留，底面需单独验证。预览显示实际加工边界。"));
+            break;
+        }
     m_list->setVisible(!hasSelectedRange || m_moreDetails->isChecked());
     m_moreDetails->setText(hasSelectedRange
         ? tr("更换范围 / 更多设置") : tr("更多设置与边列表"));
@@ -1508,6 +1514,10 @@ QVector<QVector3D> SelectionChainDialog::orderedPoints(const SelectionChain &dra
     if (m_candidateIndex < 0) return {};
     const auto &candidate = m_candidates.at(m_candidateIndex);
     if (draft.evidenceVersion >= 2 && !draft.orderedTopologyRefs.isEmpty()) {
+        for (const auto &loop : draft.boundaryLoops)
+            if (loop.machiningRole == MachiningBoundaryRole::Outer &&
+                openingEvidenceSupported(loop) && selectionContainsCompleteOpening(draft, loop))
+                return loop.machiningBoundary;
         if (draft.selectionMode == ChainSelectionMode::Face) {
             auto machiningOrder = [&draft](QVector<QVector3D> points) {
                 if (points.isEmpty()) return points;
