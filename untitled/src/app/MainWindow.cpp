@@ -6475,8 +6475,8 @@ void MainWindow::onAbout()
         tr("About CNEXT-CAM"),
         tr("<b>CNEXT-CAM</b><br>"
            "CAM application for STEP import, feature recognition, toolpath generation and simulation.<br><br>"
-           "Version 0.1.0<br>"
-           "Qt %1").arg(QT_VERSION_STR));
+           "Version %1<br>"
+           "Qt %2").arg(QCoreApplication::applicationVersion(), QString::fromLatin1(QT_VERSION_STR)));
 }
 
 // 函数说明：onStepImported负责当前模块的核心处理。
@@ -6601,8 +6601,9 @@ void MainWindow::retranslateUi()
         m_actImportGCode->setToolTip(zh ? QStringLiteral("无需模型；支持毫米绝对坐标、XY 平面 IJ 圆弧。外部程序仅用于轨迹回放。")
                                       : QStringLiteral("No model required; millimetres, absolute XYZ and XY IJ arcs. External programs are preview only."));
     }
-    setWindowTitle(zh ? QStringLiteral("CNEXT-CAM - 加工中心")
-                      : QStringLiteral("CNEXT-CAM - CAM Center"));
+    setWindowTitle((zh ? QStringLiteral("CNEXT-CAM %1 - 加工中心")
+                       : QStringLiteral("CNEXT-CAM %1 - CAM Center"))
+                       .arg(QCoreApplication::applicationVersion()));
 
     if (m_fileMenu) m_fileMenu->setTitle(zh ? QStringLiteral("文件") : QStringLiteral("File"));
     if (m_viewMenu) m_viewMenu->setTitle(zh ? QStringLiteral("视图") : QStringLiteral("View"));

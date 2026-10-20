@@ -356,7 +356,7 @@ bool verifyPocketOpening(const MeshData &mesh,const MeshBoundaryLoop &source,
     if(error)*error=reason;return false;
 }
 
-bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
+static bool verifyPocketFlatFloorFromFreshOpening(const MeshData &mesh, const MeshBoundaryLoop &source,
                            const SelectionBoundaryLoop &opening, double *depth, QString *error, double *floorZ)
 {
     if(depth)*depth=0;
@@ -365,9 +365,7 @@ bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
 #ifdef CNEXT_ENABLE_OCC
     using namespace PocketVolumeDetail;
     try {
-        SelectionBoundaryLoop fresh;
-        if(!verifyPocketOpening(mesh,source,&fresh,nullptr) || !(fresh==opening))
-            return fail("POCKET_FLOOR_SOURCE_PROOF_MISMATCH");
+        Q_UNUSED(source); // Fresh source equality was established by the caller in this transaction.
         // Keep all additional Boolean and classifier work off the shared source.
         const auto material=BRepBuilderAPI_Copy(mesh.sourceShape).Shape();
         QVector<TopoDS_Solid> solids;
@@ -452,7 +450,7 @@ bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
 
 
 
-bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &source,
+static bool verifyPocketThroughExitFromFreshOpening(const MeshData &mesh, const MeshBoundaryLoop &source,
                              const SelectionBoundaryLoop &opening, double *depth, QString *error)
 {
     if(depth)*depth=0;
@@ -460,9 +458,7 @@ bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &sourc
 #ifdef CNEXT_ENABLE_OCC
     using namespace PocketVolumeDetail;
     try {
-        SelectionBoundaryLoop fresh;
-        if(!verifyPocketOpening(mesh,source,&fresh,nullptr) || !(fresh==opening))
-            return fail("POCKET_THROUGH_SOURCE_PROOF_MISMATCH");
+        Q_UNUSED(source); // Fresh source equality was established by the caller in this transaction.
         const auto material=BRepBuilderAPI_Copy(mesh.sourceShape).Shape();
         QVector<TopoDS_Solid> solids;
         if(!completeSolids(material,solids))return fail("POCKET_THROUGH_SOLID_REQUIRED");
@@ -541,4 +537,92 @@ bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &sourc
     Q_UNUSED(mesh);Q_UNUSED(source);Q_UNUSED(opening);
     return fail("REGION_EXACT_GEOMETRY_UNAVAILABLE");
 #endif
+}
+
+// Standalone callers must always establish a fresh source proof. The private
+// helpers are also used by operation validation below, within that same proof.
+bool verifyPocketFlatFloor(const MeshData &mesh, const MeshBoundaryLoop &source,
+                           const SelectionBoundaryLoop &opening, double *depth, QString *error, double *floorZ)
+{
+#ifdef CNEXT_ENABLE_OCC
+    SelectionBoundaryLoop fresh;
+    if(!verifyPocketOpening(mesh,source,&fresh,nullptr) || !(fresh==opening)) {
+        if(depth)*depth=0;if(floorZ)*floorZ=0;
+        if(error)*error=QStringLiteral("POCKET_FLOOR_SOURCE_PROOF_MISMATCH");
+        return false;
+    }
+#endif
+    return verifyPocketFlatFloorFromFreshOpening(mesh,source,opening,depth,error,floorZ);
+}
+
+bool verifyPocketThroughExit(const MeshData &mesh, const MeshBoundaryLoop &source,
+                             const SelectionBoundaryLoop &opening, double *depth, QString *error)
+{
+#ifdef CNEXT_ENABLE_OCC
+    SelectionBoundaryLoop fresh;
+    if(!verifyPocketOpening(mesh,source,&fresh,nullptr) || !(fresh==opening)) {
+        if(depth)*depth=0;
+        if(error)*error=QStringLiteral("POCKET_THROUGH_SOURCE_PROOF_MISMATCH");
+        return false;
+    }
+#endif
+    return verifyPocketThroughExitFromFreshOpening(mesh,source,opening,depth,error);
+}
+
+QString pocketOpeningOperationError(const SelectionChain &selection, const ContourFeature &feature,
+                                           const StrategyParams &params, const QString &strategy,
+                                           const MeshData *sourceMesh)
+{
+    const SelectionBoundaryLoop *opening = nullptr;
+    for (const auto &loop : selection.boundaryLoops) if ((loop.machiningRole == MachiningBoundaryRole::Outer)) {
+        if (opening || !selectionContainsCompleteOpening(selection,loop) || !openingEvidenceSupported(loop))
+            return QStringLiteral("POCKET_OPENING_EVIDENCE_INVALID");
+        opening = &loop;
+    }
+    if (!opening) return feature.subType == QStringLiteral("verified_slot_opening")
+        ? QStringLiteral("POCKET_OPENING_EVIDENCE_REQUIRED") : QString();
+    bool sourceVerified = false;
+    const MeshBoundaryLoop *sourceOpening = nullptr;
+    if (sourceMesh) for (const auto &source : sourceMesh->boundaryLoops) {
+        if (source.faceId != opening->faceId || source.orderedEdgeIds != opening->orderedEdgeIds ||
+            source.orderedForward != opening->orderedForward) continue;
+        SelectionBoundaryLoop fresh;
+        sourceVerified = verifyPocketOpening(*sourceMesh,source,&fresh,nullptr) && fresh == *opening;
+        if(sourceVerified)sourceOpening=&source;
+        break;
+    }
+    if (!sourceVerified) return QStringLiteral("POCKET_OPENING_SOURCE_PROOF_MISMATCH");
+    const bool finishing=strategy=="mill_pocket_finish" || strategy=="mill_pocket_floor_finish";
+    if ((strategy != QStringLiteral("mill_pocket_rough") && !finishing) || feature.subType != QStringLiteral("verified_slot_opening") ||
+        feature.points != opening->machiningBoundary || !feature.planarBoundaryVerified || !feature.islands.isEmpty() ||
+        (feature.axis-QVector3D(0,0,1)).length() > 1e-5f)
+        return QStringLiteral("POCKET_OPENING_REGION_MISMATCH");
+    const auto center = machiningBoundaryCenter(opening->machiningBoundary);
+    if ((feature.center-center).length() > .001f) return QStringLiteral("POCKET_OPENING_REGION_MISMATCH");
+    if(finishing && (!params.values.contains("sideStockToLeave") || !params.values.contains("floorStockToLeave") ||
+                     params.get("entryMode",-1)!=0))
+        return QStringLiteral("POCKET_FINISH_ALLOWANCES_AND_VERTICAL_ENTRY_REQUIRED");
+    if (!pocketRoughingAllowances(params).valid(feature.depth))
+        return QStringLiteral("POCKET_OPENING_NEGATIVE_ALLOWANCE");
+    const double depth = params.get(QStringLiteral("depth"),0);
+    double maximumDepth=opening->maximumDepth;
+    const bool floorFinishing=strategy=="mill_pocket_floor_finish";
+    // Finite wall passes use the freshly proved void. Only floor contact needs
+    // a floor; deeper rough/wall passes require a separate floor or exit proof.
+    if(floorFinishing || (std::isfinite(depth) && depth>maximumDepth)) {
+        double floorDepth=0;
+        QString floorError;
+        if(verifyPocketFlatFloorFromFreshOpening(*sourceMesh,*sourceOpening,*opening,&floorDepth,&floorError,nullptr))maximumDepth=floorDepth;
+        else if(!floorFinishing && verifyPocketThroughExitFromFreshOpening(*sourceMesh,*sourceOpening,*opening,&floorDepth,&floorError))maximumDepth=floorDepth;
+        else if(finishing)return floorError;
+        // A three-decimal depth may stop less than one output increment above the
+        // source floor. Never round the authorized depth into material.
+        if(strategy=="mill_pocket_floor_finish" && (depth>floorDepth || depth<=floorDepth-.001))
+            return QObject::tr("底面精加工深度须到达已验证底深 %1 mm（允许向浅处取整不足 0.001 mm）；底面余量单独设置。").arg(floorDepth,0,'g',17);
+    }
+    if (!std::isfinite(depth) || depth <= 0 || depth > maximumDepth ||
+        !std::isfinite(feature.depth) || std::abs(feature.depth-depth) > 1e-6)
+        return QObject::tr("槽口加工深度必须明确输入，且不超过已验证深度 %1 mm；更深的斜底/下层区域未获验证。")
+            .arg(maximumDepth,0,'f',3);
+    return {};
 }

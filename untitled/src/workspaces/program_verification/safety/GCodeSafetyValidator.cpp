@@ -1,6 +1,8 @@
 #include "GCodeSafetyValidator.h"
 
 #include <QRegularExpression>
+#include <QHash>
+#include <QThreadStorage>
 #include <cmath>
 #include <limits>
 
@@ -43,11 +45,24 @@ static QString stripComments(QString line)
     return canonical.simplified();
 }
 
+// Patterns depend only on fixed command words/axes, never on the NC contents.
+// Keep compiled patterns per thread; every validation still matches every line.
+static const QRegularExpression &compiledExpression(const QString &pattern)
+{
+    static QThreadStorage<QHash<QString,QRegularExpression> *> storage;
+    if(!storage.hasLocalData())storage.setLocalData(new QHash<QString,QRegularExpression>);
+    auto &expressions=*storage.localData();
+    auto found=expressions.constFind(pattern);
+    if(found==expressions.constEnd())
+        found=expressions.insert(pattern,QRegularExpression(pattern));
+    return found.value();
+}
+
 // 函数说明：containsWord负责当前模块的核心处理。
 static bool containsWord(const QString &line, const QString &word)
 {
     static const QString boundary = QStringLiteral("(^|\\s)%1(\\s|$)");
-    return QRegularExpression(boundary.arg(QRegularExpression::escape(word))).match(line).hasMatch();
+    return compiledExpression(boundary.arg(QRegularExpression::escape(word))).match(line).hasMatch();
 }
 
 // 函数说明：containsWorkOffset负责当前模块的核心处理。
@@ -60,13 +75,13 @@ static bool containsWorkOffset(const QString &line)
 // 函数说明：containsAxis负责当前模块的核心处理。
 static bool containsAxis(const QString &line, QChar axis)
 {
-    return QRegularExpression(QStringLiteral("(^|\\s)%1[-+]?(?:\\d|\\.\\d)").arg(axis)).match(line).hasMatch();
+    return compiledExpression(QStringLiteral("(^|\\s)%1[-+]?(?:\\d|\\.\\d)").arg(axis)).match(line).hasMatch();
 }
 
 // 函数说明：readAxisValue负责当前模块的核心处理。
 static bool readAxisValue(const QString &line, QChar axis, double &value)
 {
-    const QRegularExpression re(QStringLiteral("(^|\\s)%1([-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))").arg(axis));
+    const QRegularExpression &re=compiledExpression(QStringLiteral("(^|\\s)%1([-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))").arg(axis));
     const QRegularExpressionMatch match = re.match(line);
     if (!match.hasMatch()) {
         return false;

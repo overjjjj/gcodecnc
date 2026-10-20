@@ -1028,6 +1028,9 @@ SimulationCheckResult SimulationController::checkMotion(const MeshData &mesh, co
         return found;
     };
 
+#ifdef CNEXT_ENABLE_OCC
+    ExactRetractionBatch retractions(mesh);
+#endif
     for (const ToolMove &mv : moves) {
         const int line = mv.sourceLine >= 0 ? mv.sourceLine + 1 : 0;
         for (int axis = 0; axis < 3; ++axis) {
@@ -1066,7 +1069,7 @@ SimulationCheckResult SimulationController::checkMotion(const MeshData &mesh, co
         const bool aboveModel = std::min(mv.from.z(), mv.to.z()) >= stockTopZ + rapidClearance;
 #ifdef CNEXT_ENABLE_OCC
         if (mv.isRapid && !aboveModel && dx == 0.0 && dy == 0.0 && dz > 0.0 && !mesh.sourceShape.IsNull()) {
-            const auto evidence = checkExactRetraction(mesh, mv);
+            const auto evidence = retractions.check(mv);
             if (evidence.state == RetractionEvidenceState::Interference)
                 return collision(QObject::tr("Exact cutter/shank interference near G-code line %1: %2").arg(line).arg(evidence.message));
             if (evidence.state == RetractionEvidenceState::Uncertain)

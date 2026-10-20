@@ -150,8 +150,27 @@ bool floorReleaseTop(const MeshData &mesh,const ToolMove &move,double error,doub
 }
 #endif
 
+struct ExactRetractionBatch::Source {
+#ifdef CNEXT_ENABLE_OCC
+    QVector<TopoDS_Solid> solids;
+    bool complete = false;
+    double tolerance = 0;
+    Bnd_Box bounds;
+#endif
+};
+
+ExactRetractionBatch::ExactRetractionBatch(const MeshData &mesh) : m_mesh(mesh) {}
+ExactRetractionBatch::~ExactRetractionBatch() = default;
+
 RetractionEvidence checkExactRetraction(const MeshData &mesh, const ToolMove &move)
 {
+    ExactRetractionBatch batch(mesh);
+    return batch.check(move);
+}
+
+RetractionEvidence ExactRetractionBatch::check(const ToolMove &move)
+{
+    const auto &mesh = m_mesh;
     RetractionEvidence result;
     const auto positive = [](double value) { return std::isfinite(value) && value > 0; };
     if (!move.isRapid || move.fromKnownAxes != 7 || move.toKnownAxes != 7 ||
@@ -166,16 +185,26 @@ RetractionEvidence checkExactRetraction(const MeshData &mesh, const ToolMove &mo
     }
 #ifdef CNEXT_ENABLE_OCC
     try {
-        QVector<TopoDS_Solid> solids;
-        if (!collectSolids(mesh.sourceShape, solids)) {
+        if (!m_source) {
+            auto prepared = std::make_unique<Source>();
+            prepared->complete = collectSolids(mesh.sourceShape, prepared->solids);
+            if (prepared->complete) {
+                prepared->tolerance = maximumTolerance(mesh.sourceShape);
+                BRepBndLib::Add(mesh.sourceShape, prepared->bounds);
+            }
+            // Do not publish partial preparation if OCC throws.
+            m_source = std::move(prepared);
+        }
+        const auto &solids = m_source->solids;
+        if (!m_source->complete) {
             result.message = QObject::tr("The exact source is not a complete set of valid closed material solids.");
             return result;
         }
         const double scale = std::max({1.0, std::abs(move.from.x()), std::abs(move.from.y()),
                                       std::abs(move.from.z()), std::abs(move.to.z()), move.totalLength, move.toolDiameter, move.shankDiameter});
         const double rounding = 128 * std::numeric_limits<double>::epsilon() * scale;
-        const double sourceTolerance = maximumTolerance(mesh.sourceShape);
-        Bnd_Box bounds; BRepBndLib::Add(mesh.sourceShape, bounds);
+        const double sourceTolerance = m_source->tolerance;
+        const auto &bounds = m_source->bounds;
         double minX,minY,minZ,maxX,maxY,maxZ;
         if (bounds.IsVoid() || bounds.IsOpen()) return result;
         bounds.Get(minX,minY,minZ,maxX,maxY,maxZ);

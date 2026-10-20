@@ -91,6 +91,10 @@ int main(int argc,char **argv)
     }
     result=SimulationController::checkMotion(mesh,many);
     check(!result.blocksOutput(),"twenty distinct separated retracts must all be checked and pass");
+    auto mixedSource=mesh;TopoDS_Compound mixed;builder.MakeCompound(mixed);
+    builder.Add(mixed,mesh.sourceShape);builder.Add(mixed,face.Current());mixedSource.sourceShape=mixed;
+    check(SimulationController::checkMotion(mixedSource,many).state==SimulationCheckState::Incomplete,
+          "valid solid prefix cannot certify a source containing a loose face across a batch");
     const auto prefix=many.mid(0,16);
     auto afterPrefix=[&](const ToolMove &last){auto batch=prefix;batch.append(last);return SimulationController::checkMotion(mesh,batch);};
     auto wide=move;wide.toolDiameter=9;wide.sourceLine=99;

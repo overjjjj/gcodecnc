@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     a.setOrganizationName("JIANGJUREN");
     a.setApplicationName("CNEXT-CAM");
-    a.setApplicationVersion("0.1.0");
+    a.setApplicationVersion("0.1.0+20261019.p0");
     const bool diagnostic = a.arguments().contains(QStringLiteral("--diagnostic-hidden-smoke"));
     const bool activeSimulation = diagnostic && a.arguments().contains(QStringLiteral("--diagnostic-active-simulation"));
     const QString diagnosticPath = QCoreApplication::applicationDirPath() + QStringLiteral("/diagnostic-smoke.json");
@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
         if (diagnostic) {
             QTimer::singleShot(0, &w, [&]() {
                 diagnosticReport["eventLoopEntered"] = true;
+                diagnosticReport["applicationVersion"] = a.applicationVersion();
+                diagnosticReport["windowTitle"] = w.windowTitle();
                 auto *simulation = w.findChild<SimulationController *>();
                 if (activeSimulation && simulation) {
                     simulation->loadGCode(QStringLiteral("G90 G17 G21\nG0 Z50\nG0 X0 Y0\nG1 X100 F100\nM30\n"), false);

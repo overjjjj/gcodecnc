@@ -223,7 +223,11 @@ inline PocketVolumeProof verifyPocketVolume(const TopoDS_Shape &prism,const Topo
         for(const auto &solid:solids) {
             const auto materialBoundary=boundary(solid);
             Bnd_Box materialBounds;BRepBndLib::Add(solid,materialBounds,false);
-            BRepExtrema_DistShapeShape distance(prismBoundary,materialBoundary,Precision::Confusion());
+            BRepExtrema_DistShapeShape distance;
+            distance.SetDeflection(Precision::Confusion());
+            distance.SetMultiThread(true);
+            distance.LoadS1(prismBoundary);distance.LoadS2(materialBoundary);
+            distance.Perform();
             if(!distance.IsDone() || distance.NbSolution()==0 || distance.InnerSolution() ||
                !std::isfinite(distance.Value()) || distance.Value()<=proof.boundaryBudget)return {};
             if(!allComponentsOutside(prism,materialBounds,materialBoundary,proof.boundaryBudget,proof.maximumEscapeBudget) ||
