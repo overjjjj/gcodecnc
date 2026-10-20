@@ -410,7 +410,6 @@ void ViewportWidget::paintGL()
     drawAxes();
     if (m_modelVisible) {
         drawMesh();
-        drawSelectableTopology();
         drawContourChoicePreview();
     }
     drawToolPath();
@@ -992,22 +991,6 @@ void ViewportWidget::setTopologyPickMode(int mode)
     }
     m_topologyPickMode = static_cast<TopologyPickMode>(mode);
     setTopologyHoverPreview({});
-}
-
-void ViewportWidget::drawSelectableTopology()
-{
-    if (!m_topologyPickFilterActive || m_selectableTopologyEdges.isEmpty()) return;
-    glEnable(GL_DEPTH_TEST);
-    glLineWidth(1.0f);
-    glColor4f(0.28f, 0.30f, 0.33f, 0.75f);
-    for (const MeshPickEdge &edge : m_mesh.pickEdges) {
-        if (!m_selectableTopologyEdges.contains(edge.id) || edge.points.size() < 2) continue;
-        glBegin(GL_LINE_STRIP);
-        for (const QVector3D &point : edge.points)
-            glVertex3f(point.x(), point.y(), point.z());
-        glEnd();
-    }
-    glLineWidth(1.0f);
 }
 
 // 函数说明：drawContourChoicePreview负责当前模块的核心处理。

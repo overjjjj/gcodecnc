@@ -1,4 +1,5 @@
 #include "SelectionChainDialog.h"
+#include "../../shared/ui/OperationMessageBox.h"
 #include "../selection/CoplanarSelection.h"
 #include <QApplication>
 #include <QComboBox>
@@ -952,6 +953,12 @@ void SelectionChainDialog::refresh()
     m_nextButton->setEnabled(!resolveBoundary || rangeConfirmed || !m_regionSelections.isEmpty());
     m_nextButton->setToolTip(rangeConfirmed || !hasSelectedRange
         ? QString() : !strategyError.isEmpty() ? strategyError : accessFailureText(draft, access));
+    m_chainStatus->setToolTip(m_nextButton->toolTip());
+    if (!rangeConfirmed && hasSelectedRange && draft.closed && !fullBoundaryOffer &&
+        !m_nextButton->toolTip().isEmpty()) {
+        m_chainStatus->setText(m_chainStatus->text() + QStringLiteral("\n") +
+                              OperationMessageBox::summary(m_nextButton->toolTip()));
+    }
     m_finishBoundary->setDefault(m_adjustingBoundary);
     m_nextButton->setDefault(!m_adjustingBoundary && !fullBoundaryOffer);
     m_connectEdges->setVisible(m_adjustingBoundary);

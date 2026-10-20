@@ -78,7 +78,6 @@ private:
     void drawToolPath();
     void drawToolMarker();
     void drawContourChoicePreview();
-    void drawSelectableTopology();
     int pickFaceAt(const QPointF &pos, QVector3D *hitPoint = nullptr,
                    float *ndcDepth = nullptr) const;
     bool topologyPointVisible(const QVector3D &point, const QPointF &screen) const;
