@@ -40,6 +40,16 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     Q_UNUSED(app);
 
+    for (const auto &strategyId : {"mill_slot", "mill_blind_slot", "mill_tapered_slot"}) {
+        auto operation = sampleOperation(); operation.opType = OperationType::Contour;
+        operation.strategyId = strategyId; operation.contourFeature.subType = "arc_slot";
+        operation.contourFeature.length = 40; operation.contourFeature.width = 12; operation.contourFeature.depth = 4;
+        operation.toolpathState = ToolpathState::Valid;
+        const QList<MachiningOperation> saved{operation}; const QStringList ids{operation.id};
+        const auto fingerprint = ProgramSnapshotFingerprint::calculate(saved, ids);
+        const auto status = ProgramSnapshotStatus::evaluate(saved, ids, fingerprint, {}, {}, "tool-a", "tool-a");
+        if (expect(!status.okForOutput() && status.message.contains("Arc slots"), "same-fingerprint arc slot must block output")) return 22;
+    }
     for (double comp : {-1.0, -1.0e-9, -0.5e-9, 0.0, 1.0e-9, 1.0}) {
         auto operation = sampleOperation();
         operation.strategyId = QStringLiteral("mill_blind_slot");

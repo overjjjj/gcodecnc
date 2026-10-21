@@ -40,3 +40,29 @@ tmp/
 *.a
 *.lib
 *.pdb
+
+# Local Archify installation (kept on D:; generated diagrams under docs/archify are review artifacts)
+tools/archify/
+docs/archify/
+
+# Local Codex/agent state and generated review artifacts
+.agents/
+.codex/
+.codex-pets/
+.impeccable/
+output/
+outputs/
+untitled/outputs/
+untitled/tests/outputs/
+tmp_docx/
+整理副本_反编译源码/
+
+# Exported office/visual artifacts and local inspection scratch files
+/CNEXT-CAM_后续开发计划_2026-06-30.docx
+/CNEXT-CAM_甘特图_2026-06-30.png
+docs/*.docx
+inspect_xlsx_styles.py
+pelican-bike.html
+untitled/usertmp*
+untitled/测试模型/验证/
+untitled/测试模型/验收/

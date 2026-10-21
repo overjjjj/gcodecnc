@@ -1,3 +1,4 @@
+#include "SlotGeometrySupport.h"
 #include "TaperedSlotMillingStrategy.h"
 
 #include <QObject>
@@ -117,6 +118,10 @@ ToolpathResult TaperedSlotMillingStrategy::generate(const ContourFeature &featur
                                                     const StrategyParams &params) const
 {
     ToolpathResult res;
+    if (isUnsupportedArcSlot(feature)) {
+        res.errorMsg = unsupportedArcSlotMessage();
+        return res;
+    }
     if (tool.diameter <= 0.0) {
         res.errorMsg = QObject::tr("The selected tool diameter is invalid.");
         return res;

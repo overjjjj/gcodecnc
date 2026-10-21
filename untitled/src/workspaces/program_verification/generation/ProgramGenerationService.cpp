@@ -1,3 +1,4 @@
+#include "../../../strategies/mill/SlotGeometrySupport.h"
 #include "ProgramGenerationService.h"
 #include "../../../strategies/hole/HoleStrategyUtils.h"
 
@@ -351,6 +352,10 @@ ProgramGenerationResult ProgramGenerationService::generate(
     }
 
     for (int index = 0; index < operations.size(); ++index) {
+        if (isSlotMillingStrategy(operations[index].strategyId) &&
+            isUnsupportedArcSlot(operations[index].contourFeature)) {
+            output.errors << QStringLiteral("Operation %1: %2").arg(index + 1).arg(unsupportedArcSlotMessage());
+        }
         if (isSlotMillingStrategy(operations[index].strategyId) &&
             (!m_slotGeometryValidator || !m_slotGeometryValidator(operations[index].contourFeature))) {
             output.errors << QStringLiteral(

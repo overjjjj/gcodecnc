@@ -24,9 +24,12 @@ int main(int argc, char **argv)
     }, [=](int) { return tool; }, [](const ContourFeature &candidate) {
         ContourFeature source; source.length = 40; source.width = 12; source.depth = 4;
         source.region = FaceRegion::Front;
-        for (const auto &subtype : {"open_slot", "straight_slot"}) {
+        for (const auto &subtype : {"open_slot", "straight_slot", "arc_slot"}) {
             source.subType = subtype;
             if (sameSlotGeometry(candidate, source)) return true;
+            source.slopeMinWidth = .4; source.slopeMaxWidth = .6;
+            if (sameSlotGeometry(candidate, source)) return true;
+            source.slopeMinWidth = 0; source.slopeMaxWidth = 0;
         }
         source.subType = "blind_slot"; source.slopeStartLength = 3; source.slopeEndLength = 1;
         source.slopeMinWidth = .8; source.slopeMaxWidth = .4;
@@ -102,6 +105,28 @@ int main(int argc, char **argv)
         op.params.set("depth", 8);
         result = generator.generate({op}, post, options, {});
         if (result.ok || !result.snapshot.gcodeText.isEmpty() || !result.errors.join(";").contains("target depth")) ++failures;
+    }
+    for (const auto &s : {std::static_pointer_cast<StrategyBase>(strategy), std::static_pointer_cast<StrategyBase>(open), std::static_pointer_cast<StrategyBase>(tapered)}) {
+        MachiningOperation op; op.id = "arc-guard"; op.opType = OperationType::Contour;
+        op.strategyId = s->id(); op.toolId = tool.id; op.params = s->defaultParams(); op.params.set("depth", 4);
+        auto &f = op.contourFeature; f.subType = "arc_slot";
+        f.length = 40; f.width = 12; f.depth = 4; f.region = FaceRegion::Front;
+        if (s == tapered) { f.slopeMinWidth = .4; f.slopeMaxWidth = .6; }
+        f.subType = s == open ? "open_slot" : "straight_slot";
+        const auto supported = s->generate(f, tool, op.params);
+        const auto supportedFinal = generator.generate({op}, post, options, {});
+        if (!supported.ok || !supportedFinal.ok) {
+            ++failures; std::cerr << s->id().toStdString() << " control parameters must be valid\n";
+        }
+        f.subType = "arc_slot";
+        const auto direct = s->generate(f, tool, op.params);
+        const auto final = generator.generate({op}, post, options, {});
+        if (direct.ok || !direct.gcode.isEmpty() || !direct.errorMsg.contains("Arc slots")) {
+            ++failures; std::cerr << s->id().toStdString() << " direct arc slot guard missing\n";
+        }
+        if (final.ok || !final.snapshot.gcodeText.isEmpty() || !final.errors.join(";").contains("Arc slots")) {
+            ++failures; std::cerr << s->id().toStdString() << " service arc slot guard missing\n";
+        }
     }
     return failures ? 1 : 0;
 }

@@ -1,3 +1,4 @@
+#include "../strategies/mill/SlotGeometrySupport.h"
 #include "MainWindow.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
 #include "../workspaces/process_design/operations/SlotOperationState.h"
@@ -2079,6 +2080,11 @@ static QString slotSetupRestrictionMessage(const ContourFeature &feature,
 {
     if (!isSlotMillingStrategy(strategyId)) {
         return QString();
+    }
+
+    if (isUnsupportedArcSlot(feature)) {
+        return zh ? QStringLiteral("圆弧槽尚未支持：现有槽策略仅适用于矩形槽，真实弧形边界与刀具包络安全尚未验证，不能生成刀路。")
+                  : unsupportedArcSlotMessage();
     }
 
     if (strategyId == QStringLiteral("mill_slot") &&

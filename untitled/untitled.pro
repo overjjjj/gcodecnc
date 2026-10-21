@@ -350,7 +350,7 @@ contains(QT_ARCH, i386) {
                 }
             }
 
-            QT_RUNTIME_DLLS = Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Concurrent.dll Qt5OpenGL.dll
+            QT_RUNTIME_DLLS = Qt5Core.dll Qt5Gui.dll Qt5Widgets.dll Qt5Concurrent.dll Qt5OpenGL.dll opengl32sw.dll
             qtHaveModule(serialport): QT_RUNTIME_DLLS += Qt5SerialPort.dll
             for (dll, QT_RUNTIME_DLLS) {
                 exists($$QT_RUNTIME_DIR/$${dll}) {

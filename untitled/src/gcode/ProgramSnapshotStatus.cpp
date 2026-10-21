@@ -1,3 +1,5 @@
+#include "../strategies/mill/SlotGeometrySupport.h"
+#include "../workspaces/process_design/operations/SlotOperationState.h"
 #include "ProgramSnapshotStatus.h"
 #include "../strategies/hole/HoleStrategyUtils.h"
 #include "../strategies/mill/BlindSlotMillingStrategy.h"
@@ -139,6 +141,12 @@ ProgramSnapshotStatus ProgramSnapshotStatus::evaluate(const QList<MachiningOpera
     const QString currentFingerprint =
         ProgramSnapshotFingerprint::calculate(operations, sourceOperationIds);
     for (const auto &operation : operations) {
+        if (sourceOperationIds.contains(operation.id) && isSlotStrategy(operation.strategyId) &&
+            isUnsupportedArcSlot(operation.contourFeature)) {
+            status.state = ProgramSnapshotState::Changed;
+            status.message = unsupportedArcSlotMessage();
+            return status;
+        }
         if (sourceOperationIds.contains(operation.id) && operation.opType == OperationType::Hole &&
             (!holeAxisAlignedWithZ(operation.holeFeature) || operation.holeFeature.region == FaceRegion::Side ||
              operation.holeFeature.region == FaceRegion::Back)) {
