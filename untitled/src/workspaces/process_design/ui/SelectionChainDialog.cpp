@@ -163,6 +163,11 @@ SelectionChainDialog::SelectionChainDialog(QWidget *parent) : QDialog(parent)
     m_chainStatus->setObjectName(QStringLiteral("selectionChainStatus"));
     m_chainStatus->setWordWrap(true);
     layout->addWidget(m_chainStatus);
+    auto *validationStatus = new QLabel(this);
+    validationStatus->setObjectName(QStringLiteral("selectionValidationStatus"));
+    validationStatus->setWordWrap(true);
+    validationStatus->hide();
+    layout->addWidget(validationStatus);
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("selectionStatus"));
     m_status->setWordWrap(true);
@@ -512,6 +517,14 @@ void SelectionChainDialog::prepareFullBoundaryOffer()
         }
     }
     refresh();
+    if (candidate.boundaryLoops.size() > 1) {
+        QList<TopologyMatch> matches;
+        for (int i = 0; i < candidate.boundaryLoops.size(); ++i)
+            matches.append({m_candidateIndex, i});
+        setPendingTopologyPick(candidate.faceIds.value(0),
+            static_cast<int>(SelectionTopologyKind::Face), {}, 0.0, matches);
+        return;
+    }
     if (m_topologyPreviewKind == TopologyPreviewKind::None) {
         m_status->setText(candidate.boundaryLoops.size() > 1
             ? tr("此范围包含多个外环/内环。请在模型上选择具体边界，系统不会默认采用第一环。")
@@ -671,18 +684,36 @@ void SelectionChainDialog::previewTopology(const QString &id, int kind,
     Q_UNUSED(curveParameter);
     if (topologyHoverChanged) topologyHoverChanged({});
     if (kind != static_cast<int>(SelectionTopologyKind::Edge) ||
-        m_pickingStart || !m_pendingTopologyPick.isEmpty()) return;
+        m_pickingStart || (!m_pendingTopologyPick.isEmpty() &&
+        !(m_mode->currentIndex() == static_cast<int>(ChainSelectionMode::Chain) &&
+          m_pendingTopologyPick.kind == static_cast<int>(SelectionTopologyKind::Face)))) return;
     if (id.isEmpty()) {
-        if (m_topologyPreviewKind == TopologyPreviewKind::Interval)
+        if (m_topologyPreviewKind == TopologyPreviewKind::Interval) {
             clearTopologyPreview();
-        refresh();
+            const SelectionChain draft = m_controller.commit();
+            if (topologyPreviewChanged)
+                topologyPreviewChanged(orderedPoints(draft), draft.closed);
+            m_status->setText(tr("区间预览已清除；已选边界保持不变。"));
+        }
         return;
     }
     if (!m_adjustingBoundary) {
         const QList<TopologyMatch> matches = topologyMatches(id, kind);
+        int localMatches = 0;
+        for (const TopologyMatch &match : matches)
+            if (match.candidateIndex == m_candidateIndex) ++localMatches;
         for (const TopologyMatch &match : matches) {
             if (m_candidateIndex >= 0 && match.candidateIndex != m_candidateIndex) continue;
             const SelectionCandidate &candidate = m_candidates.at(match.candidateIndex);
+            if (m_mode->currentIndex() == static_cast<int>(ChainSelectionMode::Chain) &&
+                localMatches == 1 && match.candidateIndex == m_candidateIndex && match.loopIndex >= 0) {
+                SelectionChain loop;
+                if (buildLoopDraft(match.loopIndex, 0, 1,
+                                   candidate.boundaryLoops.at(match.loopIndex).orderedEdgeIds.size(), &loop)) {
+                    if (topologyHoverChanged) topologyHoverChanged(orderedPoints(loop));
+                    return;
+                }
+            }
             if (const MeshPickEdge *edge = edgeForId(candidate, id)) {
                 if (topologyHoverChanged) topologyHoverChanged(edge->points);
                 return;
@@ -694,14 +725,20 @@ void SelectionChainDialog::previewTopology(const QString &id, int kind,
     if (!buildIntervalPreview(id, &draft)) {
         if (m_topologyPreviewKind == TopologyPreviewKind::Interval) {
             clearTopologyPreview();
-            refresh();
+            const SelectionChain selected = m_controller.commit();
+            if (topologyPreviewChanged)
+                topologyPreviewChanged(orderedPoints(selected), selected.closed);
+            m_status->setText(tr("当前边不能接入此区间；已选边界保持不变。"));
         }
         return;
     }
     m_topologyPreviewKind = TopologyPreviewKind::Interval;
     m_topologyPreviewDraft = draft;
     m_topologyPreviewTerminalEdgeId = id;
-    refresh();
+    if (topologyPreviewChanged)
+        topologyPreviewChanged(orderedPoints(draft), draft.closed);
+    if (const MeshPickEdge *edge = edgeForId(m_candidates.at(m_candidateIndex), id))
+        if (topologyHoverChanged) topologyHoverChanged(edge->points);
     m_status->setText(tr("区间预览到 %1：虚线仅为候选；单击该边后一次加入。")
                       .arg(id));
 }
@@ -763,6 +800,30 @@ void SelectionChainDialog::navigateBranch(int offset)
         return;
     }
     m_status->setText(tr("当前候选没有可用分支。"));
+}
+
+void SelectionChainDialog::updateValidationStatus(const QString &currentState)
+{
+    auto *status = findChild<QLabel *>(QStringLiteral("selectionValidationStatus"));
+    const QString operation = property("selectionOperationId").toString();
+    const QList<QPair<QString, QString>> operations = {
+        {QStringLiteral("mill_pocket_rough"), tr("粗加工")},
+        {QStringLiteral("mill_pocket_finish"), tr("侧壁")},
+        {QStringLiteral("mill_pocket_floor_finish"), tr("底面")},
+        {QStringLiteral("mill_sloped_floor"), tr("斜底")}
+    };
+    QStringList lines;
+    bool currentKnown = false;
+    for (const auto &item : operations) {
+        const bool current = operation == item.first;
+        currentKnown = currentKnown || current;
+        if (item.first == QStringLiteral("mill_sloped_floor") && !current) continue;
+        lines.append(item.second + tr("：") + (current ? currentState : tr("未检查")));
+    }
+    status->setVisible(currentKnown);
+    if (!currentKnown) return;
+    lines.append(tr("最终 NC：未检查（生成后验证）"));
+    status->setText(lines.join(QStringLiteral("\n")));
 }
 
 void SelectionChainDialog::refresh()
@@ -888,11 +949,20 @@ void SelectionChainDialog::refresh()
         topologyRefsContinuous(m_candidates.at(m_candidateIndex), draft);
     const QString strategyError = hasSelectedRange && acceptanceError
         ? acceptanceError(draft, selectedCandidateGeometryId()) : QString();
-    const bool rangeConfirmed = hasSelectedRange && !m_adjustingBoundary &&
+    const bool pendingRange = !m_pendingTopologyPick.isEmpty();
+    const bool rangeConfirmed = !pendingRange && hasSelectedRange && !m_adjustingBoundary &&
                                 m_topologyPreviewKind == TopologyPreviewKind::None &&
                                 access.ok() && continuous && strategyError.isEmpty();
+    const bool currentChecked = acceptanceError && hasSelectedRange && draft.closed &&
+        !pendingRange && !fullBoundaryOffer &&
+        (!m_adjustingBoundary || !strategyError.isEmpty());
+    updateValidationStatus(currentChecked
+        ? (rangeConfirmed ? tr("选区检查通过") : tr("选区检查未通过"))
+        : tr("待确认"));
     QString nextStep;
-    if (fullBoundaryOffer) {
+    if (pendingRange) {
+        nextStep = tr("先确认范围");
+    } else if (fullBoundaryOffer) {
         nextStep = tr("使用完整边界，或进入调整边界");
     } else if (rangeConfirmed) {
         nextStep = tr("加工参数");
@@ -935,7 +1005,7 @@ void SelectionChainDialog::refresh()
     m_list->setVisible(!hasSelectedRange || m_moreDetails->isChecked());
     m_moreDetails->setText(hasSelectedRange
         ? tr("更换范围 / 更多设置") : tr("更多设置与边列表"));
-    m_useFullBoundary->setVisible(fullBoundaryOffer);
+    m_useFullBoundary->setVisible(fullBoundaryOffer && !pendingRange);
     m_adjustBoundary->setVisible(m_regionSelections.isEmpty() && (fullBoundaryOffer || rangeConfirmed));
     m_coplanar->setEnabled(!m_edgePickingOnly && rangeConfirmed &&
         draft.selectionMode == ChainSelectionMode::Face && m_candidateIndex >= 0 &&
@@ -949,8 +1019,10 @@ void SelectionChainDialog::refresh()
             .arg(draft.selectedSurfaceNormal.z()));
     m_finishBoundary->setVisible(m_adjustingBoundary);
     m_nextButton->setVisible(!m_adjustingBoundary && !fullBoundaryOffer);
-    m_nextButton->setText(rangeConfirmed ? tr("下一步：加工参数") : tr("完成选择"));
-    m_nextButton->setEnabled(!resolveBoundary || rangeConfirmed || !m_regionSelections.isEmpty());
+    m_nextButton->setText(pendingRange ? tr("先确认范围") :
+                         rangeConfirmed ? tr("下一步：加工参数") : tr("完成选择"));
+    m_nextButton->setEnabled(!pendingRange &&
+        (!resolveBoundary || rangeConfirmed || !m_regionSelections.isEmpty()));
     m_nextButton->setToolTip(rangeConfirmed || !hasSelectedRange
         ? QString() : !strategyError.isEmpty() ? strategyError : accessFailureText(draft, access));
     m_chainStatus->setToolTip(m_nextButton->toolTip());
@@ -1018,8 +1090,9 @@ void SelectionChainDialog::refresh()
             QString label = candidate.label.isEmpty() ? candidate.geometryId : candidate.label;
             if (match.loopIndex >= 0) {
                 const MeshBoundaryLoop &loop = candidate.boundaryLoops.at(match.loopIndex);
-                label += tr(" · %1 · %2").arg(
-                    loop.faceId, loop.outer ? tr("外环") : tr("内环"));
+                label += tr(" · %1 · %2 %3 · %4 段").arg(
+                    loop.faceId, loop.outer ? tr("外环") : tr("内环"))
+                    .arg(match.loopIndex + 1).arg(loop.orderedEdgeIds.size());
             }
             m_topologyContext->addItem(label);
         }
@@ -1027,6 +1100,7 @@ void SelectionChainDialog::refresh()
         m_topologyContext->show();
         if (m_topologyContextLabel) m_topologyContextLabel->show();
         m_confirmTopologyContext->show();
+        previewPendingTopologyMatch();
     } else {
         m_topologyContext->hide();
         if (m_topologyContextLabel) m_topologyContextLabel->hide();
@@ -1186,12 +1260,17 @@ void SelectionChainDialog::accept()
     const auto access = evaluateSelectionAccess(draft, m_context.sourceFingerprint,
         m_context.setupFingerprint, m_context.coordinateSystemId, m_requireClosed);
     if (!access.ok()) {
+        updateValidationStatus(tr("选区检查未通过"));
         m_status->setText(accessFailureText(draft, access));
         return;
     }
     if (acceptanceError) {
         const QString error = acceptanceError(draft, selectedCandidateGeometryId());
-        if (!error.isEmpty()) { m_status->setText(error); return; }
+        if (!error.isEmpty()) {
+            updateValidationStatus(tr("选区检查未通过"));
+            m_status->setText(error);
+            return;
+        }
     }
     m_selection = m_controller.commit();
     m_selection.candidateGeometryId = selectedCandidateGeometryId();
@@ -1725,7 +1804,13 @@ QList<SelectionChainDialog::TopologyMatch> SelectionChainDialog::topologyMatches
     for (int index = 0; index < m_candidates.size(); ++index) {
         const SelectionCandidate &candidate = m_candidates.at(index);
         if (kind == static_cast<int>(SelectionTopologyKind::Face) && candidate.faceIds.contains(id)) {
-            matches.append({index, -1});
+            if (m_mode->currentIndex() == static_cast<int>(ChainSelectionMode::Chain) &&
+                !candidate.boundaryLoops.isEmpty()) {
+                for (int i = 0; i < candidate.boundaryLoops.size(); ++i)
+                    if (candidate.boundaryLoops.at(i).faceId == id) matches.append({index, i});
+            } else {
+                matches.append({index, -1});
+            }
         }
         if (kind == static_cast<int>(SelectionTopologyKind::Edge) && edgeForId(candidate, id)) {
             bool foundLoop = false;
@@ -1757,7 +1842,8 @@ void SelectionChainDialog::setPendingTopologyPick(
         QString label = candidate.label.isEmpty() ? candidate.geometryId : candidate.label;
         if (match.loopIndex >= 0) {
             const MeshBoundaryLoop &loop = candidate.boundaryLoops.at(match.loopIndex);
-            label += tr(" · %1 · %2").arg(loop.faceId, loop.outer ? tr("外环") : tr("内环"));
+            label += tr(" · %1 · %2 %3 · %4 段").arg(loop.faceId, loop.outer ? tr("外环") : tr("内环"))
+                .arg(match.loopIndex + 1).arg(loop.orderedEdgeIds.size());
         }
         m_topologyContext->addItem(label);
     }
@@ -1765,6 +1851,9 @@ void SelectionChainDialog::setPendingTopologyPick(
     m_topologyContext->show();
     if (m_topologyContextLabel) m_topologyContextLabel->show();
     m_confirmTopologyContext->show();
+    m_nextButton->setEnabled(false);
+    m_nextButton->setText(tr("先确认范围"));
+    m_useFullBoundary->hide();
     previewPendingTopologyMatch();
 }
 
@@ -1800,6 +1889,9 @@ void SelectionChainDialog::previewPendingTopologyMatch()
         points = edge->points;
     }
     if (topologyPreviewChanged) topologyPreviewChanged(points, closed);
+    updateValidationStatus(tr("待确认"));
+    m_chainStatus->setText(tr("候选范围：%1\n下一步：先确认范围（原已选边界保留）")
+                           .arg(m_topologyContext->currentText()));
     m_status->setText(tr("该拓扑属于多个加工范围。请预览并确认：%1")
                       .arg(m_topologyContext->currentText()));
 }
@@ -1968,7 +2060,8 @@ void SelectionChainDialog::selectTopology(const QString &id, int kind,
     if (matches.isEmpty()) return;
     QList<TopologyMatch> preferred;
     for (const TopologyMatch &match : matches) {
-        if (match.candidateIndex == m_activeLoopCandidateIndex &&
+        if (kind != static_cast<int>(SelectionTopologyKind::Face) &&
+            match.candidateIndex == m_activeLoopCandidateIndex &&
             match.loopIndex == m_activeLoopIndex) {
             preferred = {match};
             break;
@@ -2004,7 +2097,8 @@ void SelectionChainDialog::selectTopologyMatch(
     }
     if (m_candidateIndex != candidateIndex) return;
     if (!changedCandidate && kind == static_cast<int>(SelectionTopologyKind::Edge) &&
-        m_topologyPreviewKind == TopologyPreviewKind::FullBoundary) {
+        m_topologyPreviewKind == TopologyPreviewKind::FullBoundary &&
+        m_mode->currentIndex() != static_cast<int>(ChainSelectionMode::Chain)) {
         beginBoundaryAdjustment(ChainSelectionMode::Edge);
     }
     if (kind == static_cast<int>(SelectionTopologyKind::Edge) &&
@@ -2016,6 +2110,25 @@ void SelectionChainDialog::selectTopologyMatch(
     if (m_topologyPreviewKind == TopologyPreviewKind::Interval) clearTopologyPreview();
     const SelectionCandidate &candidate = m_candidates.at(candidateIndex);
     const ChainSelectionMode mode = static_cast<ChainSelectionMode>(m_mode->currentIndex());
+
+    if (kind == static_cast<int>(SelectionTopologyKind::Face) &&
+        mode == ChainSelectionMode::Chain && match.loopIndex >= 0) {
+        SelectionChain draft;
+        const auto &loop = candidate.boundaryLoops.at(match.loopIndex);
+        if (!buildLoopDraft(match.loopIndex, 0, 1, loop.orderedEdgeIds.size(), &draft) ||
+            !draft.closed) {
+            m_status->setText(tr("此环尚未形成连续闭合边界，请在模型上逐边选择。"));
+            return;
+        }
+        m_pendingTopologyPick = {};
+        m_activeLoopCandidateIndex = candidateIndex;
+        m_activeLoopIndex = match.loopIndex;
+        m_topologyPreviewKind = TopologyPreviewKind::FullBoundary;
+        m_topologyPreviewDraft = draft;
+        refresh();
+        m_status->setText(tr("候选环已指定；当前工序和最终 NC 待验证。"));
+        return;
+    }
 
     if (kind == static_cast<int>(SelectionTopologyKind::Face) &&
         mode == ChainSelectionMode::Face) {
@@ -2082,6 +2195,7 @@ void SelectionChainDialog::selectTopologyMatch(
             m_status->setText(tr("所选环不是连续闭环；开放槽不会自动补线。请使用“调整边界”。"));
             return;
         }
+        m_pendingTopologyPick = {};
         m_activeLoopCandidateIndex = candidateIndex;
         m_activeLoopIndex = match.loopIndex;
         m_topologyPreviewKind = TopologyPreviewKind::FullBoundary;

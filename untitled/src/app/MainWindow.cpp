@@ -3495,6 +3495,7 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
             m_designSideStack->setCurrentWidget(m_selectionPanelHost);
         m_geometryDialog = dialog;
         m_viewport->installEventFilter(dialog);
+        dialog->setProperty("selectionOperationId", strategyId);
         dialog->setRequireClosedBoundary(machiningRequirements(strategyId).closedBoundary);
         dialog->setEdgePickingOnly(machiningRequirements(strategyId).edgePickingOnly);
         dialog->setContext(sourceVersion, setupVersion, currentWorkOffset());

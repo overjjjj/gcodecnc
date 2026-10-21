@@ -53,6 +53,7 @@ protected:
 private:
     bool handleSessionKey(QKeyEvent *event);
     void refresh();
+    void updateValidationStatus(const QString &currentState);
     void pickCandidate();
     void navigateBranch(int offset);
     void updateGeometry();

@@ -16,6 +16,7 @@
 #include <QToolButton>
 #include <QListWidget>
 #include <QLabel>
+#include <QComboBox>
 #include <QMessageBox>
 #include <QFile>
 #include <QDir>
@@ -115,6 +116,11 @@ int main(int argc,char **argv)
     }
     settle();
     std::cout<<"SELECTED_GEOMETRY "<<chain->selectedCandidateGeometryId().toStdString()<<std::endl;
+    auto *selectionMode=chain->findChild<QComboBox *>("selectionMode");
+    if(!selectionMode)return 92;
+    selectionMode->setCurrentIndex(static_cast<int>(ChainSelectionMode::Edge));
+    QMetaObject::invokeMethod(selectionMode,"activated",Qt::DirectConnection,
+        Q_ARG(int,static_cast<int>(ChainSelectionMode::Edge)));
     if(!requestedEdge.isEmpty()) {
         bool found=false;
         for(const auto &edge:project->mesh().pickEdges)if(edge.id==requestedEdge && !edge.points.isEmpty()) {
@@ -152,7 +158,13 @@ int main(int argc,char **argv)
         !visible.contains("REGION_INNER_WIRE_REQUIRED") && !visible.contains("Setup");
     std::cout<<(safe?"PASS":"FAIL")<<" unsupported source remains blocked"<<std::endl;
     std::cout<<(explained?"PASS":"FAIL")<<" Chinese body excludes internal code; original diagnostic remains available"<<std::endl;
-    if(!target || !safe || !explained)return 1;
+    auto *validation=chain->findChild<QLabel *>("selectionValidationStatus");
+    const bool separated=validation && validation->text().contains(QStringLiteral("底面：选区检查未通过")) &&
+        validation->text().contains(QStringLiteral("粗加工：未检查")) &&
+        validation->text().contains(QStringLiteral("侧壁：未检查")) &&
+        validation->text().contains(QStringLiteral("最终 NC：未检查"));
+    std::cout<<(separated?"PASS":"FAIL")<<" floor rejection does not reject unchecked rough/wall operations"<<std::endl;
+    if(!target || !safe || !explained || !separated)return 1;
     chain->reject();settle();
     QToolButton *rough=nullptr;
     for(auto *button:window.findChildren<QToolButton *>())if(button->text()==QStringLiteral("挖槽"))rough=button;
