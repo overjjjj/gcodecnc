@@ -1,0 +1,170 @@
+{
+  "floorLogSha256": "87594a631f5fbae8d3b8f43dcbb3a2bf2dd273afa6af827c0bb836f04bb6719b",
+  "lifecycle": [
+    {
+      "edge": 484,
+      "logSha256": "fd2f7ed412e5b6160f135cdd32532e54702064ca4f08477d3f99ddee13ea465d",
+      "savedProjectSha256": "ccdaef5148e497625c3d6c15774c7cf650a562480cef8028ece0058cdb10264f",
+      "sourcePath": "D:/codex/home/worktrees/5a59/gcodecnc/untitled/测试模型/验收/特征板.STEP",
+      "files": [
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\initial-export\\CQ8_MAIN.NC",
+          "sha256": "f00c19e78775f49fe06ab9d6cba279e8546b9c373e3d77312a710b6dbc2b1f55"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\edited-export\\CQ8_MAIN.NC",
+          "sha256": "55063692db0fdc9a5a77ad98f4d30228621f3b5d1eca0d91f1b6d5377acf3dc6"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\initial-export\\CQ8_MACROS.nc",
+          "sha256": "0c0619829e33c71ef64dd6f8b04dfbdf254d74816080e76d7b63f311b9c95ca2"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\edited-export\\CQ8_MACROS.nc",
+          "sha256": "0c0619829e33c71ef64dd6f8b04dfbdf254d74816080e76d7b63f311b9c95ca2"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\initial-export\\expanded-from-disk.nc",
+          "sha256": "59de84b139710b08b540bf2a7cb92bdc900bbc3791093c74502efbc445e0158d"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-resume-484-20261021\\edited-export\\expanded-from-disk.nc",
+          "sha256": "73b85ed1c4a51e888ba5b5d62d6bf1d4b719891452ecaf7707c941d2fd77894b"
+        }
+      ]
+    },
+    {
+      "edge": 494,
+      "logSha256": "79ee66de6ecd3342edc6975d599a432d38bc0e02f4ac08734b496aae313e2a18",
+      "savedProjectSha256": "055dc766754db7eeb0f33e0a0ed2b93526c0b0f38905c0d144d262e2166e8665",
+      "sourcePath": "D:/codex/home/worktrees/5a59/gcodecnc/untitled/测试模型/验收/特征板.STEP",
+      "files": [
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\reloaded-export\\CQ8_MAIN.NC",
+          "sha256": "fa930160a7148b79c7f2290c47c474c0d01603188e2b530e17a8c2e955b292bf"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\initial-export\\CQ8_MAIN.NC",
+          "sha256": "98289d8668ef14f29d5d1e339232a5d483228b907ff2a63ad9896f9e648a472a"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\edited-export\\CQ8_MAIN.NC",
+          "sha256": "8f6770f024d9ecbcbf7b5463ded0f5fdb5156de8ddafd34f29c56e556df6f710"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\reloaded-export\\CQ8_MACROS.nc",
+          "sha256": "96f4a65be3acce6c1b5c5b614277a9cc86ed13c99fe1ff8a17ce4e925deedf86"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\initial-export\\CQ8_MACROS.nc",
+          "sha256": "96f4a65be3acce6c1b5c5b614277a9cc86ed13c99fe1ff8a17ce4e925deedf86"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\edited-export\\CQ8_MACROS.nc",
+          "sha256": "96f4a65be3acce6c1b5c5b614277a9cc86ed13c99fe1ff8a17ce4e925deedf86"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\reloaded-export\\expanded-from-disk.nc",
+          "sha256": "7167986bc704e8c5db774252e131b8e6e4ce72919df59582b1ff5d20b4aea68c"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\initial-export\\expanded-from-disk.nc",
+          "sha256": "b072a099c0aeb6e75ee47b68124f3b8b994cbe99dcab0eeac608606977e63d16"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-494-20261021\\edited-export\\expanded-from-disk.nc",
+          "sha256": "d02f7e928356f6a81fda2546e859582e17bcdf4d223d2cead0f51b4f40327dbb"
+        }
+      ]
+    },
+    {
+      "edge": 505,
+      "logSha256": "2170ca7ac09a97c0929103fbc7f1690cd3a04c8f2db2059fee88653105198f8e",
+      "savedProjectSha256": "52fd1b91136152bdf120b8cbc54dee2ac7b3d01118d7d39bf10e017d1362f432",
+      "sourcePath": "D:/codex/home/worktrees/5a59/gcodecnc/untitled/测试模型/验收/特征板.STEP",
+      "files": [
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\reloaded-export\\CQ8_MAIN.NC",
+          "sha256": "c234f0b9dd22ab53d91427f9b19a8a12abd154da9f9bc3e3f513e712a977d81a"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\initial-export\\CQ8_MAIN.NC",
+          "sha256": "c73faa1bcef21935121439fbae483af2ddf08914d1d6ebf8dac0e30871e3b4b0"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\edited-export\\CQ8_MAIN.NC",
+          "sha256": "5d92055b5d46aa9ec41a2160bb2f0ce2f752d82c6db14a1c74f4674b2b682372"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\reloaded-export\\CQ8_MACROS.nc",
+          "sha256": "f387a515aff1a95fe4e1c710923dbeeff605076e70b7678f4c5758f7b559ffd6"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\initial-export\\CQ8_MACROS.nc",
+          "sha256": "f387a515aff1a95fe4e1c710923dbeeff605076e70b7678f4c5758f7b559ffd6"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\edited-export\\CQ8_MACROS.nc",
+          "sha256": "f387a515aff1a95fe4e1c710923dbeeff605076e70b7678f4c5758f7b559ffd6"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\reloaded-export\\expanded-from-disk.nc",
+          "sha256": "b608cfe34ec81ac6b023286c67b1243bf9e2cd24b7f2f91a03e992545a41fccf"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\initial-export\\expanded-from-disk.nc",
+          "sha256": "6d8c635b66feb84f58e5fc3e89fcc6e2ada2a3de1d08b5acc2a078b8bf0a1084"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-505-20261021\\edited-export\\expanded-from-disk.nc",
+          "sha256": "3ab93c92518f3a8c9c5f85a6e1346606dfb8e59c937d865641c132948c24a1f7"
+        }
+      ]
+    },
+    {
+      "edge": 514,
+      "logSha256": "7ccefc9626517d45e1975f9fad907950cc8fdbe6f06caf3f2403c2e4f66315b5",
+      "savedProjectSha256": "92ed020f5a452635e0edb634f8dc23985d8c5d207ab2146d7e155076ef0025e4",
+      "sourcePath": "D:/codex/home/worktrees/5a59/gcodecnc/untitled/测试模型/验收/特征板.STEP",
+      "files": [
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\reloaded-export\\CQ8_MAIN.NC",
+          "sha256": "350301581d5281cd6c045b3e35709fbdb9143e04a977fca6561ca254734975ff"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\initial-export\\CQ8_MAIN.NC",
+          "sha256": "c22d1161671b672bed24fcd7ab570d1fc7a8dd4625b4b8f986af33b4e50a9594"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\edited-export\\CQ8_MAIN.NC",
+          "sha256": "47ea2946d2cda1e76f68681f8b662661c43db9f19cb5d98ca15643d5dcf0308c"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\reloaded-export\\CQ8_MACROS.nc",
+          "sha256": "eae30c661db09cdad4c6db996285a382dc00df15b9fadbdb1f544901cad5b783"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\initial-export\\CQ8_MACROS.nc",
+          "sha256": "eae30c661db09cdad4c6db996285a382dc00df15b9fadbdb1f544901cad5b783"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\edited-export\\CQ8_MACROS.nc",
+          "sha256": "eae30c661db09cdad4c6db996285a382dc00df15b9fadbdb1f544901cad5b783"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\reloaded-export\\expanded-from-disk.nc",
+          "sha256": "c6639c948224d03d1388072052528b67e334ba149000ccfe4676b9aaf967aad9"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\initial-export\\expanded-from-disk.nc",
+          "sha256": "5576963ad67de7c32b1db611b4b4aaf143978d24c41ab6f7508412a7c22b9f8c"
+        },
+        {
+          "path": "D:\\yanggao\\gcodecnc\\outputs\\remaining-board-geometry-20261020\\evidence-514-20261021\\edited-export\\expanded-from-disk.nc",
+          "sha256": "1e11c45f14797720346181453c059d684a9605cece7823298a9dbf5d5bb0a3ae"
+        }
+      ]
+    }
+  ],
+  "scope": "Original +Z real feature board; rough/wall export lifecycle; actual floor rejection retained"
+}
