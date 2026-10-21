@@ -107,6 +107,7 @@ SOURCES += \
     src/workspaces/program_verification/simulation/SimulationController.cpp \
     src/workspaces/program_verification/simulation/ExactRetractionCheck.cpp \
     src/workspaces/machine_operation/communication/CncCommInterface.cpp \
+    src/workspaces/machine_operation/communication/Cq8PositionReader.cpp \
     src/tool/ToolLibrary.cpp \
     src/tool/ToolEntry.cpp
 
@@ -224,6 +225,7 @@ HEADERS += \
     src/workspaces/program_verification/simulation/SketchMotionCheck.h \
     src/workspaces/program_verification/simulation/ExactRetractionCheck.h \
     src/workspaces/machine_operation/communication/CncCommInterface.h \
+    src/workspaces/machine_operation/communication/Cq8PositionReader.h \
     src/tool/ToolLibrary.h \
     src/tool/ChamferToolGeometry.h \
     src/workspaces/program_verification/generation/ChamferMotionValidation.h \

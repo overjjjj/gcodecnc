@@ -1,0 +1,13 @@
+CQ8只读电机位置模块验收 2026-10-21
+
+依据CQ8软件参考手册：第28页Ixx03反馈地址、第56页I6920-I6929反馈值、第85页I变量批量查询及I9输出格式。没有修改控制器I变量、发送G代码或连接设备。
+
+启动调用start，依次发送I103/I203/I303并验证2000F4A0/2000F4A8/2000F4B0；全部匹配后发送I6920..6922。requestPositions触发后续单次批量查询，不允许请求重叠。反馈按quint32原样保存，不推断补码负数、输出脉冲累计或毫米。
+
+传输约定：readRequested给出事务ID和命令正文，由通信层添加已确认的线协议结束符。appendResponse按事务ID累积字节，finishResponse表示通信层已确认完整响应。手册未定义串口响应结束标志；因此本批未将readAll自动接到finishResponse，未启用真实串口入口。断开时调用stop；发送失败时同样stop。位置失效信号供消费者清除旧样本。
+
+红测red.log失败于startup accepted；实现后green.log及独立qmake工程final.log通过，EXIT=0。覆盖地址不匹配、前缀、十进制及$十六进制、uint32上界、分包、数量错误、错误码、无效数值、超长响应、超时、重复/旧事务、停止重启和失效通知。独立静态复核无必须修复项。只读命令白名单逐项断言。
+
+生产工程新增Cq8PositionReader.h/.cpp及测试.cpp/.pro，untitled.pro只增加两项注册。构建验证范围为独立QtCore测试工程；未重编整套GUI，未覆盖日常EXE，未提交推送。
+
+复测：在独立构建目录对untitled/tests/cq8_position_reader_test.pro运行qmake及对应MinGW make，运行cq8_position_reader_test.exe。当前构建使用原工具链本地compiler-helper解决DLL查找，不修改系统工具链。
