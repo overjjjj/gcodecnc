@@ -12,7 +12,7 @@ int main(int argc, char **argv)
         std::cerr << "milling commit must validate the final confirmed operations\n";
         return 1;
     }
-    if (!source.contains(QStringLiteral("new SelectionChainDialog(m_selectionPanelHost)")) ||
+    if (!source.contains(QStringLiteral("new SelectionChainDialog(m_selectionPanelHost,")) ||
         !source.contains(QStringLiteral("m_workflowSelection = dialog->selection()")) ||
         !source.contains(QStringLiteral("&QDialog::accepted")) ||
         source.contains(QStringLiteral("selectionDialog.exec()")) ||

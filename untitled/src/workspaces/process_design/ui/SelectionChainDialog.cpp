@@ -33,8 +33,10 @@ static SelectionBoundaryLoop machiningLoop(const SelectionCandidate &candidate,
     return source;
 }
 
-SelectionChainDialog::SelectionChainDialog(QWidget *parent) : QDialog(parent)
+SelectionChainDialog::SelectionChainDialog(QWidget *parent, ChainSelectionMode initialMode) : QDialog(parent)
 {
+    m_context.selectionMode = initialMode;
+    m_controller.setSelectionMode(initialMode);
     setWindowTitle(tr("选择加工区域"));
     setModal(false);
     setWindowFlag(Qt::Tool, true);
@@ -54,7 +56,7 @@ SelectionChainDialog::SelectionChainDialog(QWidget *parent) : QDialog(parent)
     };
     m_source = combo("selectionSource", tr("来源"), {tr("实体"), tr("线框"), tr("毛坯")});
     m_mode = combo("selectionMode", tr("选择方式"), {tr("边"), tr("串联"), tr("面"), tr("部分串联")});
-    m_mode->setCurrentIndex(1);
+    m_mode->setCurrentIndex(static_cast<int>(initialMode));
     m_side = combo("selectionSide", tr("加工侧"), {tr("内侧"), tr("外侧"), tr("混合")});
     m_side->setCurrentIndex(2);
     m_start = combo("selectionStart", tr("起点"), {});

@@ -3487,7 +3487,8 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
                 candidate.sourcePlane = sourcePlanes.value(candidate.faceIds.first().section(':', 1).toInt());
         const auto regionErrors = std::make_shared<QHash<QString, QString>>();
         if (candidates.isEmpty()) { onErrorOccurred(tr("没有与此工艺匹配的可选区域。")); return; }
-        auto *dialog = new SelectionChainDialog(m_selectionPanelHost);
+        auto *dialog = new SelectionChainDialog(m_selectionPanelHost,
+            strategyId == "mill_sloped_floor" ? ChainSelectionMode::Face : ChainSelectionMode::Chain);
         dialog->setWindowFlags(Qt::Widget);
         if (m_selectionPanelHost && m_selectionPanelHost->layout())
             m_selectionPanelHost->layout()->addWidget(dialog);
@@ -3590,7 +3591,6 @@ void MainWindow::beginOperationWorkflow(const QString &strategyId)
         };
         dialog->setCandidates(candidates);
         dialog->setPreviousSelections(project->lastEstablishedSelections());
-        m_viewport->setTopologyPickMode(static_cast<int>(ViewportWidget::TopologyPickMode::Edge));
         connect(dialog, &QDialog::accepted, this, [this, dialog, selectedFeatureIndex, openingFeatures, features, stillCurrent, sketch, bindCurrentSketch, strategyId]() {
             if (!stillCurrent()) return;
             const auto selections = dialog->selections();

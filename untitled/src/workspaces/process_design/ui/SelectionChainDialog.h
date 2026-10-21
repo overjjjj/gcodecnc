@@ -14,7 +14,8 @@ class QShowEvent;
 class SelectionChainDialog : public QDialog
 {
 public:
-    explicit SelectionChainDialog(QWidget *parent = nullptr);
+    explicit SelectionChainDialog(QWidget *parent = nullptr,
+                                  ChainSelectionMode initialMode = ChainSelectionMode::Chain);
     void selectGeometry(const QString &id);
     void selectTopology(const QString &id, int kind, const QVector3D &point,
                         double curveParameter);

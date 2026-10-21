@@ -49,7 +49,27 @@ int main(int argc,char **argv){
  auto *project=AppController::instance().projectManager();project->setLoadedMesh(importer.mesh());project->setFeatures(importer.features());project->setSourceFileFingerprint("real-feature-board-identity-selection");
  w->m_activeRegion=FaceRegion::Front;project->setActiveRegion(FaceRegion::Front);emit w->activeRegionChanged(FaceRegion::Front);
  SetupOrigin origin;origin.confirmed=true;project->setSetupOrigin(origin);StockDefinition stock;stock.confirmed=true;project->setStockDefinition(stock);
- w->m_viewport->setMesh(importer.mesh());w->beginOperationWorkflow("mill_pocket_rough");
+ w->m_viewport->setMesh(importer.mesh());
+ for(int face:{340,344,366}) {
+  w->beginOperationWorkflow("mill_sloped_floor");
+  auto *slope=dynamic_cast<SelectionChainDialog *>(w->m_geometryDialog.data());
+  check(slope && slope->m_mode->currentIndex()==int(ChainSelectionMode::Face),"sloped floor starts in Face mode");
+  check(w->m_viewport->m_topologyPickMode==ViewportWidget::TopologyPickMode::Face,"viewport also picks faces for sloped floor");
+  emit w->m_viewport->topologyPicked(QString("face:%1").arg(face),0,{},0);
+  if(!slope->m_pendingTopologyPick.isEmpty()) {
+   int found=-1;for(int k=0;k<slope->m_pendingTopologyPick.matches.size();++k)
+    if(slope->m_candidates[slope->m_pendingTopologyPick.matches[k].candidateIndex].geometryId==QString("topology:face:%1").arg(face))found=k;
+   check(found>=0,"real face choice present");slope->m_pendingTopologyPick.matchIndex=found;slope->confirmPendingTopologyMatch();
+  }
+  const auto chosen=slope->m_controller.commit();
+  check(chosen.orderedTopologyRefs.size()==1 && chosen.orderedTopologyRefs.first().kind==SelectionTopologyKind::Face &&
+        chosen.orderedTopologyRefs.first().id==QString("face:%1").arg(face),"actual viewport signal binds exactly selected face");
+  const auto error=slope->acceptanceError(chosen,slope->selectedCandidateGeometryId());
+  check(face==366 ? error.contains("SLOPED_FLOOR_PLANE_REQUIRED") : error.isEmpty(),"real valid floors accepted and nonplanar face rejected");
+  slope->reject();QCoreApplication::processEvents();
+ }
+ w->beginOperationWorkflow("mill_pocket_rough");
+ check(w->m_viewport->m_topologyPickMode==ViewportWidget::TopologyPickMode::Edge,"roughing still starts with edge picking");
  auto *d=dynamic_cast<SelectionChainDialog *>(w->m_geometryDialog.data());check(d,"selection dialog");
  int candidate=-1,loop=-1;for(int i=0;i<d->m_candidates.size();++i)if(d->m_candidates[i].geometryId=="topology:face:113"){candidate=i;for(int j=0;j<d->m_candidates[i].boundaryLoops.size();++j){const auto &l=d->m_candidates[i].boundaryLoops[j];if(!l.outer&&l.orderedEdgeIds.contains("edge:452"))loop=j;}}
  check(candidate>=0&&loop>=0,"real face113 inner opening");
