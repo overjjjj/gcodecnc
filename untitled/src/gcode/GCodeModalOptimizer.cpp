@@ -70,6 +70,10 @@ QString GCodeModalOptimizer::optimize(const QString &gcode)
         const QStringList tokens = trimmed.split(QRegularExpression(QStringLiteral("\\s+")),
                                                  Qt::SkipEmptyParts);
         if (isProtectedLine(tokens)) {
+            // Cycles, macros and spindle blocks can change these modal values.
+            // Keep the next explicit setting rather than reuse stale state.
+            activeFeed.clear();
+            activeSpindle.clear();
             for (const QString &token : tokens) {
                 const QString upper = token.toUpper();
                 const QString motion = motionCode(upper);

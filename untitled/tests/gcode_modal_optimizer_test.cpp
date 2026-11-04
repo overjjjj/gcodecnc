@@ -77,6 +77,29 @@ int main(int argc, char **argv)
                 "G80 must invalidate the pre-cycle motion mode so retract keeps explicit G0");
     }
 
+    for (const QString &cycle : {QStringLiteral("G73"), QStringLiteral("G76"),
+                                 QStringLiteral("G81"), QStringLiteral("G83"),
+                                 QStringLiteral("G86")}) {
+        const QString program = QStringLiteral(
+            "G1 X1 F200\nG98 %1 Z-2 R3 F1200 X10\nG80\nG0 Z50\nG1 Z2 F200\n")
+                .arg(cycle);
+        require(GCodeModalOptimizer::optimize(program).contains(QStringLiteral("G1 Z2 F200")),
+                "the restored plunge feed must survive a canned cycle");
+    }
+
+    const QString spindleRestore = QStringLiteral("S2000\nS3000 M3\nS2000\n");
+    require(GCodeModalOptimizer::optimize(spindleRestore) == spindleRestore,
+            "an explicit spindle restoration must survive a protected block");
+
+    const QString commentedCycle = QStringLiteral(
+        "G1 X1 F200\nG81 Z-2 F1200 ; F200\nG80\nG1 Z2 F200\n");
+    require(GCodeModalOptimizer::optimize(commentedCycle).contains(QStringLiteral("G1 Z2 F200")),
+            "a comment cannot replace the required post-cycle feed restoration");
+
+    const QString macroRestore = QStringLiteral("G1 X1 F200\nM98 P9001\nG1 X2 F200\n");
+    require(GCodeModalOptimizer::optimize(macroRestore).endsWith(QStringLiteral("X2 F200\n")),
+            "an explicit feed must survive a macro call with unknown modal effects");
+
     QTextStream(stdout) << "PASS gcode_modal_optimizer_test" << Qt::endl;
     return 0;
 }
