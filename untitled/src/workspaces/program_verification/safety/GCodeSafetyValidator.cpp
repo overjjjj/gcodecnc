@@ -18,13 +18,9 @@ enum class MotionMode {
 // 函数说明：stripComments负责当前模块的核心处理。
 static QString stripComments(QString line)
 {
-    const int semicolon = line.indexOf(QLatin1Char(';'));
-    if (semicolon >= 0) {
-        line.truncate(semicolon);
-    }
-
     static const QRegularExpression parenComment(QStringLiteral("\\([^)]*\\)"));
-    line.remove(parenComment);
+    line.replace(parenComment, QStringLiteral(" "));
+    line = line.section(';', 0, 0);
     line = line.toUpper().trimmed();
     // Preserve named commands and exponent-like literals; normalize numeric word addresses.
     static const QRegularExpression word(
@@ -176,6 +172,12 @@ GCodeSafetyReport GCodeSafetyValidator::validate(const QString &gcode)
         const QString line = stripComments(rawLines.at(i));
         if (line.isEmpty()) {
             continue;
+        }
+
+        double feedValue = 0.0;
+        if (readAxisValue(line, QLatin1Char('F'), feedValue) &&
+            (!std::isfinite(feedValue) || feedValue <= 0.0)) {
+            addError(report, QStringLiteral("Line %1: Feed F must be finite and greater than zero.").arg(i + 1));
         }
 
         hasPlaneAndCancel = hasPlaneAndCancel ||

@@ -530,5 +530,44 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    int regressionFailures = 0;
+    for (const QString &feed : {QStringLiteral("0"), QStringLiteral("-1"),
+                                QStringLiteral("-0.25")}) {
+        QString invalidFeed = validProgram;
+        invalidFeed.replace(QStringLiteral("F100"), QStringLiteral("F") + feed);
+        const auto report = GCodeSafetyValidator::validate(invalidFeed);
+        regressionFailures += expect(!report.ok && report.messages.join('\n').contains(
+            QStringLiteral("Feed F")), "non-positive explicit feed must be rejected with a feed diagnostic");
+    }
+    QString compactZeroFeed = validProgram;
+    compactZeroFeed.replace(QStringLiteral("G1 Z-1.000 F100"), QStringLiteral("G1Z-1.000F0"));
+    regressionFailures += expect(!GCodeSafetyValidator::validate(compactZeroFeed).ok,
+                                "compact zero-feed motion must be rejected");
+    for (const QString &mode : {QStringLiteral("G91"), QStringLiteral("G20")}) {
+        QString hiddenMode = validProgram;
+        hiddenMode.replace(QStringLiteral("G1 Z-1.000 F100"),
+                           QStringLiteral("G1 (operator; note) ") + mode +
+                           QStringLiteral(" Z-1.000 F100"));
+        const auto report = GCodeSafetyValidator::validate(hiddenMode);
+        regressionFailures += expect(!report.ok && report.messages.join('\n').contains(mode),
+                                    "a semicolon inside parentheses cannot hide a following unsafe mode");
+    }
+    QString commentedWords = validProgram;
+    commentedWords.replace(QStringLiteral("G1 Z-1.000 F100"),
+                           QStringLiteral("G1 (note; F0 G91) Z-1.000 F100"));
+    regressionFailures += expect(GCodeSafetyValidator::validate(commentedWords).ok,
+                                "unsafe-looking words inside a parenthesis comment must be ignored");
+    QString trailingComment = validProgram;
+    trailingComment.replace(QStringLiteral("G1 Z-1.000 F100"),
+                            QStringLiteral("G1 Z-1.000 F100 ; F0 G91"));
+    regressionFailures += expect(GCodeSafetyValidator::validate(trailingComment).ok,
+                                "words after an executable semicolon comment must remain ignored");
+    QString smallPositiveFeed = validProgram;
+    smallPositiveFeed.replace(QStringLiteral("F100"), QStringLiteral("F0.001"));
+    regressionFailures += expect(GCodeSafetyValidator::validate(smallPositiveFeed).ok,
+                                "a finite positive fractional feed must remain valid");
+    if (regressionFailures != 0) return 1;
+    std::cout << "PASS gcode_safety_validator_test including 9 new regression checks\n";
+
     return 0;
 }
